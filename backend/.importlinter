@@ -1,0 +1,33 @@
+[importlinter]
+root_packages =
+    cortex
+    shared
+
+[importlinter:contract:domain-independence]
+name = Domain layer must not import infrastructure or presentation
+type = forbidden
+source_modules =
+    cortex.jobs.domain
+    cortex.artifacts.domain
+    cortex.graph.domain
+    cortex.pipeline.domain
+forbidden_modules =
+    cortex.jobs.infrastructure
+    cortex.jobs.presentation
+    cortex.artifacts.infrastructure
+    cortex.artifacts.presentation
+    cortex.graph.infrastructure
+    cortex.graph.presentation
+
+[importlinter:contract:application-no-infrastructure]
+name = Application layer must not import infrastructure directly
+type = forbidden
+source_modules =
+    cortex.jobs.application
+    cortex.artifacts.application
+    cortex.graph.application
+    cortex.pipeline.application
+forbidden_modules =
+    cortex.jobs.infrastructure
+    cortex.artifacts.infrastructure
+    cortex.graph.infrastructure

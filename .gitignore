@@ -1,0 +1,90 @@
+# ── Python ──────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# ── Node / Next.js ──────────────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+next-env.d.ts
+.npm/
+coverage/
+
+# ── Environment — NEVER commit secrets ─────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── IDE ─────────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── OS ──────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── Logs ────────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Temp / cache ────────────────────────────────────────────────────────────────
+tmp/
+temp/
+.cache/
+*.bak
+*.tmp
+
+# ── Docker (local overrides only — the base compose file IS committed) ───────────
+docker-compose.override.yml
+
+# ── Kiro / AI tool files ─────────────────────────────────────────────────────────
+.kiro/
+.kirodraft/
+
+# ── Personal planning files — local only, never push ────────────────────────────
+requirements.md
+tasks.md
+design.md
+planning.md
+specification.md
+notes.md
+research.md
+architecture-notes.md
+roadmap-draft.md
+meeting-notes.md
+prompt.md
+*.spec.md
+*.prompt.md
+kiro-*.md
+
+# Folders
+planning/
+notes/
+drafts/
+research/
+prompts/
+kiro/
+.dev/
