@@ -5,10 +5,10 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Mermaid from 'react-mermaid2';
-import { AlertTriangle } from 'lucide-react';
-import LoadingSpinner from '@/components/shared/LoadingSpinner';
+import { Skeleton } from '@/components/ui/skeleton';
+import ErrorAlert from '@/components/shared/ErrorAlert';
 
 export interface MermaidDiagramProps {
   /** Raw Mermaid diagram definition string */
@@ -19,17 +19,9 @@ export interface MermaidDiagramProps {
 const MERMAID_CONFIG = {
   theme: 'dark',
   themeVariables: {
-    background: '#0f172a',
-    primaryColor: '#1e293b',
-    primaryTextColor: '#e2e8f0',
-    primaryBorderColor: '#475569',
-    lineColor: '#64748b',
-    secondaryColor: '#1e293b',
-    tertiaryColor: '#0f172a',
+    background: 'transparent',
   },
-  securityLevel: 'loose',
-  fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
-} as const;
+};
 
 /** Minimal error boundary to catch react-mermaid2 rendering errors */
 class MermaidErrorBoundary extends React.Component<
@@ -48,15 +40,10 @@ class MermaidErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-400">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-          <div>
-            <p className="font-medium">Invalid diagram definition</p>
-            <p className="mt-1 text-yellow-400/80 text-xs font-mono break-all">
-              {this.state.errorMessage}
-            </p>
-          </div>
-        </div>
+        <ErrorAlert
+          title="Unable to render diagram"
+          message={this.state.errorMessage}
+        />
       );
     }
     return this.props.children;
@@ -64,28 +51,26 @@ class MermaidErrorBoundary extends React.Component<
 }
 
 export default function MermaidDiagram({ definition }: MermaidDiagramProps) {
-  const [isRendered, setIsRendered] = useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  // react-mermaid2 v0.1.x renders synchronously after mount
+  React.useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 300);
+    return () => clearTimeout(timer);
+  }, [definition]);
 
   return (
     <div className="relative w-full overflow-auto rounded-lg border border-gray-700 bg-gray-900 p-4">
-      {!isRendered && (
-        <div className="flex justify-center py-6">
-          <LoadingSpinner label="Rendering diagram…" />
+      {isLoading && (
+        <div className="space-y-2 py-4">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-32 w-full" />
         </div>
       )}
-
-      <div
-        // Hide until rendered to avoid flash of unstyled content
-        className={isRendered ? 'block' : 'invisible h-0 overflow-hidden'}
-        onLoad={() => setIsRendered(true)}
-      >
+      <div className={isLoading ? 'invisible h-0 overflow-hidden' : 'block'}>
         <MermaidErrorBoundary>
-          <Mermaid
-            chart={definition}
-            config={MERMAID_CONFIG}
-            // react-mermaid2 calls this when rendering completes
-            onRenderComplete={() => setIsRendered(true)}
-          />
+          <Mermaid chart={definition} config={MERMAID_CONFIG} />
         </MermaidErrorBoundary>
       </div>
     </div>

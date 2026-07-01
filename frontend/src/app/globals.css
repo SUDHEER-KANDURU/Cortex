@@ -1,51 +1,247 @@
 /* =============================================================================
    Cortex — Global Styles
-   Tailwind directives + dark mode defaults + smooth scroll
    ============================================================================= */
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Dark mode as the only theme for v0.1 */
-:root {
-  color-scheme: dark;
+/* shadcn/ui CSS variables */
+@layer base {
+  :root {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 263.4 70% 50.4%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 263.4 70% 50.4%;
+    --radius: 0.5rem;
+    color-scheme: dark;
+  }
 }
 
-html {
-  scroll-behavior: smooth;
-}
+/* ── Base ──────────────────────────────────────────────────────────────────── */
+
+html { scroll-behavior: smooth; }
 
 body {
-  @apply bg-gray-950 text-gray-100 antialiased;
-  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  background: #000;
+  color: #fff;
+  font-family: var(--font-inter), 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
-/* Scrollbar styling for dark theme */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #374151 transparent;
+::selection { background: rgba(123,97,255,0.3); color: #fff; }
+:focus-visible { outline: 2px solid rgba(123,97,255,0.5); outline-offset: 2px; }
+
+/* Scrollbar */
+* { scrollbar-width: thin; scrollbar-color: #1A2340 transparent; }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background-color: #1A2340; border-radius: 3px; }
+*::-webkit-scrollbar-thumb:hover { background-color: #2A3A60; }
+
+/* React Flow */
+.react-flow__attribution { display: none; }
+
+/* ── Scroll-driven animation system (Intersection Observer) ─────────────────── */
+
+[data-animate] {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-*::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+[data-animate="from-left"]  { transform: translateX(-60px); }
+[data-animate="from-right"] { transform: translateX(60px); }
+[data-animate="scale-in"]   { transform: scale(0.92); opacity: 0; }
+[data-animate="from-bottom"]{ transform: translateY(60px); opacity: 0; }
+
+[data-animate].in-view { opacity: 1; transform: none; }
+
+[data-animate-group] > * {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+[data-animate-group].in-view > *:nth-child(1) { opacity: 1; transform: none; transition-delay: 0ms; }
+[data-animate-group].in-view > *:nth-child(2) { opacity: 1; transform: none; transition-delay: 100ms; }
+[data-animate-group].in-view > *:nth-child(3) { opacity: 1; transform: none; transition-delay: 200ms; }
+[data-animate-group].in-view > *:nth-child(4) { opacity: 1; transform: none; transition-delay: 300ms; }
+[data-animate-group].in-view > *:nth-child(5) { opacity: 1; transform: none; transition-delay: 400ms; }
+[data-animate-group].in-view > *:nth-child(6) { opacity: 1; transform: none; transition-delay: 500ms; }
+
+/* ── Keyframes ─────────────────────────────────────────────────────────────── */
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes orbPulse {
+  0%, 100% { transform: scale(1);    opacity: 0.6; }
+  50%       { transform: scale(1.08); opacity: 1;   }
+}
+@keyframes scrollBounce {
+  0%, 100% { transform: translateY(0);   opacity: 0.4; }
+  50%       { transform: translateY(6px); opacity: 0.8; }
+}
+@keyframes orb-drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(30px, -20px) scale(1.05); }
+  66%  { transform: translate(-20px, 30px) scale(0.95); }
+  100% { transform: translate(10px, -10px) scale(1.02); }
+}
+@keyframes ring-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes cube-spin {
+  0%   { transform: rotate(0deg) rotateY(0deg); }
+  100% { transform: rotate(360deg) rotateY(360deg); }
+}
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 8px #7B61FF; opacity: 1; }
+  50%       { box-shadow: 0 0 16px #7B61FF; opacity: 0.7; }
+}
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
 }
 
-*::-webkit-scrollbar-track {
-  background: transparent;
+/* ── Utility animation classes ─────────────────────────────────────────────── */
+
+.animate-fade-up  { opacity: 0; animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-fade-in  { opacity: 0; animation: fadeIn 0.5s ease forwards; }
+.animate-orb-pulse      { animation: orbPulse 8s ease-in-out infinite; }
+.animate-orb-pulse-slow { animation: orbPulse 12s ease-in-out infinite; animation-delay: 2s; }
+.animate-orb-pulse-med  { animation: orbPulse 10s ease-in-out infinite; animation-delay: 1s; }
+.animate-scroll-bounce  { animation: scrollBounce 2s ease-in-out infinite; animation-delay: 2s; }
+
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-700 { animation-delay: 700ms; }
+.delay-900 { animation-delay: 900ms; }
+
+/* ── Logo cube ─────────────────────────────────────────────────────────────── */
+
+.logo-cube {
+  width: 20px; height: 20px;
+  background: linear-gradient(135deg, #7B61FF, #00D4FF);
+  border-radius: 4px;
+  animation: cube-spin 8s linear infinite;
+  transform-style: preserve-3d;
 }
 
-*::-webkit-scrollbar-thumb {
-  background-color: #374151;
-  border-radius: 3px;
+/* ── Navbar links ──────────────────────────────────────────────────────────── */
+
+.nav-link:hover { color: #fff; transition: color 0.2s; }
+.nav-cta:hover  {
+  background: #6B51EF !important;
+  box-shadow: 0 0 20px rgba(123,97,255,0.4);
+  transform: translateY(-1px);
 }
 
-*::-webkit-scrollbar-thumb:hover {
-  background-color: #4b5563;
+/* ── CTA hover ─────────────────────────────────────────────────────────────── */
+
+.cta-primary:hover {
+  background: #6B51EF !important;
+  box-shadow: 0 8px 32px rgba(123,97,255,0.4) !important;
+  transform: translateY(-2px);
+}
+.cta-secondary:hover {
+  border-color: rgba(255,255,255,0.2) !important;
+  color: #fff !important;
+  transform: translateY(-2px);
 }
 
-/* React Flow dark theme overrides */
-.react-flow__attribution {
-  display: none;
+/* ── 3D Ring object ────────────────────────────────────────────────────────── */
+
+.hero-3d-object {
+  width: 320px; height: 320px;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
 }
+.ring {
+  position: absolute;
+  border-radius: 50%;
+  border-style: solid;
+  border-color: transparent;
+  animation: ring-spin 12s linear infinite;
+}
+.ring-outer {
+  width: 320px; height: 320px;
+  border-top-color: rgba(123,97,255,0.4);
+  border-right-color: rgba(123,97,255,0.1);
+  animation-duration: 12s;
+}
+.ring-middle {
+  width: 220px; height: 220px;
+  border-top-color: rgba(0,212,255,0.4);
+  border-left-color: rgba(0,212,255,0.1);
+  animation-duration: 8s;
+  animation-direction: reverse;
+}
+.ring-core {
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(123,97,255,0.2) 0%, rgba(0,0,0,0.8) 70%);
+  border: 1px solid rgba(123,97,255,0.3);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 40px rgba(123,97,255,0.2), inset 0 0 40px rgba(123,97,255,0.1);
+  position: relative; z-index: 2;
+}
+.orbit {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px dashed rgba(255,255,255,0.06);
+  display: flex; align-items: flex-start; justify-content: center;
+  animation: ring-spin linear infinite;
+}
+.orbit-1 { width: 260px; height: 260px; animation-duration: 6s; }
+.orbit-2 { width: 180px; height: 180px; animation-duration: 4s; animation-direction: reverse; transform: rotate(60deg); }
+.orbit-3 { width: 140px; height: 140px; animation-duration: 3s; transform: rotate(120deg); }
+.orbit-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-top: -4px;
+  box-shadow: 0 0 10px currentColor;
+}
+
+/* ── Ticker ────────────────────────────────────────────────────────────────── */
+
+.ticker-wrapper {
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
+}
+.ticker {
+  display: flex;
+  gap: 12px;
+  width: max-content;
+  animation: ticker-scroll 30s linear infinite;
+}
+.ticker:hover { animation-play-state: paused; }

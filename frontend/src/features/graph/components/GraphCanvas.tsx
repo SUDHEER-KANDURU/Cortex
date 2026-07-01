@@ -10,7 +10,6 @@ import ReactFlow, {
   Background,
   Controls,
   MiniMap,
-  type NodeTypes,
   type Node,
   type Edge,
   type NodeMouseHandler,

@@ -1,39 +1,44 @@
 // =============================================================================
-// Navbar — Top navigation bar for Cortex
-// Dark background, Cortex logo on the left, GitHub link on the right.
+// Navbar — Premium 48px app nav for dashboard / job detail pages
 // =============================================================================
 
 import React from 'react';
 import Link from 'next/link';
-import { Brain, Github } from 'lucide-react';
+import { Github } from 'lucide-react';
 
 export default function Navbar() {
   return (
     <nav
-      className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-gray-800 bg-gray-900 px-6"
+      className="sticky top-0 z-50 flex h-12 shrink-0 items-center justify-between px-6"
+      style={{
+        background: 'rgba(10, 15, 26, 0.95)',
+        borderBottom: '1px solid #1A2340',
+        backdropFilter: 'blur(12px)',
+      }}
       aria-label="Main navigation"
     >
-      {/* Logo + Brand */}
       <Link
-        href="/dashboard"
-        className="flex items-center gap-2 text-white hover:opacity-80 transition-opacity"
-        aria-label="Cortex — go to dashboard"
+        href="/"
+        className="flex items-center gap-2 text-sm font-medium text-white transition-opacity hover:opacity-80"
+        aria-label="Cortex — home"
       >
-        <Brain className="h-5 w-5 text-violet-400" aria-hidden="true" />
-        <span className="text-lg font-semibold tracking-tight">Cortex</span>
-        <span className="hidden sm:inline-block text-xs text-gray-500 font-normal ml-1">
-          Engineering Reasoning Engine
-        </span>
+        <span className="text-violet-400">✦</span>
+        Cortex
       </Link>
 
-      {/* Right-side actions */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 text-sm">
+        <Link
+          href="/dashboard"
+          className="text-slate-400 transition-colors hover:text-white"
+        >
+          Dashboard
+        </Link>
         <a
-          href="https://github.com"
+          href="https://github.com/SUDHEER-KANDURU/cortex"
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="View Cortex on GitHub (opens in new tab)"
-          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+          aria-label="View Cortex on GitHub"
+          className="flex items-center gap-1.5 text-slate-400 transition-colors hover:text-white"
         >
           <Github className="h-4 w-4" aria-hidden="true" />
           <span className="hidden sm:inline">GitHub</span>

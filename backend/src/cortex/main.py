@@ -25,12 +25,12 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    # Routers registered here as modules are built
-    # from cortex.health.presentation.router import router as health_router
-    # app.include_router(health_router, prefix="/api/v1")
-
     return app
 
 
 app = create_app()
+
+
+
+from cortex.jobs.presentation.router import router as jobs_router
+app.include_router(jobs_router, prefix="/api/v1")

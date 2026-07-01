@@ -1,7 +1,7 @@
 // =============================================================================
 // Artifacts API
 // All API calls related to Cortex Artifacts.
-// Endpoints: GET /artifacts/:id, GET /jobs/:jobId/artifacts
+// Endpoints: GET /artifacts/:id, GET /artifacts/job/:jobId
 // =============================================================================
 
 import type { Artifact } from '@/types';
@@ -18,9 +18,9 @@ export async function getArtifact(artifactId: string): Promise<Artifact> {
 
 /**
  * Fetch all artifacts produced by a specific job.
- * GET /api/v1/jobs/:jobId/artifacts
+ * GET /api/v1/artifacts/job/:jobId
  */
 export async function getArtifactsForJob(jobId: string): Promise<Artifact[]> {
-  const response = await apiClient.get<Artifact[]>(`/jobs/${jobId}/artifacts`);
+  const response = await apiClient.get<Artifact[]>(`/artifacts/job/${jobId}`);
   return response.data;
 }
