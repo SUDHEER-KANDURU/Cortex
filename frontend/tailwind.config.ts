@@ -16,6 +16,7 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: ['var(--font-inter)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', 'monospace'],
       },
       colors: {
         // shadcn/ui CSS variable colours
@@ -66,6 +67,13 @@ const config: Config = {
           900: '#4c1d95',
           950: '#2e1065',
         },
+        // Cortex Identity Colors
+        onyx: 'var(--onyx)',
+        graphite: 'var(--graphite)',
+        'electric-blue': 'var(--electric-blue)',
+        'midnight-violet': 'var(--midnight-violet)',
+        'carnallite-violet': 'var(--carnallite-violet)',
+        'ink-black': 'var(--ink-black)',
       },
       borderRadius: {
         lg: 'var(--radius)',

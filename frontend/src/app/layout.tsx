@@ -1,9 +1,5 @@
-// =============================================================================
-// Root Layout — Cortex
-// =============================================================================
-
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 
 const inter = Inter({
@@ -12,25 +8,22 @@ const inter = Inter({
   display: 'swap',
 });
 
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: 'Cortex — Engineering Reasoning Engine',
   description: 'Understand Code. Learn Engineering.',
-  icons: {
-    icon: '/favicon.ico',
-  },
+  icons: { icon: '/favicon.ico' },
 };
 
-export interface RootLayoutProps {
-  children: React.ReactNode;
-}
-
-export default function RootLayout({ children }: RootLayoutProps) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} dark`} suppressHydrationWarning>
-      <body
-        className="min-h-screen antialiased"
-        style={{ background: '#020408', color: '#F8FAFC' }}
-      >
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} dark`} suppressHydrationWarning>
+      <body className="min-h-screen antialiased" style={{ background: '#000', color: '#fff' }}>
         {children}
       </body>
     </html>

@@ -152,19 +152,36 @@ function SceneController({
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !groupRef.current) return;
+    if (!container) return;
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) return;
 
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: container,
-        ...SCROLL_TRIGGER_CONFIG,
-        pin: true,
-        pinSpacing: true,
-      },
-    });
+    // ── BUG FIX: R3F hasn't committed groupRef when useEffect fires.
+    // Poll with rAF until the Three.js object is mounted, then build the timeline.
+    let rafId = 0;
+    let killed = false;
+
+    function waitAndBuild() {
+      if (killed) return;
+      if (!groupRef.current) {
+        rafId = requestAnimationFrame(waitAndBuild);
+        return;
+      }
+      buildTimeline();
+    }
+
+    function buildTimeline() {
+      if (killed || !groupRef.current) return;
+
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: container,
+          ...SCROLL_TRIGGER_CONFIG,
+          pin: true,
+          pinSpacing: true,
+        },
+      });
 
     // ── Scene: Ingest — camera dollies in as the repository is accepted ──────
     tl.to(camera.position, { z: 8.2, duration: 1.2, ease: 'power2.inOut' }, SCENES.ingest);
@@ -236,10 +253,16 @@ function SceneController({
 
     // ── Finale — settle for the CTA, cube keeps its idle breathing ──────────
     tl.to(camera.position, { z: 9.5, duration: 1, ease: 'power2.out' }, SCENES.finale);
+    } // end buildTimeline
+
+    rafId = requestAnimationFrame(waitAndBuild);
 
     return () => {
+      killed = true;
+      cancelAnimationFrame(rafId);
       ScrollTrigger.getAll().forEach((t) => t.kill());
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, containerRef, groupRef, coreRef, pieces, linesGroupRef]);
 
   // Perpetual idle motion — breathing, floating, mouse parallax. Runs always,

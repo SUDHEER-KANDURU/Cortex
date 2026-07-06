@@ -2,6 +2,14 @@
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['three', '@react-three/fiber', '@react-three/drei'],
+
+  // Disable webpack cache symlinks — required when project lives inside OneDrive
+  // OneDrive's virtual filesystem breaks Node's readlink on Windows
+  webpack: (config) => {
+    config.cache = false;
+    return config;
+  },
+
   async rewrites() {
     return [
       {

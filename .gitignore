@@ -63,6 +63,7 @@ docker-compose.override.yml
 # ── Kiro / AI tool files ─────────────────────────────────────────────────────────
 .kiro/
 .kirodraft/
+.kombai
 
 # ── Personal planning files — local only, never push ────────────────────────────
 requirements.md

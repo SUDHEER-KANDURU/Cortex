@@ -1,0 +1,15 @@
+name: OmniRoute
+version: 1.0.0
+schema: v1
+
+models:
+  - name: DeepSeek V4
+    provider: openai
+    model: nvidia/deepseek-ai/deepseek-v4-pro
+    apiBase: http://localhost:20128/v1
+    apiKey: sk-61ab929ea3ea3a90-e6c57b-bed34ba5
+    roles:
+      - chat
+      - edit
+      - apply
+      - autocomplete
