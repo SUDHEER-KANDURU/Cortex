@@ -1,11 +1,46 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
+
+const RepoTreeLazy = dynamic(
+  () => import('@/features/tree/RepoTree'),
+  { ssr: false, loading: () => <div style={{ width:'100%', height:'100%' }} /> }
+);
 
 export default function LandingPage() {
+  const progressRef = useRef(0);
+
   useEffect(() => {
-    // ── Intersection Observer for scroll reveals ──
+    // ── GSAP ScrollTrigger — pins hero, drives tree progress ──
+    const heroEl = document.getElementById('hero-pin');
+    if (heroEl) {
+      ScrollTrigger.create({
+        trigger: heroEl,
+        start: 'top top',
+        end: '+=280%',
+        pin: true,
+        pinSpacing: true,
+        scrub: 1.2,
+        onUpdate: (self) => {
+          progressRef.current = self.progress;
+          // Fade hero copy out after 65% scroll
+          const copy = document.getElementById('hero-copy-left');
+          if (copy) {
+            const opacity = self.progress < 0.5 ? 1 : Math.max(0, 1 - (self.progress - 0.5) / 0.25);
+            copy.style.opacity = String(opacity);
+            copy.style.transform = `translateY(${(1 - opacity) * -24}px)`;
+          }
+        },
+      });
+    }
+
+    // ── Intersection Observer for all other scroll reveals ──
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -158,13 +193,9 @@ export default function LandingPage() {
               ))}
             </div>
           </div>
-          <div data-reveal="scale" style={{ display:'flex', justifyContent:'center', alignItems:'center' }}>
-            <div className="ring-container">
-              <div className="ring ring-1"><div className="orbit-dot" /></div>
-              <div className="ring ring-2"><div className="orbit-dot" /></div>
-              <div className="ring ring-3"><div className="orbit-dot" /></div>
-              <div className="ring-core"><span style={{ fontFamily:'monospace', fontSize:'9px', color:'#A78BFA', letterSpacing:'0.15em' }}>CORTEX</span></div>
-            </div>
+          <div data-reveal="scale" style={{ height:'580px', position:'relative' }}>
+            <RepoTreeLazy />
+            <div style={{ position:'absolute', bottom:0, left:0, right:0, height:'120px', background:'linear-gradient(to top,#000 0%,transparent 100%)', pointerEvents:'none' }} />
           </div>
         </div>
         <div style={{ position:'absolute', bottom:'32px', left:'50%', transform:'translateX(-50%)', display:'flex', flexDirection:'column', alignItems:'center', gap:'8px', animation:'float-medium 2.5s ease-in-out infinite' }}>

@@ -31,6 +31,9 @@ def create_app() -> FastAPI:
     app.include_router(jobs_router, prefix="/api/v1")
     app.include_router(artifacts_router, prefix="/api/v1")
 
+    from cortex.graph.presentation.router import router as graph_router
+    app.include_router(graph_router, prefix="/api/v1")
+
     return app
 
 
