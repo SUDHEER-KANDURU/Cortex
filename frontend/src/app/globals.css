@@ -443,3 +443,121 @@ body { background:#000; color:#fff; -webkit-font-smoothing:antialiased; overflow
 /* ── Layout helpers ── */
 .section-full { min-height:100vh; display:flex; align-items:center; position:relative; overflow:hidden; }
 .content-max  { max-width:1200px; margin:0 auto; padding:0 32px; width:100%; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Portfolio page — animations from ai-product-portfolio
+   Colours, fonts, and animations kept exactly as-is.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Portfolio CSS variable overrides (light bg for portfolio page) ── */
+.portfolio-page {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.03 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.03 0 0);
+  --secondary: oklch(0.98 0 0);
+  --secondary-foreground: oklch(0.03 0 0);
+  --muted-foreground: oklch(0.42 0 0);
+  --border: oklch(0.9 0 0);
+  background: oklch(1 0 0);
+  color: oklch(0.03 0 0);
+}
+
+/* ── Marquee ── */
+@keyframes marquee-portfolio {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee-portfolio 30s linear infinite;
+}
+
+/* ── Testimonial scroll rows ── */
+@keyframes scroll-left-portfolio {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes scroll-right-portfolio {
+  0%   { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
+.animate-scroll-left  { animation: scroll-left-portfolio  25s linear infinite; }
+.animate-scroll-right { animation: scroll-right-portfolio 25s linear infinite; }
+
+/* ── Hero word blur-reveal ── */
+@keyframes word-reveal {
+  0%   { filter: blur(60px); opacity: 0; transform: translateY(12px); }
+  50%  { filter: blur(30px); opacity: 0.5; transform: translateY(6px); }
+  100% { filter: blur(0px);  opacity: 1;   transform: translateY(0px); }
+}
+@keyframes gradient-to-black {
+  0%   { background: linear-gradient(45deg,rgba(59,130,246,1) 0%,rgba(139,92,246,1) 25%,rgba(6,182,212,1) 50%,rgba(245,158,11,1) 75%,rgba(59,130,246,1) 100%); background-size:300% 300%; background-position:0% 50%; background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  40%  { background: linear-gradient(45deg,rgba(59,130,246,1) 0%,rgba(139,92,246,1) 25%,rgba(6,182,212,1) 50%,rgba(245,158,11,1) 75%,rgba(59,130,246,1) 100%); background-size:300% 300%; background-position:100% 50%; background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  50%  { background: oklch(0.03 0 0); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  100% { background: oklch(0.03 0 0); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+}
+.hero-word {
+  display: inline-block;
+  animation: word-reveal 1s ease-out forwards, gradient-to-black 1s ease-in-out forwards;
+  filter: blur(60px);
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-word { animation: none; filter: none; opacity: 1; background: oklch(0.03 0 0); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+}
+
+/* ── Section title scroll-reveal ── */
+@keyframes section-title-reveal {
+  0%   { filter: blur(60px); opacity: 0; transform: translateY(20px); }
+  100% { filter: blur(0px);  opacity: 1; transform: translateY(0); }
+}
+@keyframes section-gradient-to-black {
+  0%   { background: linear-gradient(45deg,rgba(59,130,246,1) 0%,rgba(139,92,246,1) 25%,rgba(6,182,212,1) 50%,rgba(245,158,11,1) 75%,rgba(59,130,246,1) 100%); background-size:300% 300%; background-position:0% 50%; background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  40%  { background: linear-gradient(45deg,rgba(59,130,246,1) 0%,rgba(139,92,246,1) 25%,rgba(6,182,212,1) 50%,rgba(245,158,11,1) 75%,rgba(59,130,246,1) 100%); background-size:300% 300%; background-position:100% 50%; background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  50%  { background: oklch(0.03 0 0); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  100% { background: oklch(0.03 0 0); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+}
+.section-title-animate {
+  animation: section-title-reveal 1s ease-out forwards, section-gradient-to-black 1s ease-in-out forwards;
+  overflow: visible;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .section-title-animate { animation: none; filter: none; opacity: 1; transform: none; background: oklch(0.03 0 0); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+}
+
+/* ── Gradient bar (below header, shows on #works) ── */
+.bottom-gradient-bar {
+  position: fixed;
+  top: 80px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,rgba(236,72,153,0.8) 0%,rgba(139,92,246,0.8) 25%,rgba(59,130,246,0.8) 50%,rgba(6,182,212,0.8) 75%,rgba(236,72,153,0.8) 100%);
+  background-size: 200% 100%;
+  filter: blur(4px);
+  z-index: 40;
+  pointer-events: none;
+  animation: gradient-slide-bar 0.3s ease-out forwards, gradient-flow-bar 2s linear infinite;
+}
+@keyframes gradient-slide-bar  { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes gradient-flow-bar   { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+/* ── Orb rotate ── */
+@keyframes orb-rotate {
+  0%   { transform: rotate(0deg);   filter: hue-rotate(0deg)   brightness(1.1); }
+  25%  {                            filter: hue-rotate(90deg)  brightness(1.2); }
+  50%  {                            filter: hue-rotate(180deg) brightness(1.1); }
+  75%  {                            filter: hue-rotate(270deg) brightness(1.2); }
+  100% { transform: rotate(360deg); filter: hue-rotate(360deg) brightness(1.1); }
+}
+.animate-orb-rotate { animation: orb-rotate 20s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-orb-rotate { animation: none; }
+  .animate-marquee, .animate-scroll-left, .animate-scroll-right { animation: none; }
+}
+
+/* ── scrollbar-hide utility ── */
+.scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
