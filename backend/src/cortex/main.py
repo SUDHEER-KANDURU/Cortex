@@ -1,4 +1,4 @@
-"""Cortex FastAPI application factory."""
+"""Cortex FastAPI application factory — all modules wired."""
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,21 +6,29 @@ from cortex.config import get_settings
 from cortex.health.presentation.router import router as health_router
 from cortex.jobs.presentation.router import router as jobs_router
 from cortex.artifacts.presentation.router import router as artifacts_router
+from cortex.graph.presentation.router import router as graph_router
+from shared.correlation import CorrelationMiddleware
+from shared.logging import configure_logging
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
 
+    configure_logging(settings.log_level)
+
     app = FastAPI(
         title="Cortex API",
-        description="Engineering Reasoning Engine",
+        description="Engineering Reasoning Engine — "
+        "Understand Code. Learn Engineering.",
         version="0.1.0",
         docs_url="/api/docs",
         redoc_url="/api/redoc",
+        openapi_url="/api/openapi.json",
     )
 
+    app.add_middleware(CorrelationMiddleware)
     app.add_middleware(
-        CORSMiddleware,@
+        CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
@@ -30,8 +38,6 @@ def create_app() -> FastAPI:
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(jobs_router, prefix="/api/v1")
     app.include_router(artifacts_router, prefix="/api/v1")
-
-    from cortex.graph.presentation.router import router as graph_router
     app.include_router(graph_router, prefix="/api/v1")
 
     return app
