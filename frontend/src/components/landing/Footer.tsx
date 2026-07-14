@@ -10,50 +10,105 @@ const socialLinks = [
 ]
 
 const footerLinks = [
-  { href: "/",          label: "Home"       },
-  { href: "#about",     label: "About"      },
+  { href: "/",          label: "Home"         },
+  { href: "#about",     label: "About"        },
   { href: "#works",     label: "Capabilities" },
-  { href: "#insights",  label: "Insights"   },
-  { href: "/dashboard", label: "Dashboard"  },
+  { href: "#insights",  label: "Insights"     },
+  { href: "/dashboard", label: "Dashboard"    },
 ]
 
 export function PortfolioFooter() {
   return (
-    <footer className="border-t border-border">
+    <footer style={{
+      borderTop: "1px solid rgba(255,255,255,0.7)",
+      background: "rgba(255,255,255,0.6)",
+      backdropFilter: "blur(10px) saturate(180%)",
+      WebkitBackdropFilter: "blur(10px) saturate(180%)",
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.9)",
+    }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12 py-16 md:py-24">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8">
+
           {/* Brand */}
-          <div className="md:col-span-2">
-            <Link href="/" className="text-xl font-semibold tracking-tight">Cortex</Link>
-            <p className="mt-4 text-muted-foreground text-sm max-w-xs leading-relaxed">
+          <div className="md:col-span-2" data-reveal="up">
+            <Link href="/"
+              style={{
+                fontFamily: "var(--font-display,'Syne',sans-serif)",
+                fontSize: "22px", fontWeight: 700,
+                letterSpacing: "-0.03em", color: "#0a0a0a",
+                textDecoration: "none",
+              }}>
+              Cortex
+            </Link>
+            <p className="mt-4 text-sm leading-relaxed"
+              style={{ color: "rgba(0,0,0,0.45)", maxWidth: "280px", lineHeight: 1.7 }}>
               Engineering Reasoning Engine — understand any codebase, generate architecture diagrams, learning paths, and interview prep. Fully offline.
             </p>
-            <div className="flex items-center gap-4 mt-6">
+
+            {/* Social links — glass pills */}
+            <div className="flex items-center gap-3 mt-6">
               {socialLinks.map((s) => (
-                <Link key={s.label} href={s.href} target="_blank" rel="noopener noreferrer"
-                  className="p-2 rounded-full bg-secondary transition-colors"
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#203eec20")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "")}
+                <Link key={s.label} href={s.href}
+                  target="_blank" rel="noopener noreferrer"
+                  className="p-2.5 rounded-full transition-all duration-250"
+                  style={{
+                    background: "rgba(255,255,255,0.7)",
+                    backdropFilter: "blur(12px) saturate(180%)",
+                    WebkitBackdropFilter: "blur(12px) saturate(180%)",
+                    border: "1px solid rgba(255,255,255,0.9)",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)",
+                  }}
+                  onMouseEnter={e => {
+                    const el = e.currentTarget as HTMLElement
+                    el.style.background = "#0a0a0a"
+                    el.style.borderColor = "#0a0a0a"
+                    el.style.transform = "translateY(-2px)"
+                    el.style.boxShadow = "0 6px 20px rgba(0,0,0,0.15)"
+                    const icon = el.querySelector("svg")
+                    if (icon) (icon as SVGElement).style.color = "#fff"
+                  }}
+                  onMouseLeave={e => {
+                    const el = e.currentTarget as HTMLElement
+                    el.style.background = "rgba(255,255,255,0.7)"
+                    el.style.borderColor = "rgba(255,255,255,0.9)"
+                    el.style.transform = "none"
+                    el.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)"
+                    const icon = el.querySelector("svg")
+                    if (icon) (icon as SVGElement).style.color = "#555"
+                  }}
                   aria-label={s.label}>
-                  <s.icon className="w-4 h-4" style={{ color: "#203eec" }} />
+                  <s.icon className="w-4 h-4" style={{ color: "#555", transition: "color 0.2s ease" }} />
                 </Link>
               ))}
             </div>
-            <div className="mt-4">
-              <Link href="https://github.com/SUDHEER-KANDURU/cortex" target="_blank" rel="noopener noreferrer"
-                className="text-sm transition-colors hover:underline" style={{ color: "#203eec" }}>
+
+            <div className="mt-5">
+              <Link href="https://github.com/SUDHEER-KANDURU/cortex"
+                target="_blank" rel="noopener noreferrer"
+                style={{
+                  fontSize: "12px", color: "rgba(0,0,0,0.4)",
+                  fontFamily: "var(--font-mono,'Fira Code',monospace)",
+                  textDecoration: "none", transition: "color 0.2s ease",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.color = "#111")}
+                onMouseLeave={e => (e.currentTarget.style.color = "rgba(0,0,0,0.4)")}>
                 github.com/SUDHEER-KANDURU/cortex
               </Link>
             </div>
           </div>
 
           {/* Pages */}
-          <div>
-            <h4 className="text-sm font-semibold mb-4">Pages</h4>
+          <div data-reveal="up" style={{ transitionDelay: "80ms" }}>
+            <h4 style={{ fontSize: "12px", fontWeight: 700, color: "#111", marginBottom: "18px", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
+              Pages
+            </h4>
             <ul className="space-y-3">
               {footerLinks.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  <Link href={link.href}
+                    style={{ fontSize: "14px", color: "rgba(0,0,0,0.45)", textDecoration: "none", transition: "color 0.2s ease" }}
+                    onMouseEnter={e => (e.currentTarget.style.color = "#111")}
+                    onMouseLeave={e => (e.currentTarget.style.color = "rgba(0,0,0,0.45)")}>
                     {link.label}
                   </Link>
                 </li>
@@ -61,30 +116,52 @@ export function PortfolioFooter() {
             </ul>
           </div>
 
-          {/* Newsletter placeholder */}
-          <div>
-            <h4 className="text-sm font-semibold mb-4">Stay Updated</h4>
-            <p className="text-sm text-muted-foreground mb-4">Star the repo to follow Cortex development.</p>
-            <Link href="https://github.com/SUDHEER-KANDURU/cortex" target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center justify-center w-full px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-all"
-              style={{ background: "linear-gradient(135deg, #203eec 0%, #00d4ff 100%)", boxShadow: "0 4px 20px rgba(32,62,236,0.3)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 8px 30px rgba(32,62,236,0.5), 0 0 40px rgba(0,212,255,0.3)" }}
-              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 4px 20px rgba(32,62,236,0.3)" }}>
-              ★ Star on GitHub
+          {/* Star CTA */}
+          <div data-reveal="up" style={{ transitionDelay: "160ms" }}>
+            <h4 style={{ fontSize: "12px", fontWeight: 700, color: "#111", marginBottom: "18px", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
+              Stay Updated
+            </h4>
+            <p style={{ fontSize: "14px", color: "rgba(0,0,0,0.45)", marginBottom: "18px", lineHeight: 1.6 }}>
+              Star the repo to follow Cortex development.
+            </p>
+            <Link href="https://github.com/SUDHEER-KANDURU/cortex"
+              target="_blank" rel="noopener noreferrer"
+              className="cta-shimmer inline-flex items-center justify-center w-full px-4 py-3 text-sm font-semibold text-white rounded-xl transition-all duration-300"
+              style={{
+                background: "#0a0a0a",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
+                textDecoration: "none",
+              }}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLElement
+                el.style.background = "#000"
+                el.style.boxShadow = "0 8px 28px rgba(0,0,0,0.3)"
+                el.style.transform = "translateY(-2px)"
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLElement
+                el.style.background = "#0a0a0a"
+                el.style.boxShadow = "0 4px 16px rgba(0,0,0,0.2)"
+                el.style.transform = "none"
+              }}>
+              ★&nbsp; Star on GitHub
             </Link>
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-16 pt-8 border-t border-border">
-          <p className="text-xs text-muted-foreground">
+        {/* Bottom bar */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-16 pt-8"
+          style={{ borderTop: "1px solid rgba(0,0,0,0.07)" }}>
+          <p style={{ fontSize: "12px", color: "rgba(0,0,0,0.3)", fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
             © {new Date().getFullYear()} Cortex — Built by Sudheer Kanduru · SRMIST, Chennai
           </p>
-          <div className="flex items-center gap-6">
-            <Link href="https://github.com/SUDHEER-KANDURU/cortex" target="_blank" rel="noopener noreferrer"
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-              MIT License
-            </Link>
-          </div>
+          <Link href="https://github.com/SUDHEER-KANDURU/cortex"
+            target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: "12px", color: "rgba(0,0,0,0.3)", textDecoration: "none", fontFamily: "var(--font-mono,'Fira Code',monospace)", transition: "color 0.2s ease" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#111")}
+            onMouseLeave={e => (e.currentTarget.style.color = "rgba(0,0,0,0.3)")}>
+            MIT License
+          </Link>
         </div>
       </div>
     </footer>

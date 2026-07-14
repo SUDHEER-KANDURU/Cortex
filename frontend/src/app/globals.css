@@ -15,7 +15,7 @@
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 263.4 70% 50.4%;
+    --primary: 0 0% 7%;
     --primary-foreground: 210 40% 98%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
@@ -27,7 +27,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 263.4 70% 50.4%;
+    --ring: 0 0% 7%;
     --radius: 0.5rem;
 
     /* Cortex Identity Tokens */
@@ -52,16 +52,19 @@ html {
 body {
   background: var(--onyx);
   color: var(--foreground);
-  font-family: var(--font-inter), 'Inter', system-ui, sans-serif;
+  font-family: var(--font-sans), 'DM Sans', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
   line-height: 1.6;
+  font-size: 15px;
+  letter-spacing: -0.01em;
 }
 
 h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display), 'Syne', system-ui, sans-serif;
   letter-spacing: -0.04em;
-  font-weight: 200;
+  font-weight: 600;
   line-height: 1.1;
   color: #fff;
 }
@@ -220,8 +223,8 @@ h1, h2, h3, h4, h5, h6 {
   100% { transform: rotate(360deg) rotateY(360deg); }
 }
 @keyframes pulse-dot {
-  0%, 100% { box-shadow: 0 0 8px #7B61FF; opacity: 1; }
-  50%       { box-shadow: 0 0 16px #7B61FF; opacity: 0.7; }
+  0%, 100% { box-shadow: 0 0 6px rgba(0,0,0,0.3); opacity: 1; }
+  50%       { box-shadow: 0 0 12px rgba(0,0,0,0.15); opacity: 0.7; }
 }
 @keyframes ticker-scroll {
   from { transform: translateX(0); }
@@ -249,7 +252,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .logo-cube {
   width: 20px; height: 20px;
-  background: linear-gradient(135deg, #7B61FF, #00D4FF);
+  background: #111;
   border-radius: 4px;
   animation: cube-spin 8s linear infinite;
   transform-style: preserve-3d;
@@ -257,23 +260,23 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ── Navbar links ──────────────────────────────────────────────────────────── */
 
-.nav-link:hover { color: #fff; transition: color 0.2s; }
+.nav-link:hover { color: #111; transition: color 0.2s; }
 .nav-cta:hover  {
-  background: #6B51EF !important;
-  box-shadow: 0 0 20px rgba(123,97,255,0.4);
+  background: #000 !important;
+  box-shadow: 0 0 20px rgba(0,0,0,0.2);
   transform: translateY(-1px);
 }
 
 /* ── CTA hover ─────────────────────────────────────────────────────────────── */
 
 .cta-primary:hover {
-  background: #6B51EF !important;
-  box-shadow: 0 8px 32px rgba(123,97,255,0.4) !important;
+  background: #000 !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25) !important;
   transform: translateY(-2px);
 }
 .cta-secondary:hover {
-  border-color: rgba(255,255,255,0.2) !important;
-  color: #fff !important;
+  border-color: rgba(0,0,0,0.3) !important;
+  color: #111 !important;
   transform: translateY(-2px);
 }
 
@@ -294,23 +297,23 @@ h1, h2, h3, h4, h5, h6 {
 .ring-outer {
   width: 320px; height: 320px;
   border-top-color: rgba(123,97,255,0.4);
-  border-right-color: rgba(123,97,255,0.1);
+  border-right-color: rgba(0,0,0,0.06);
   animation-duration: 12s;
 }
 .ring-middle {
   width: 220px; height: 220px;
-  border-top-color: rgba(0,212,255,0.4);
-  border-left-color: rgba(0,212,255,0.1);
+  border-top-color: rgba(0,0,0,0.12);
+  border-left-color: rgba(0,0,0,0.04);
   animation-duration: 8s;
   animation-direction: reverse;
 }
 .ring-core {
   width: 100px; height: 100px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(123,97,255,0.2) 0%, rgba(0,0,0,0.8) 70%);
-  border: 1px solid rgba(123,97,255,0.3);
+  background: radial-gradient(circle, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.6) 70%);
+  border: 1px solid rgba(0,0,0,0.15);
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 40px rgba(123,97,255,0.2), inset 0 0 40px rgba(123,97,255,0.1);
+  box-shadow: 0 0 40px rgba(0,0,0,0.1), inset 0 0 40px rgba(0,0,0,0.05);
   position: relative; z-index: 2;
 }
 .orbit {
@@ -351,7 +354,7 @@ h1, h2, h3, h4, h5, h6 {
 
 html { scroll-behavior: smooth; }
 body { background:#000; color:#fff; -webkit-font-smoothing:antialiased; overflow-x:hidden; }
-::selection { background:rgba(124,58,237,0.35); color:#fff; }
+::selection { background:rgba(0,0,0,0.12); color:#111; }
 ::-webkit-scrollbar { width:3px; }
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:#27272A; border-radius:2px; }
@@ -395,14 +398,13 @@ body { background:#000; color:#fff; -webkit-font-smoothing:antialiased; overflow
 @keyframes gradient-shift { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
 @keyframes blink        { 0%,100%{opacity:1} 50%{opacity:0} }
 
-/* ── Gradient text ── */
+/* ── Gradient text — ink version for portfolio page ── */
 .gradient-text {
-  background:linear-gradient(135deg,#7C3AED 0%,#22D3EE 50%,#34D399 100%);
-  background-size:200% 200%;
-  -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
-  background-clip:text;
-  animation:gradient-shift 4s ease infinite;
+  background: linear-gradient(135deg, #111 0%, #555 50%, #111 100%);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* ── Ticker ── */
@@ -422,13 +424,13 @@ body { background:#000; color:#fff; -webkit-font-smoothing:antialiased; overflow
 .dot-red    { width:12px;height:12px;border-radius:50%;background:#FF5F57; }
 .dot-yellow { width:12px;height:12px;border-radius:50%;background:#FFBD2E; }
 .dot-green  { width:12px;height:12px;border-radius:50%;background:#28C840; }
-.terminal-body { padding:28px; font-family:'Menlo','Monaco','Courier New',monospace; font-size:13px; line-height:2; }
+.terminal-body { padding:28px; font-family: var(--font-mono), 'Fira Code', 'Menlo', monospace; font-size:13px; line-height:2; }
 .t-muted  { color:#52525B; }
-.t-violet { color:#A78BFA; }
-.t-cyan   { color:#22D3EE; }
+.t-violet { color:#888888; }
+.t-cyan   { color:#aaaaaa; }
 .t-green  { color:#34D399; }
 .t-white  { color:#E4E4E7; }
-.t-cursor { display:inline-block;width:8px;height:14px;background:#7C3AED;margin-left:2px;animation:blink 1s step-end infinite;vertical-align:middle; }
+.t-cursor { display:inline-block;width:8px;height:14px;background:#aaaaaa;margin-left:2px;animation:blink 1s step-end infinite;vertical-align:middle; }
 
 /* ── Bento grid ── */
 .bento-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
@@ -438,7 +440,7 @@ body { background:#000; color:#fff; -webkit-font-smoothing:antialiased; overflow
 .bento-tall { grid-row:span 2; }
 
 /* ── Nav ── */
-.cortex-nav { position:fixed; top:0;left:0;right:0; z-index:1000; height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 32px; background:rgba(0,0,0,0.7); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border-bottom:1px solid rgba(255,255,255,0.06); transition:background 0.3s ease; }
+.cortex-nav { position:fixed; top:0;left:0;right:0; z-index:1000; height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 32px; background:rgba(0,0,0,0.7); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-bottom:1px solid rgba(255,255,255,0.06); transition:background 0.3s ease; }
 
 /* ── Layout helpers ── */
 .section-full { min-height:100vh; display:flex; align-items:center; position:relative; overflow:hidden; }
@@ -490,41 +492,45 @@ body { background:#000; color:#fff; -webkit-font-smoothing:antialiased; overflow
   50%  { filter: blur(30px); opacity: 0.5; transform: translateY(6px); }
   100% { filter: blur(0px);  opacity: 1;   transform: translateY(0px); }
 }
+/* Ink-only reveal — starts slightly lighter, settles to near-black */
 @keyframes gradient-to-black {
-  0%   { background: linear-gradient(45deg,rgba(59,130,246,1) 0%,rgba(139,92,246,1) 25%,rgba(6,182,212,1) 50%,rgba(245,158,11,1) 75%,rgba(59,130,246,1) 100%); background-size:300% 300%; background-position:0% 50%; background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-  40%  { background: linear-gradient(45deg,rgba(59,130,246,1) 0%,rgba(139,92,246,1) 25%,rgba(6,182,212,1) 50%,rgba(245,158,11,1) 75%,rgba(59,130,246,1) 100%); background-size:300% 300%; background-position:100% 50%; background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-  50%  { background: oklch(0.03 0 0); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-  100% { background: oklch(0.03 0 0); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  0%   { color: rgba(0,0,0,0.4); }
+  60%  { color: rgba(0,0,0,0.85); }
+  100% { color: oklch(0.03 0 0); }
 }
 .hero-word {
   display: inline-block;
-  animation: word-reveal 1s ease-out forwards, gradient-to-black 1s ease-in-out forwards;
+  animation: word-reveal 0.9s cubic-bezier(0.16,1,0.3,1) forwards,
+             gradient-to-black 0.9s ease-out forwards;
   filter: blur(60px);
   opacity: 0;
+  font-family: var(--font-display), 'Syne', system-ui, sans-serif;
 }
 @media (prefers-reduced-motion: reduce) {
-  .hero-word { animation: none; filter: none; opacity: 1; background: oklch(0.03 0 0); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero-word { animation: none; filter: none; opacity: 1; color: oklch(0.03 0 0); }
 }
 
-/* ── Section title scroll-reveal ── */
+/* ── Section title scroll-reveal — portfolio page (light bg) ── */
 @keyframes section-title-reveal {
   0%   { filter: blur(60px); opacity: 0; transform: translateY(20px); }
   100% { filter: blur(0px);  opacity: 1; transform: translateY(0); }
 }
+/* Ink-only — no colour flash */
 @keyframes section-gradient-to-black {
-  0%   { background: linear-gradient(45deg,rgba(59,130,246,1) 0%,rgba(139,92,246,1) 25%,rgba(6,182,212,1) 50%,rgba(245,158,11,1) 75%,rgba(59,130,246,1) 100%); background-size:300% 300%; background-position:0% 50%; background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-  40%  { background: linear-gradient(45deg,rgba(59,130,246,1) 0%,rgba(139,92,246,1) 25%,rgba(6,182,212,1) 50%,rgba(245,158,11,1) 75%,rgba(59,130,246,1) 100%); background-size:300% 300%; background-position:100% 50%; background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-  50%  { background: oklch(0.03 0 0); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-  100% { background: oklch(0.03 0 0); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  0%   { color: rgba(0,0,0,0.35); }
+  60%  { color: rgba(0,0,0,0.8); }
+  100% { color: oklch(0.03 0 0); }
 }
 .section-title-animate {
-  animation: section-title-reveal 1s ease-out forwards, section-gradient-to-black 1s ease-in-out forwards;
+  animation: section-title-reveal 0.9s cubic-bezier(0.16,1,0.3,1) forwards,
+             section-gradient-to-black 1s ease-out forwards;
   overflow: visible;
   padding-top: 0.25rem;
   padding-bottom: 0.25rem;
+  font-family: var(--font-display), 'Syne', system-ui, sans-serif;
 }
 @media (prefers-reduced-motion: reduce) {
-  .section-title-animate { animation: none; filter: none; opacity: 1; transform: none; background: oklch(0.03 0 0); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .section-title-animate { animation: none; filter: none; opacity: 1; transform: none; color: oklch(0.03 0 0); }
 }
 
 /* ── Gradient bar (below header, shows on #works) ── */
@@ -534,12 +540,11 @@ body { background:#000; color:#fff; -webkit-font-smoothing:antialiased; overflow
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg,rgba(236,72,153,0.8) 0%,rgba(139,92,246,0.8) 25%,rgba(59,130,246,0.8) 50%,rgba(6,182,212,0.8) 75%,rgba(236,72,153,0.8) 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.15) 25%, rgba(0,0,0,0.25) 50%, rgba(0,0,0,0.15) 75%, transparent 100%);
   background-size: 200% 100%;
-  filter: blur(4px);
   z-index: 40;
   pointer-events: none;
-  animation: gradient-slide-bar 0.3s ease-out forwards, gradient-flow-bar 2s linear infinite;
+  animation: gradient-slide-bar 0.3s ease-out forwards, gradient-flow-bar 3s linear infinite;
 }
 @keyframes gradient-slide-bar  { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 @keyframes gradient-flow-bar   { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
@@ -561,3 +566,688 @@ body { background:#000; color:#fff; -webkit-font-smoothing:antialiased; overflow
 /* ── scrollbar-hide utility ── */
 .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* =============================================================================
+   Cortex Landing — Premium Refinement Layer
+   Added 2025 — Cinematic scroll-story improvements
+   ============================================================================= */
+
+/* ── Portfolio page light theme tweaks ─────────────────────────────────────── */
+.portfolio-page {
+  --section-gap: 1px solid rgba(255,255,255,0.6);
+  font-family: var(--font-sans), 'DM Sans', system-ui, sans-serif;
+  font-size: 15px;
+  /* Multi-layer background: soft gradient + subtle noise gives glass surfaces
+     something real to blur against instead of flat white */
+  background:
+    radial-gradient(ellipse 100% 60% at 50% 0%,   rgba(240,240,240,0.8) 0%, transparent 60%),
+    radial-gradient(ellipse 80%  50% at 20% 80%,  rgba(235,235,235,0.6) 0%, transparent 55%),
+    radial-gradient(ellipse 70%  40% at 85% 60%,  rgba(238,238,238,0.5) 0%, transparent 50%),
+    linear-gradient(180deg, #f7f7f7 0%, #ffffff 40%, #f9f9f9 100%);
+  min-height: 100vh;
+}
+
+/* Syne for all headings on the landing page */
+.portfolio-page h1,
+.portfolio-page h2,
+.portfolio-page h3,
+.portfolio-page h4 {
+  font-family: var(--font-display), 'Syne', system-ui, sans-serif;
+  color: oklch(0.03 0 0);
+}
+
+/* Fira Code for all monospace on the landing page */
+.portfolio-page code,
+.portfolio-page pre,
+.portfolio-page [style*="monospace"] {
+  font-family: var(--font-mono), 'Fira Code', 'Fira Mono', monospace;
+  font-variant-ligatures: common-ligatures;
+}
+
+/* ── Hero eyebrow fade-in ──────────────────────────────────────────────────── */
+.hero-eyebrow {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards;
+}
+
+/* ── Hero CTA primary — smooth scale on press ──────────────────────────────── */
+.hero-cta-primary:active {
+  transform: translateY(0) scale(0.97);
+}
+
+/* ── Scroll-reveal system ──────────────────────────────────────────────────── */
+/* data-reveal variants are already defined above; this extends them */
+[data-reveal] {
+  will-change: opacity, transform;
+}
+[data-stagger] > * {
+  will-change: opacity, transform;
+}
+
+/* ── Section separator lines — consistent, barely-there ───────────────────── */
+#how-it-works,
+#works,
+#about,
+#testimonials,
+#awards,
+#insights,
+#contact {
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* ── HowItWorks step panel ─────────────────────────────────────────────────── */
+.how-step-btn {
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+.how-step-btn:focus-visible {
+  outline: 2px solid rgba(32, 62, 236, 0.4);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+/* ── Capability cards — visual demo area ──────────────────────────────────── */
+.capability-demo {
+  position: relative;
+  overflow: hidden;
+}
+.capability-demo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 60%, rgba(255, 255, 255, 0.4) 100%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.group:hover .capability-demo::after {
+  opacity: 1;
+}
+
+/* ── Insight cards ─────────────────────────────────────────────────────────── */
+.insight-card {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.3s ease,
+              box-shadow 0.4s ease;
+}
+
+/* ── Tech & Architecture rows ──────────────────────────────────────────────── */
+.award-row {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.3s ease,
+              border-color 0.3s ease;
+}
+
+/* ── Hero tree progress bar ────────────────────────────────────────────────── */
+@keyframes tree-progress-grow {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+.hero-tree-progress {
+  /* updated by the progressRef via scroll — animated via CSS var */
+  transition: width 0.1s linear;
+}
+
+/* ── Cinematic section entry — adds a subtle top glow when in view ─────────── */
+@keyframes section-entry-glow {
+  from { box-shadow: inset 0 1px 0 0 rgba(32, 62, 236, 0.15); }
+  to   { box-shadow: inset 0 1px 0 0 transparent; }
+}
+
+/* ── Pipeline mini dots in hero ────────────────────────────────────────────── */
+.hero-pipeline-step {
+  will-change: transform;
+}
+
+/* ── Testimonial cards — ensure white bg on light page ─────────────────────── */
+.portfolio-page #testimonials article {
+  background: #ffffff;
+}
+
+/* ── Footer on light page ──────────────────────────────────────────────────── */
+.portfolio-page footer {
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* ── Client logos ticker — darker text on light bg ─────────────────────────── */
+.portfolio-page .animate-marquee span {
+  color: rgba(0, 0, 0, 0.25);
+}
+
+/* ── Improved focus ring for all interactive elements ───────────────────────── */
+.portfolio-page *:focus-visible {
+  outline: 2px solid rgba(32, 62, 236, 0.5);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ── Smooth transitions for all border/background changes ───────────────────── */
+.portfolio-page a,
+.portfolio-page button {
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  transition-duration: 250ms;
+}
+
+/* ── Prevent layout shift from 3D canvas in hero ───────────────────────────── */
+.portfolio-page canvas {
+  display: block;
+}
+
+/* ── Section title spacing consistency ─────────────────────────────────────── */
+.portfolio-page h2.section-title-animate,
+.portfolio-page h2.overflow-visible {
+  margin-bottom: 0;
+}
+
+/* ── Reduced motion safety net ─────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .hero-eyebrow {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  [data-reveal],
+  [data-stagger] > * {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .hero-pipeline-step > div,
+  .hero-pipeline-step > span {
+    transition: none !important;
+  }
+}
+
+/* =============================================================================
+   Liquid Glass + Cinematic Scroll — Added for premium experience
+   ============================================================================= */
+
+/* ── Liquid Glass base utility ───────────────────────────────────────────────
+   Apply .glass-light on light backgrounds, .glass-dark on dark backgrounds  */
+
+.glass-light {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(8px) saturate(180%);
+  -webkit-backdrop-filter: blur(8px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+}
+
+.glass-dark {
+  background: rgba(10, 10, 10, 0.55);
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 4px 32px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* ── Frosted pill — for badges, tags, labels ──────────────────────────────── */
+.glass-pill {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(8px) saturate(200%);
+  -webkit-backdrop-filter: blur(8px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.glass-pill-dark {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(8px) saturate(160%);
+  -webkit-backdrop-filter: blur(8px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* ── Glass card — for capability cards, insight cards ────────────────────── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px) saturate(180%) brightness(1.02);
+  -webkit-backdrop-filter: blur(8px) saturate(180%) brightness(1.02);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.04) inset;
+  transition: box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.3s ease;
+}
+.glass-card:hover {
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.12),
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.06) inset;
+  border-color: rgba(255, 255, 255, 1);
+  transform: translateY(-4px);
+}
+
+/* ── Glass header (scrolled state) ───────────────────────────────────────── */
+.glass-header {
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(12px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(200%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06), 0 4px 20px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* ── Cinematic scroll-reveal — Apple-tuned timing ────────────────────────── */
+[data-reveal] {
+  opacity: 0;
+  transition-property: opacity, transform;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  transition-duration: 0.65s;
+  will-change: opacity, transform;
+}
+[data-reveal="up"]    { transform: translateY(32px); }
+[data-reveal="down"]  { transform: translateY(-24px); }
+[data-reveal="left"]  { transform: translateX(-40px); }
+[data-reveal="right"] { transform: translateX(40px); }
+[data-reveal="scale"] { transform: scale(0.94); }
+[data-reveal="fade"]  { transform: none; }
+[data-reveal].revealed { opacity: 1; transform: none; }
+
+/* Stagger — tighter gaps, faster reveal */
+[data-stagger] > * {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+[data-stagger].revealed > *:nth-child(1)  { opacity:1; transform:none; transition-delay:  0ms; }
+[data-stagger].revealed > *:nth-child(2)  { opacity:1; transform:none; transition-delay: 55ms; }
+[data-stagger].revealed > *:nth-child(3)  { opacity:1; transform:none; transition-delay:110ms; }
+[data-stagger].revealed > *:nth-child(4)  { opacity:1; transform:none; transition-delay:165ms; }
+[data-stagger].revealed > *:nth-child(5)  { opacity:1; transform:none; transition-delay:220ms; }
+[data-stagger].revealed > *:nth-child(6)  { opacity:1; transform:none; transition-delay:275ms; }
+[data-stagger].revealed > *:nth-child(7)  { opacity:1; transform:none; transition-delay:330ms; }
+[data-stagger].revealed > *:nth-child(8)  { opacity:1; transform:none; transition-delay:385ms; }
+[data-stagger].revealed > *:nth-child(9)  { opacity:1; transform:none; transition-delay:440ms; }
+[data-stagger].revealed > *:nth-child(10) { opacity:1; transform:none; transition-delay:495ms; }
+[data-stagger].revealed > *:nth-child(11) { opacity:1; transform:none; transition-delay:550ms; }
+[data-stagger].revealed > *:nth-child(12) { opacity:1; transform:none; transition-delay:605ms; }
+
+/* ── Liquid glass glow ring — decorative hover accent ────────────────────── */
+@keyframes glass-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.glass-shimmer {
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255,255,255,0.4) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: glass-shimmer 2.4s ease-in-out infinite;
+}
+
+/* ── Smooth page transitions ─────────────────────────────────────────────── */
+.portfolio-page {
+  /* hardware-accelerated compositing layer for the entire page */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* ── Section entrance — subtle upward drift on first paint ───────────────── */
+@keyframes section-drift-in {
+  from { opacity: 0; transform: translateY(32px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-section-in {
+  animation: section-drift-in 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Liquid border — animated gradient border on hover ───────────────────── */
+@keyframes border-flow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.liquid-border {
+  position: relative;
+}
+.liquid-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,0.6), rgba(0,0,0,0.08), rgba(255,255,255,0.6));
+  background-size: 300% 300%;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+  z-index: -1;
+  animation: border-flow 3s ease infinite paused;
+}
+.liquid-border:hover::before {
+  opacity: 1;
+  animation-play-state: running;
+}
+
+/* ── Lenis smooth-scroll integration ─────────────────────────────────────── */
+html.lenis {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .glass-shimmer     { animation: none; }
+  .liquid-border::before { animation: none; }
+  [data-reveal]      { opacity: 1 !important; transform: none !important; transition: none !important; }
+  [data-stagger] > * { opacity: 1 !important; transform: none !important; transition: none !important; }
+}
+
+/* =============================================================================
+   Premium Design Layer — Noise, Orbs, Kinetics, Depth
+   ============================================================================= */
+
+/* ── Noise texture overlay ───────────────────────────────────────────────────
+   Apply .noise-overlay to any glass surface for a tactile, non-digital feel  */
+.noise-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 100;
+  mix-blend-mode: multiply;
+}
+
+/* ── Floating orb keyframe ───────────────────────────────────────────────────*/
+@keyframes orb-drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  25%  { transform: translate(30px, -20px) scale(1.04); }
+  50%  { transform: translate(-15px, 35px) scale(0.96); }
+  75%  { transform: translate(20px, 10px) scale(1.02); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+/* ── Section connector — seamless gradient bridge between sections ─────────── */
+.section-connector {
+  height: 80px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(255,255,255,0.4) 50%,
+    transparent 100%
+  );
+  margin: -40px 0;
+  pointer-events: none;
+  position: relative;
+  z-index: 5;
+}
+
+/* ── Kinetic number — spring overshoot on count-up finish ───────────────────── */
+@keyframes spring-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.18); }
+  65%  { transform: scale(0.95); }
+  80%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+.spring-pop {
+  animation: spring-pop 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── Tilt card — subtle 3D perspective on hover ─────────────────────────────
+   Add CSS var --tiltX / --tiltY via JS for dynamic tilt per card             */
+.tilt-card {
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.tilt-card:hover {
+  transform: perspective(800px) rotateX(var(--tiltX, 0deg)) rotateY(var(--tiltY, 0deg));
+}
+
+/* ── Shimmer skeleton loader ─────────────────────────────────────────────────*/
+@keyframes shimmer-move {
+  from { background-position: -300px 0; }
+  to   { background-position: 300px 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 600px 100%;
+  animation: shimmer-move 1.4s ease infinite;
+}
+
+/* ── Hover lift with depth shadow ───────────────────────────────────────────── */
+.lift-deep {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.lift-deep:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    0 24px 64px rgba(0,0,0,0.1),
+    0 8px 24px rgba(0,0,0,0.06),
+    0 2px 6px rgba(0,0,0,0.04);
+}
+
+/* ── Letter tracking animation — headlines breathe open then tighten ──────── */
+@keyframes track-in {
+  from { letter-spacing: 0.08em; opacity: 0; }
+  to   { letter-spacing: -0.04em; opacity: 1; }
+}
+.track-in {
+  animation: track-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── Glass shine — one-time diagonal light sweep on mount ───────────────────── */
+@keyframes glass-shine {
+  0%   { transform: translateX(-120%) skewX(-20deg); opacity: 0; }
+  30%  { opacity: 0.6; }
+  100% { transform: translateX(220%) skewX(-20deg); opacity: 0; }
+}
+.glass-shine {
+  position: relative;
+  overflow: hidden;
+}
+.glass-shine::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 0; width: 40%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255,255,255,0.35) 50%,
+    transparent 100%
+  );
+  animation: glass-shine 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ── Ambient page gradient — handled by portfolio-page background directly ── */
+
+/* ── Smooth scroll snap feel for section transitions ────────────────────────── */
+.portfolio-page section {
+  position: relative;
+}
+
+/* ── CTA button — shimmer sweep on hover ────────────────────────────────────── */
+.cta-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.cta-shimmer::after {
+  content: '';
+  position: absolute;
+  top: -50%; left: -60%; bottom: -50%;
+  width: 40%;
+  background: linear-gradient(105deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+  transform: skewX(-20deg);
+  transition: left 0.5s ease;
+  pointer-events: none;
+}
+.cta-shimmer:hover::after {
+  left: 120%;
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────────────*/
+@media (prefers-reduced-motion: reduce) {
+  .spring-pop, .track-in, .glass-shine::after,
+  .cta-shimmer::after, .shimmer, .tilt-card,
+  .orb-drift { animation: none !important; transition: none !important; }
+}
+
+/* =============================================================================
+   Final Polish Pass
+   ============================================================================= */
+
+/* ── Tilt card overflow containment ─────────────────────────────────────────
+   Prevents the 3D tilt from clipping child content                          */
+[data-spotlight] {
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  isolation: isolate;
+}
+
+/* ── Portfolio page section rhythm ──────────────────────────────────────────
+   Every section gets the glass treatment through inheritance                */
+.portfolio-page > main > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Hero sticky overlay — ensure it layers above the 500vh spacer ────────── */
+.portfolio-page .hero-sticky {
+  z-index: 10;
+}
+
+/* ── Consistent section padding on mobile ────────────────────────────────── */
+@media (max-width: 768px) {
+  .portfolio-page section {
+    overflow-x: hidden;
+  }
+}
+
+/* ── Glass surface depth hierarchy ──────────────────────────────────────────
+   Sections closer to user = more blur + more white = more glass feel
+   contain: layout style — tells browser to isolate paint/layout per section */
+#works, #about, #awards, #insights, #testimonials, #how-it-works, #contact {
+  contain: layout style;
+  transform: translateZ(0);          /* GPU compositing layer */
+  -webkit-transform: translateZ(0);
+}
+
+/* ── CTA shimmer — tighten the sweep timing ─────────────────────────────── */
+.cta-shimmer::after {
+  transition: left 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Scroll progress bar refinement ─────────────────────────────────────── */
+.portfolio-page .scroll-progress-bar {
+  background: linear-gradient(90deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 100%);
+}
+
+/* ── Noise on glass sections — DISABLED: SVG data-URI in CSS causes
+   expensive repaints on every scroll frame. Use a static PNG if needed. ── */
+/* .portfolio-page section::before { ... } */
+
+/* ── Active nav pill transitions ─────────────────────────────────────────── */
+.portfolio-page header nav a {
+  transition: color 0.2s ease, background 0.25s ease,
+              border-color 0.25s ease, box-shadow 0.25s ease !important;
+}
+
+/* ── Smoother Lenis scroll feel — disable browser momentum on the element ── */
+html {
+  overscroll-behavior: none;
+}
+
+/* ── Section title — handled entirely by inline styles in section-title.tsx ── */
+/* The .section-title-animate class is kept for backward compat but overridden */
+.section-title-animate {
+  /* inline styles on the component take precedence — this is a no-op */
+}
+
+/* ── Hero word reveal — simple blur-up, no gradient ─────────────────────── */
+.hero-word {
+  -webkit-text-fill-color: initial !important;
+  background: none !important;
+  color: oklch(0.03 0 0) !important;
+  animation: hero-word-in 0.8s cubic-bezier(0.16,1,0.3,1) both !important;
+}
+@keyframes hero-word-in {
+  from { opacity: 0; transform: translateY(16px); filter: blur(8px); }
+  to   { opacity: 1; transform: translateY(0);    filter: blur(0px);  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-title-animate { animation: none !important; opacity: 1 !important; transform: none !important; filter: none !important; }
+  .hero-word             { animation: none !important; opacity: 1 !important; transform: none !important; filter: none !important; }
+}
+
+/* =============================================================================
+   Custom Cursor — all styles here, NOT in inline <style> tags
+   (inline style tags with quotes cause SSR/hydration mismatch in Next.js)
+   ============================================================================= */
+
+/* Hide on touch/coarse pointer devices */
+@media (pointer: coarse) {
+  .cursor-dot,
+  .cursor-ring { display: none !important; }
+}
+
+/* Show on fine pointer (mouse) */
+@media (pointer: fine) {
+  .cursor-dot,
+  .cursor-ring { display: block; }
+}
+
+/* Dot transitions */
+.cursor-dot-inner {
+  transition:
+    width  0.22s cubic-bezier(0.16, 1, 0.3, 1),
+    height 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+    background 0.18s ease;
+}
+
+/* Ring transitions */
+.cursor-ring-inner {
+  transition:
+    width        0.3s  cubic-bezier(0.16, 1, 0.3, 1),
+    height       0.3s  cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.2s  ease;
+}
+
+/* Hover state — expand when over interactive elements */
+.cursor-dot.cursor-hover  .cursor-dot-inner  {
+  width:      10px !important;
+  height:     10px !important;
+  background: #0a0a0a !important;
+}
+.cursor-ring.cursor-hover .cursor-ring-inner {
+  width:        48px !important;
+  height:       48px !important;
+  border-color: rgba(10, 10, 10, 0.5) !important;
+}

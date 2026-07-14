@@ -1,161 +1,155 @@
 "use client"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MagneticCursor
+// MagneticCursor — portal-based, always on top
 //
-// Fixes over original:
-// 1. No React state for position — DOM transform is mutated directly in rAF
-//    (eliminates 60fps setState → re-render cascade, removes jank)
-// 2. CSS cursor:none injected via a <style> tag rendered to the document head
-//    (styled-jsx is Pages Router only; doesn't work in App Router)
-// 3. Hover scale driven by adding/removing a CSS class instead of inline style
-//    writes, which lets the CSS transition run cleanly
+// Root cause of cursor going behind navbar:
+//   backdrop-filter on the header creates an isolated composited layer.
+//   Any sibling element — even z-index:99999 — can be drawn behind it
+//   because the compositor paints backdrop-filter layers last within their
+//   stacking context.
+//
+// Solution: append cursor elements directly to <body> via a portal,
+//   making them the absolute last nodes in the DOM paint order.
+//   Also use pointer-events:none so they never interfere with interaction.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useRef } from "react"
+import { useEffect } from "react"
 
 export function MagneticCursor() {
-  const dotRef   = useRef<HTMLDivElement>(null)
-  const ringRef  = useRef<HTMLDivElement>(null)
-
   useEffect(() => {
-    const dot  = dotRef.current
-    const ring = ringRef.current
-    if (!dot || !ring) return
+    // Only run on fine-pointer (mouse) devices
+    if (!window.matchMedia("(pointer: fine)").matches) return
 
-    // Inject cursor:none via a real <style> element so App Router picks it up
-    const styleEl = document.createElement("style")
-    styleEl.textContent = "@media (min-width: 768px) { * { cursor: none !important; } }"
+    // ── Create cursor elements directly on body ──────────────────────────────
+    // Being the last children of body means they are ALWAYS painted on top,
+    // above any backdrop-filter stacking context in the page.
+    const dot  = document.createElement("div")
+    const ring = document.createElement("div")
+
+    const dotInner  = document.createElement("div")
+    const ringInner = document.createElement("div")
+
+    // Outer wrappers — position anchors
+    const baseStyle = [
+      "position:fixed", "top:0", "left:0",
+      "pointer-events:none",
+      "will-change:transform",
+      "z-index:2147483647",    // INT_MAX — absolute maximum z-index
+      "opacity:0",
+      "transition:opacity 0.12s ease",
+    ].join(";")
+
+    dot.style.cssText  = baseStyle
+    ring.style.cssText = baseStyle
+
+    // Dot inner
+    dotInner.className = "cursor-dot-inner"
+    Object.assign(dotInner.style, {
+      position: "relative",
+      transform: "translate(-50%,-50%)",
+      borderRadius: "50%",
+      background: "#0a0a0a",
+      width: "7px",
+      height: "7px",
+    })
+
+    // Ring inner
+    ringInner.className = "cursor-ring-inner"
+    Object.assign(ringInner.style, {
+      position: "relative",
+      transform: "translate(-50%,-50%)",
+      borderRadius: "50%",
+      border: "1.5px solid rgba(10,10,10,0.28)",
+      width: "34px",
+      height: "34px",
+    })
+
+    dot.appendChild(dotInner)
+    ring.appendChild(ringInner)
+
+    // Append as LAST children of body — paint order guarantees top-most
+    document.body.appendChild(ring)
+    document.body.appendChild(dot)
+
+    // ── cursor: none injection ───────────────────────────────────────────────
+    const styleEl      = document.createElement("style")
+    styleEl.textContent = "@media (pointer: fine) { * { cursor: none !important; } }"
     document.head.appendChild(styleEl)
 
+    // ── State ────────────────────────────────────────────────────────────────
     let rafId: number
-    let targetX = 0, targetY = 0
-    let currentX = 0, currentY = 0
+    let tX = -300, tY = -300
+    let cX = -300, cY = -300
+    let hasMovedOnce = false
 
     const INTERACTIVE = [
-      "a[href]",
-      "button",
-      '[data-slot="button"]',
-      'input[type="submit"]',
-      '[role="button"]',
+      "a[href]", "button", "[role='button']",
+      "input[type='submit']", "label[for]",
     ].join(",")
 
-    const onMouseMove = (e: MouseEvent) => {
-      targetX = e.clientX
-      targetY = e.clientY
+    // ── Mouse tracking ───────────────────────────────────────────────────────
+    const onMove = (e: MouseEvent) => {
+      tX = e.clientX
+      tY = e.clientY
 
+      if (!hasMovedOnce) {
+        hasMovedOnce = true
+        cX = tX; cY = tY          // snap on first move — no drift from corner
+        dot.style.opacity  = "1"
+        ring.style.opacity = "1"
+      }
+
+      // Hover detection
       const el = (e.target as HTMLElement).closest(INTERACTIVE) as HTMLElement | null
       if (el) {
         dot.classList.add("cursor-hover")
         ring.classList.add("cursor-hover")
-
-        // Magnetic pull within 80px radius
-        const rect = el.getBoundingClientRect()
-        const cx = rect.left + rect.width  / 2
-        const cy = rect.top  + rect.height / 2
-        const dx = targetX - cx
-        const dy = targetY - cy
+        // Gentle magnetic pull
+        const r    = el.getBoundingClientRect()
+        const ecx  = r.left + r.width  / 2
+        const ecy  = r.top  + r.height / 2
+        const dx   = tX - ecx, dy = tY - ecy
         const dist = Math.sqrt(dx * dx + dy * dy)
-        if (dist < 80) {
-          targetX -= dx * 0.3
-          targetY -= dy * 0.3
-        }
+        if (dist < 70) { tX -= dx * 0.20; tY -= dy * 0.20 }
       } else {
         dot.classList.remove("cursor-hover")
         ring.classList.remove("cursor-hover")
       }
     }
 
+    // ── RAF loop ─────────────────────────────────────────────────────────────
     const tick = () => {
-      // Smooth interpolation — no setState, pure DOM mutation
-      currentX += (targetX - currentX) * 0.15
-      currentY += (targetY - currentY) * 0.15
+      cX += (tX - cX) * 0.30          // dot — tight
+      cY += (tY - cY) * 0.30
+      const rX = cX + (tX - cX) * 0.10  // ring — trailing
+      const rY = cY + (tY - cY) * 0.10
 
-      dot.style.transform  = `translate(${currentX}px, ${currentY}px)`
-      ring.style.transform = `translate(${currentX}px, ${currentY}px)`
-
+      dot.style.transform  = `translate(${cX}px,${cY}px) translateZ(0)`
+      ring.style.transform = `translate(${rX}px,${rY}px) translateZ(0)`
       rafId = requestAnimationFrame(tick)
     }
 
-    window.addEventListener("mousemove", onMouseMove, { passive: true })
+    const onLeave = () => { dot.style.opacity = "0"; ring.style.opacity = "0" }
+    const onEnter = () => { if (hasMovedOnce) { dot.style.opacity = "1"; ring.style.opacity = "1" } }
+
+    window.addEventListener("mousemove",    onMove,   { passive: true })
+    document.addEventListener("mouseleave", onLeave)
+    document.addEventListener("mouseenter", onEnter)
     rafId = requestAnimationFrame(tick)
 
+    // ── Cleanup ───────────────────────────────────────────────────────────────
     return () => {
-      window.removeEventListener("mousemove", onMouseMove)
+      window.removeEventListener("mousemove",    onMove)
+      document.removeEventListener("mouseleave", onLeave)
+      document.removeEventListener("mouseenter", onEnter)
       cancelAnimationFrame(rafId)
       styleEl.remove()
+      dot.remove()
+      ring.remove()
     }
   }, [])
 
-  return (
-    <>
-      {/* Dot */}
-      <div
-        ref={dotRef}
-        className="cursor-dot"
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          pointerEvents: "none",
-          zIndex: 9999,
-          mixBlendMode: "difference",
-        }}
-      >
-        <div
-          style={{
-            position: "relative",
-            transform: "translate(-50%, -50%)",
-            borderRadius: "50%",
-            background: "#fff",
-            width: "8px",
-            height: "8px",
-            transition: "width 0.2s, height 0.2s",
-          }}
-          className="cursor-dot-inner"
-        />
-      </div>
-
-      {/* Ring */}
-      <div
-        ref={ringRef}
-        className="cursor-ring"
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          pointerEvents: "none",
-          zIndex: 9998,
-          mixBlendMode: "difference",
-        }}
-      >
-        <div
-          style={{
-            position: "relative",
-            transform: "translate(-50%, -50%)",
-            borderRadius: "50%",
-            border: "1px solid rgba(255,255,255,0.4)",
-            width: "32px",
-            height: "32px",
-            transition: "width 0.3s, height 0.3s",
-          }}
-          className="cursor-ring-inner"
-        />
-      </div>
-
-      {/* Hover-size styles — scoped to cursor elements only */}
-      <style>{`
-        @media (min-width: 768px) {
-          .cursor-dot,
-          .cursor-ring { display: block; }
-        }
-        @media (max-width: 767px) {
-          .cursor-dot,
-          .cursor-ring { display: none; }
-        }
-        .cursor-dot.cursor-hover   .cursor-dot-inner  { width: 40px !important; height: 40px !important; }
-        .cursor-ring.cursor-hover  .cursor-ring-inner { width: 60px !important; height: 60px !important; }
-      `}</style>
-    </>
-  )
+  // Render nothing — elements are created imperatively in the DOM
+  return null
 }

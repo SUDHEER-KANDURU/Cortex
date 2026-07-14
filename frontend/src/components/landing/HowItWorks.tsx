@@ -1,0 +1,603 @@
+"use client"
+
+// =============================================================================
+// HowItWorks — Scroll-pinned cinematic pipeline
+//
+// Behaviour:
+//  • Section pins to viewport while you scroll through all 4 steps
+//  • Each step advances with scroll (25% of scroll runway per step)
+//  • When idle (no scroll) the steps auto-cycle every 3.2 s
+//  • Releasing the scroll lets the page continue past the section
+//  • Zero blue, zero purple — monochrome + ink palette only
+// =============================================================================
+
+import { useEffect, useRef, useState, useCallback } from "react"
+import { SectionTitle } from "@/components/ui/section-title"
+
+// ── Palette — NO blue, NO purple ─────────────────────────────────────────────
+const ACCENT = {
+  0: "#111111", // step 01 — near-black
+  1: "#1a1a1a", // step 02
+  2: "#222222", // step 03
+  3: "#2a2a2a", // step 04
+} as const
+
+const STEP_COLORS = {
+  active:   "#0a0a0a",
+  inactive: "rgba(0,0,0,0.25)",
+  line:     "rgba(0,0,0,0.12)",
+  dot:      "#0a0a0a",
+  dotText:  "#ffffff",
+  border:   "rgba(0,0,0,0.10)",
+  panelBg: "rgba(255,255,255,0.65)",
+  scanCurrent: "#0a0a0a",
+  scanDone:    "#28c840",
+  astNode:     "#111111",
+  graphRoot:   "#111111",
+  graphMod:    "#444444",
+  graphFile:   "#888888",
+  graphEdge:   "rgba(0,0,0,0.18)",
+  graphEdgeActive: "#111111",
+  artifactBg:  "rgba(0,0,0,0.04)",
+  artifactBorder: "rgba(0,0,0,0.08)",
+}
+
+// ── Visuals ───────────────────────────────────────────────────────────────────
+
+function ScanVisual({ active }: { active: boolean }) {
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    if (!active) { setTick(0); return }
+    const t = setInterval(() => setTick(v => v + 1), 180)
+    return () => clearInterval(t)
+  }, [active])
+
+  const files = [
+    "src/cortex/main.py",
+    "src/cortex/config.py",
+    "src/cortex/graph/domain/entities.py",
+    "src/cortex/artifacts/application/use_cases.py",
+    "src/cortex/jobs/infrastructure/repository.py",
+    "src/cortex/graph/presentation/router.py",
+  ]
+  const cur = Math.floor(tick / 2) % (files.length + 1)
+
+  return (
+    <div style={{ padding: "20px 24px", fontFamily: "var(--font-mono,'Fira Code',monospace)", fontSize: "11px" }}>
+      {files.map((f, i) => {
+        const shown = cur > i
+        const current = cur === i
+        return (
+          <div key={f} style={{
+            display: "flex", alignItems: "center", gap: "10px",
+            padding: "5px 8px", borderRadius: "6px", marginBottom: "3px",
+            background: current ? "rgba(0,0,0,0.04)" : "transparent",
+            opacity: shown || current ? 1 : 0.25,
+            transition: "all 0.25s ease",
+          }}>
+            <span style={{
+              color: shown ? STEP_COLORS.scanDone : (current ? STEP_COLORS.scanCurrent : "#ccc"),
+              fontSize: "10px", minWidth: "12px",
+            }}>
+              {shown ? "✓" : (current ? "›" : "·")}
+            </span>
+            <span style={{ color: current ? STEP_COLORS.scanCurrent : "rgba(0,0,0,0.45)" }}>{f}</span>
+          </div>
+        )
+      })}
+      <div style={{
+        marginTop: "12px", display: "flex", alignItems: "center", gap: "7px",
+        fontSize: "10px", color: STEP_COLORS.scanCurrent, fontWeight: 600,
+        letterSpacing: "0.04em",
+      }}>
+        <span style={{
+          display: "inline-block", width: 7, height: 12,
+          background: STEP_COLORS.scanCurrent, verticalAlign: "middle",
+          animation: active ? "caret-blink 0.9s step-end infinite" : "none",
+        }} />
+        {active ? "Scanning repository…" : "Repository scanned"}
+      </div>
+    </div>
+  )
+}
+
+function ASTVisual({ active }: { active: boolean }) {
+  const nodes = [
+    { label: "Module",   x: 120, y: 8   },
+    { label: "ClassDef", x: 50,  y: 58  },
+    { label: "FuncDef",  x: 190, y: 58  },
+    { label: "Assign",   x: 20,  y: 108 },
+    { label: "Return",   x: 88,  y: 108 },
+    { label: "Call",     x: 162, y: 108 },
+    { label: "Name",     x: 218, y: 108 },
+  ]
+  const edges = [[0,1],[0,2],[1,3],[1,4],[2,5],[2,6]]
+  const [rev, setRev] = useState(0)
+
+  useEffect(() => {
+    if (!active) { setRev(0); return }
+    const t = setInterval(() => setRev(v => Math.min(v + 1, nodes.length + edges.length)), 220)
+    return () => clearInterval(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active])
+
+  return (
+    <div style={{ padding: "16px", display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
+      <svg viewBox="0 0 280 145" style={{ width: "100%", maxWidth: 300, overflow: "visible" }}>
+        {edges.map(([a, b], i) => {
+          const from = nodes[a], to = nodes[b]
+          const show = rev > nodes.length + i
+          return (
+            <line key={i}
+              x1={from.x + 28} y1={from.y + 12}
+              x2={to.x + 28}   y2={to.y}
+              stroke={show ? STEP_COLORS.astNode : "transparent"}
+              strokeWidth="1.5" opacity="0.3"
+              style={{ transition: "stroke 0.3s ease" }} />
+          )
+        })}
+        {nodes.map((n, i) => {
+          const isRoot = i === 0
+          const isMid  = i <= 2
+          const show   = rev > i
+          const fill   = show ? (isRoot ? STEP_COLORS.astNode : isMid ? "#444" : "#888") : "#eee"
+          return (
+            <g key={i} style={{ opacity: show ? 1 : 0, transition: "opacity 0.25s ease" }}>
+              <rect x={n.x} y={n.y} width={56} height={22} rx={5} fill={fill} />
+              <text x={n.x + 28} y={n.y + 14} textAnchor="middle"
+                fontSize="7.5" fontWeight="700" fill={show ? "#fff" : "#aaa"}
+                style={{ fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
+                {n.label}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+      <p style={{ fontSize: "10px", color: "rgba(0,0,0,0.4)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
+        abstract syntax tree extracted
+      </p>
+    </div>
+  )
+}
+
+function GraphVisual({ active }: { active: boolean }) {
+  const [pulse, setPulse] = useState(0)
+  useEffect(() => {
+    if (!active) return
+    const t = setInterval(() => setPulse(p => (p + 1) % 6), 480)
+    return () => clearInterval(t)
+  }, [active])
+
+  const gNodes = [
+    { id: "cortex/",    x: 130, y: 65,  r: 15, fill: STEP_COLORS.graphRoot   },
+    { id: "api/",       x: 45,  y: 22,  r: 10, fill: STEP_COLORS.graphMod    },
+    { id: "domain/",    x: 215, y: 22,  r: 10, fill: STEP_COLORS.graphMod    },
+    { id: "infra/",     x: 45,  y: 108, r: 10, fill: STEP_COLORS.graphMod    },
+    { id: "shared/",    x: 215, y: 108, r: 10, fill: STEP_COLORS.graphMod    },
+    { id: "router.py",  x: 5,   y: 60,  r:  6, fill: STEP_COLORS.graphFile   },
+    { id: "entities.py",x: 245, y: 60,  r:  6, fill: STEP_COLORS.graphFile   },
+  ]
+  const gEdges = [[0,1],[0,2],[0,3],[0,4],[1,5],[2,6]]
+
+  return (
+    <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}>
+      <svg viewBox="0 0 260 135" style={{ width: "100%", maxWidth: 280, overflow: "visible" }}>
+        {gEdges.map(([a, b], i) => {
+          const from = gNodes[a], to = gNodes[b]
+          const isHot = active && pulse === i
+          return (
+            <line key={i}
+              x1={from.x} y1={from.y}
+              x2={to.x}   y2={to.y}
+              stroke={isHot ? STEP_COLORS.graphEdgeActive : STEP_COLORS.graphEdge}
+              strokeWidth={isHot ? 1.8 : 1}
+              style={{ transition: "all 0.35s ease" }} />
+          )
+        })}
+        {gNodes.map((n, i) => (
+          <g key={i}>
+            <circle cx={n.x} cy={n.y} r={n.r} fill={n.fill}
+              style={{
+                filter: active && pulse % gNodes.length === i
+                  ? `drop-shadow(0 0 5px ${n.fill}aa)` : "none",
+                transition: "filter 0.35s ease",
+              }} />
+            <text x={n.x} y={n.y + n.r + 9} textAnchor="middle"
+              fontSize="6" fill="rgba(0,0,0,0.4)"
+              style={{ fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
+              {n.id}
+            </text>
+          </g>
+        ))}
+      </svg>
+      <p style={{ fontSize: "10px", color: "rgba(0,0,0,0.4)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
+        241 nodes · 387 relationships
+      </p>
+    </div>
+  )
+}
+
+function ArtifactsVisual({ active }: { active: boolean }) {
+  const artifacts = [
+    { name: "Architecture Diagram", icon: "⬡", delay: 0    },
+    { name: "Learning Path",        icon: "◈", delay: 120  },
+    { name: "API Spec",             icon: "◎", delay: 240  },
+    { name: "Interview Prep",       icon: "◆", delay: 360  },
+    { name: "Vibe Code Report",     icon: "◉", delay: 480  },
+    { name: "Onboarding Guide",     icon: "◐", delay: 600  },
+  ]
+
+  return (
+    <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+      {artifacts.map((a) => (
+        <div key={a.name} style={{
+          display: "flex", alignItems: "center", gap: "9px",
+          padding: "9px 12px", borderRadius: "10px",
+          border: "1px solid rgba(255,255,255,0.85)",
+          background: active
+            ? "rgba(255,255,255,0.65)"
+            : "rgba(255,255,255,0.25)",
+          backdropFilter: "blur(12px) saturate(160%)",
+          WebkitBackdropFilter: "blur(12px) saturate(160%)",
+          boxShadow: active ? "0 2px 8px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,1)" : "none",
+          transition: `all 0.45s ease ${active ? a.delay : 0}ms`,
+          transform: active ? "none" : "translateY(8px)",
+          opacity: active ? 1 : 0,
+        }}>
+          <span style={{ fontSize: "13px", color: "#333" }}>{a.icon}</span>
+          <span style={{
+            fontSize: "9px", fontWeight: 600, color: "rgba(0,0,0,0.6)",
+            fontFamily: "var(--font-mono,'Fira Code',monospace)", lineHeight: 1.3,
+          }}>
+            {a.name}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Step definitions — no blue, no purple ─────────────────────────────────────
+const STEPS = [
+  {
+    number: "01",
+    title: "Repository Scan",
+    description: "Paste any GitHub URL. Cortex clones and recursively indexes every file — Python, JS, TypeScript, and more.",
+    Visual: ScanVisual,
+  },
+  {
+    number: "02",
+    title: "AST Parsing",
+    description: "Every file is parsed at the syntax-tree level. Functions, classes, imports, and relationships are extracted — not just text.",
+    Visual: ASTVisual,
+  },
+  {
+    number: "03",
+    title: "Knowledge Graph",
+    description: "All symbols and dependencies are written as nodes and edges into Neo4j. The structure of your codebase becomes queryable.",
+    Visual: GraphVisual,
+  },
+  {
+    number: "04",
+    title: "Artifact Generation",
+    description: "Cortex queries the graph and generates architecture diagrams, learning paths, interview questions, and more.",
+    Visual: ArtifactsVisual,
+  },
+]
+
+// ── Main component ────────────────────────────────────────────────────────────
+export function PortfolioHowItWorks() {
+  const [activeStep, setActiveStep] = useState(0)
+  const wrapperRef    = useRef<HTMLDivElement>(null)   // the tall scroll runway
+  const autoTimerRef  = useRef<ReturnType<typeof setInterval> | null>(null)
+  const isScrolling   = useRef(false)
+  const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ── Start / restart the auto-cycle timer ──────────────────────────────────
+  const startAuto = useCallback(() => {
+    if (autoTimerRef.current) clearInterval(autoTimerRef.current)
+    autoTimerRef.current = setInterval(() => {
+      setActiveStep(s => (s + 1) % STEPS.length)
+    }, 3200)
+  }, [])
+
+  const stopAuto = useCallback(() => {
+    if (autoTimerRef.current) {
+      clearInterval(autoTimerRef.current)
+      autoTimerRef.current = null
+    }
+  }, [])
+
+  // ── Scroll-driven step advancement ────────────────────────────────────────
+  useEffect(() => {
+    startAuto()
+
+    const onScroll = () => {
+      const wrapper = wrapperRef.current
+      if (!wrapper) return
+
+      const rect   = wrapper.getBoundingClientRect()
+      const total  = wrapper.offsetHeight - window.innerHeight
+      // scrollY relative to the start of this section's scroll runway
+      const scrolled = -rect.top
+      const progress  = Math.max(0, Math.min(1, scrolled / total))
+
+      // Map 0–1 progress across 4 steps
+      const step = Math.min(Math.floor(progress * STEPS.length), STEPS.length - 1)
+
+      if (step !== undefined) {
+        setActiveStep(step)
+      }
+
+      // While actively scrolling: pause auto-cycle
+      if (!isScrolling.current) {
+        isScrolling.current = true
+        stopAuto()
+      }
+
+      // Restart auto-cycle 2 s after scroll stops
+      if (scrollTimeout.current) clearTimeout(scrollTimeout.current)
+      scrollTimeout.current = setTimeout(() => {
+        isScrolling.current = false
+        startAuto()
+      }, 2000)
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => {
+      window.removeEventListener("scroll", onScroll)
+      stopAuto()
+      if (scrollTimeout.current) clearTimeout(scrollTimeout.current)
+    }
+  }, [startAuto, stopAuto])
+
+  return (
+    // Tall wrapper — 300vh gives the scroll runway for all 4 steps
+    <div
+      ref={wrapperRef}
+      id="how-it-works"
+      style={{ height: "300vh", position: "relative" }}
+    >
+      {/* ── Sticky inner — liquid glass frosted background ── */}
+      <div style={{
+        position: "sticky",
+        top: 0,
+        height: "100vh",
+        overflow: "hidden",
+        borderTop: "1px solid rgba(0,0,0,0.06)",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        background: "rgba(255,255,255,0.82)",
+        backdropFilter: "blur(12px) saturate(180%)",
+        WebkitBackdropFilter: "blur(12px) saturate(180%)",
+      }}>
+        <div className="max-w-[1280px] mx-auto px-6 md:px-12 w-full">
+
+          {/* Header row */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10 md:mb-14">
+            <SectionTitle className="text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight max-w-sm">
+              How Cortex works
+            </SectionTitle>
+            <p className="text-sm text-muted-foreground max-w-xs md:text-right leading-relaxed">
+              Four steps from raw repository to structured understanding. Everything runs on your machine.
+            </p>
+          </div>
+
+          {/* ── Desktop layout ── */}
+          <div className="hidden md:grid md:grid-cols-2 gap-8 lg:gap-16 items-start">
+
+            {/* Left: step list */}
+            <div className="flex flex-col gap-0">
+              {STEPS.map((step, i) => {
+                const isActive = i === activeStep
+                const isDone   = i < activeStep
+                return (
+                  <button
+                    key={step.number}
+                    onClick={() => { stopAuto(); setActiveStep(i); setTimeout(startAuto, 4000) }}
+                    style={{ outline: "none", border: "none", background: "none", textAlign: "left", cursor: "pointer" }}>
+                    <div style={{
+                      display: "flex", alignItems: "flex-start", gap: "16px",
+                      padding: "14px 16px",
+                      borderRadius: "16px",
+                      background: isActive
+                        ? "rgba(255,255,255,0.75)"
+                        : "transparent",
+                      backdropFilter: isActive ? "blur(8px) saturate(180%)" : "none",
+                      WebkitBackdropFilter: isActive ? "blur(8px) saturate(180%)" : "none",
+                      border: isActive
+                        ? "1px solid rgba(255,255,255,0.9)"
+                        : "1px solid transparent",
+                      boxShadow: isActive
+                        ? "0 4px 20px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)"
+                        : "none",
+                      transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
+                    }}>
+                      {/* Number bubble + connector line */}
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+                        <div style={{
+                          width: "34px", height: "34px", borderRadius: "50%",
+                          background: isActive ? STEP_COLORS.active : (isDone ? "#111" : "rgba(0,0,0,0.07)"),
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          transition: "background 0.35s ease",
+                        }}>
+                          <span style={{
+                            fontSize: "11px", fontWeight: 700,
+                            color: (isActive || isDone) ? "#fff" : "rgba(0,0,0,0.3)",
+                            fontFamily: "var(--font-mono,'Fira Code',monospace)",
+                            transition: "color 0.3s ease",
+                          }}>
+                            {isDone ? "✓" : step.number}
+                          </span>
+                        </div>
+                        {i < STEPS.length - 1 && (
+                          <div style={{
+                            width: "1px", height: "20px",
+                            background: isDone ? "#111" : STEP_COLORS.line,
+                            transition: "background 0.5s ease",
+                          }} />
+                        )}
+                      </div>
+
+                      {/* Text */}
+                      <div style={{ paddingTop: "7px", flex: 1 }}>
+                        <h3 style={{
+                          fontFamily: "var(--font-display,'Syne',sans-serif)",
+                          fontSize: "15px", fontWeight: 600,
+                          color: isActive ? "rgba(0,0,0,0.9)" : "rgba(0,0,0,0.4)",
+                          transition: "color 0.35s ease",
+                          margin: 0,
+                        }}>
+                          {step.title}
+                        </h3>
+                        <p style={{
+                          fontSize: "13px", lineHeight: 1.6,
+                          color: "rgba(0,0,0,0.4)",
+                          marginTop: "4px",
+                          maxHeight: isActive ? "80px" : "0",
+                          overflow: "hidden",
+                          opacity: isActive ? 1 : 0,
+                          transition: "max-height 0.4s cubic-bezier(0.16,1,0.3,1), opacity 0.3s ease",
+                        }}>
+                          {step.description}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+
+              {/* Scroll progress indicator */}
+              <div style={{ marginTop: "20px", paddingLeft: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+                {STEPS.map((_, i) => (
+                  <div key={i} style={{
+                    height: "2px",
+                    flex: i === activeStep ? 3 : 1,
+                    borderRadius: "2px",
+                    background: i <= activeStep ? "#111" : "rgba(0,0,0,0.12)",
+                    transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
+                  }} />
+                ))}
+                <span style={{ fontSize: "10px", color: "rgba(0,0,0,0.3)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", marginLeft: "4px" }}>
+                  {activeStep + 1} / {STEPS.length}
+                </span>
+              </div>
+            </div>
+
+            {/* Right: visual panel — liquid glass */}
+            <div style={{
+              borderRadius: "20px",
+              overflow: "hidden",
+              background: "rgba(255,255,255,0.65)",
+              backdropFilter: "blur(10px) saturate(180%) brightness(1.02)",
+              WebkitBackdropFilter: "blur(10px) saturate(180%) brightness(1.02)",
+              border: "1px solid rgba(255,255,255,0.85)",
+              boxShadow: "0 8px 48px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(0,0,0,0.04)",
+              minHeight: "300px",
+              transition: "box-shadow 0.4s ease, transform 0.4s ease",
+            }}>
+              {/* Panel header */}
+              <div style={{
+                padding: "11px 16px",
+                borderBottom: "1px solid rgba(255,255,255,0.6)",
+                background: "rgba(255,255,255,0.4)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                display: "flex", alignItems: "center", gap: "9px",
+              }}>
+                {/* Window dots */}
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#FF5F57", display: "inline-block" }} />
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#FFBD2E", display: "inline-block" }} />
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#28C840", display: "inline-block" }} />
+                <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+                  <span style={{
+                    fontSize: "10px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+                    color: "rgba(0,0,0,0.4)",
+                    fontFamily: "var(--font-mono,'Fira Code',monospace)",
+                  }}>
+                    STEP {STEPS[activeStep].number} — {STEPS[activeStep].title}
+                  </span>
+                </div>
+                <span style={{
+                  width: "7px", height: "7px", borderRadius: "50%",
+                  background: "#111", display: "inline-block",
+                  animation: "pulse-dot 2s ease-in-out infinite",
+                }} />
+              </div>
+
+              {/* Visuals — all 4 mounted, only active visible */}
+              <div style={{ minHeight: "260px", position: "relative" }}>
+                {STEPS.map((step, i) => (
+                  <div key={step.number} style={{
+                    position: i === 0 ? "relative" : "absolute",
+                    inset: 0,
+                    opacity: i === activeStep ? 1 : 0,
+                    pointerEvents: i === activeStep ? "auto" : "none",
+                    transition: "opacity 0.4s cubic-bezier(0.16,1,0.3,1)",
+                    minHeight: "260px",
+                  }}>
+                    <step.Visual active={i === activeStep} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Mobile: stacked static cards ── */}
+          <div className="flex flex-col gap-4 md:hidden">
+            {STEPS.map((step, i) => (
+              <div key={step.number} style={{
+                borderRadius: "16px",
+                overflow: "hidden",
+                background: i === activeStep
+                  ? "rgba(255,255,255,0.8)"
+                  : "rgba(255,255,255,0.45)",
+                backdropFilter: "blur(8px) saturate(180%)",
+                WebkitBackdropFilter: "blur(8px) saturate(180%)",
+                border: i === activeStep
+                  ? "1px solid rgba(255,255,255,0.95)"
+                  : "1px solid rgba(255,255,255,0.55)",
+                boxShadow: i === activeStep
+                  ? "0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1)"
+                  : "0 2px 8px rgba(0,0,0,0.04)",
+                transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
+              }}>
+                <div style={{
+                  padding: "14px 16px",
+                  borderBottom: "1px solid rgba(255,255,255,0.5)",
+                  background: "rgba(255,255,255,0.4)",
+                  backdropFilter: "blur(8px)",
+                  WebkitBackdropFilter: "blur(8px)",
+                  display: "flex", alignItems: "center", gap: "12px",
+                }}>
+                  <div style={{
+                    width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                    background: i === activeStep ? "#111" : "rgba(0,0,0,0.07)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "background 0.3s ease",
+                  }}>
+                    <span style={{
+                      fontSize: "10px", fontWeight: 700,
+                      color: i === activeStep ? "#fff" : "rgba(0,0,0,0.3)",
+                      fontFamily: "var(--font-mono,'Fira Code',monospace)",
+                    }}>{step.number}</span>
+                  </div>
+                  <div>
+                    <h3 style={{
+                      fontFamily: "var(--font-display,'Syne',sans-serif)",
+                      fontSize: "14px", fontWeight: 600, margin: 0,
+                    }}>{step.title}</h3>
+                    <p style={{ fontSize: "12px", color: "rgba(0,0,0,0.45)", marginTop: "2px" }}>{step.description}</p>
+                  </div>
+                </div>
+                <step.Visual active={i === activeStep} />
+              </div>
+            ))}
+          </div>
+
+        </div>
+      </div>
+    </div>
+  )
+}
