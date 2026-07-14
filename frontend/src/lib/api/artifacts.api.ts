@@ -21,6 +21,6 @@ export async function getArtifact(artifactId: string): Promise<Artifact> {
  * GET /api/v1/artifacts/job/:jobId
  */
 export async function getArtifactsForJob(jobId: string): Promise<Artifact[]> {
-  const response = await apiClient.get<Artifact[]>(`/artifacts/job/${jobId}`);
-  return response.data;
+  const response = await apiClient.get<{ artifacts: Artifact[]; total: number }>(`/artifacts/job/${jobId}`);
+  return response.data.artifacts;
 }

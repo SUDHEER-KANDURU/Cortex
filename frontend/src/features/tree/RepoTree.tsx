@@ -16,18 +16,18 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Text } from '@react-three/drei';
 import * as THREE from 'three';
 
-// ── Design tokens ─────────────────────────────────────────────────────────────
+// ── Design tokens — dark rich colours that pop on both light and dark bg ─────
 
 const COLOR = {
-  0: '#7C3AED', // root — deep violet
-  1: '#A78BFA', // trunk/modules — light violet
-  2: '#22D3EE', // branches/files — cyan
-  3: '#34D399', // crown/leaves — green
+  0: '#4C1D95', // root — deep indigo-violet
+  1: '#1E40AF', // trunk/modules — deep blue
+  2: '#0E7490', // branches/files — dark teal/cyan
+  3: '#065F46', // crown/leaves — dark emerald green
 } as const;
 type Lv = keyof typeof COLOR;
 
-const SIZE  = { 0: 0.30, 1: 0.20, 2: 0.13, 3: 0.08 } as const;
-const GLOW  = { 0: 5.0,  1: 2.8,  2: 1.8,  3: 1.0  } as const;
+const SIZE  = { 0: 0.32, 1: 0.22, 2: 0.14, 3: 0.09 } as const;
+const GLOW  = { 0: 6.0,  1: 4.0,  2: 3.0,  3: 2.0  } as const;
 
 // ── Node definitions — CROWN at top, ROOT at bottom ───────────────────────────
 
@@ -226,14 +226,16 @@ function SapParticle({
 
 function ScrollCamera({ progress }: { progress: React.MutableRefObject<number> }) {
   const { camera } = useThree();
-  useFrame((state) => {
+  useFrame(() => {
     const p = progress.current;
     const cam = camera as THREE.PerspectiveCamera;
-    // Pull back as tree grows; tilt down toward root
-    cam.position.z += (8 + p * 6 - cam.position.z) * 0.05;
-    cam.position.y += (2 - p * 3 - cam.position.y) * 0.05;
-    // Very slow X drift for depth
-    cam.position.x = Math.sin(state.clock.elapsedTime * 0.05) * 1.2;
+    // Start at z=12 (shows full spread), pull back to z=16 as root appears
+    const targetZ = 12 + p * 4;
+    // Tilt slightly down as roots appear (from y=1 to y=-1)
+    const targetY = 1 - p * 2;
+    cam.position.z += (targetZ - cam.position.z) * 0.06;
+    cam.position.y += (targetY - cam.position.y) * 0.06;
+    cam.position.x  = 0;
     cam.lookAt(0, 0, 0);
   });
   return null;
@@ -251,7 +253,7 @@ function RootHalo({ progress }: { progress: React.MutableRefObject<number> }) {
   return (
     <mesh position={[0, -4, 0]}>
       <sphereGeometry args={[1.4, 24, 24]} />
-      <meshBasicMaterial ref={matRef} color="#7C3AED" transparent opacity={0} side={THREE.BackSide} />
+      <meshBasicMaterial ref={matRef} color="#4C1D95" transparent opacity={0} side={THREE.BackSide} />
     </mesh>
   );
 }
@@ -262,10 +264,11 @@ function TreeScene({ progress }: { progress: React.MutableRefObject<number> }) {
   const groupRef = useRef<THREE.Group>(null);
   const nodeMap  = useMemo(() => new Map(NODES.map((n) => [n.id, n])), []);
 
-  // Slow idle rotation (independent of scroll — keeps tree alive between scrolls)
-  useFrame((_, dt) => {
+  // No idle rotation — tree faces viewer. Subtle sway driven by time only.
+  useFrame((state) => {
     if (!groupRef.current) return;
-    groupRef.current.rotation.y += dt * 0.045;
+    // Gentle sway left-right so it feels alive without spinning
+    groupRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.2) * 0.08;
   });
 
   // Sap paths: root → each leaf (for phase 5 particles)
@@ -281,11 +284,12 @@ function TreeScene({ progress }: { progress: React.MutableRefObject<number> }) {
 
   return (
     <>
-      <ambientLight intensity={0.1} />
-      <pointLight position={[0, 5, 5]}   intensity={3.0} color="#7C3AED" />
-      <pointLight position={[5, 0, -3]}  intensity={2.0} color="#22D3EE" />
-      <pointLight position={[-5, 3, 3]}  intensity={1.5} color="#34D399" />
-      <pointLight position={[0, -5, 0]}  intensity={2.5} color="#7C3AED" distance={10} />
+      <ambientLight intensity={0.8} />
+      <pointLight position={[0, 5, 8]}   intensity={4.0} color="#4C1D95" />
+      <pointLight position={[6, 0, 4]}   intensity={3.0} color="#1E40AF" />
+      <pointLight position={[-6, 3, 4]}  intensity={2.5} color="#0E7490" />
+      <pointLight position={[0, -5, 5]}  intensity={3.5} color="#4C1D95" distance={14} />
+      <directionalLight position={[0, 10, 10]} intensity={1.5} color="#ffffff" />
 
       <ScrollCamera progress={progress} />
 
@@ -340,8 +344,8 @@ function TreeScene({ progress }: { progress: React.MutableRefObject<number> }) {
             toPos={sp.to}
             speed={sp.speed}
             offset={sp.offset}
-            colorStart="#7C3AED"
-            colorEnd="#34D399"
+            colorStart="#4C1D95"
+            colorEnd="#065F46"
             progress={progress}
           />
         ))}
@@ -357,13 +361,14 @@ function TreeScene({ progress }: { progress: React.MutableRefObject<number> }) {
 
 export default function RepoTree({ progress }: { progress: React.MutableRefObject<number> }) {
   return (
-    <div style={{ width:'100%', height:'100%' }}>
+    <div style={{ width:'100%', height:'100%', borderRadius:'16px', overflow:'hidden', background:'#0a0a1a' }}>
       <Canvas
-        camera={{ position:[0, 2, 8], fov:52 }}
+        camera={{ position:[0, 0, 12], fov:58 }}
         style={{ background:'transparent' }}
-        gl={{ antialias:true, alpha:true }}
+        gl={{ antialias:true, alpha:false }}
         dpr={[1, 2]}
       >
+        <color attach="background" args={['#0a0a1a']} />
         <TreeScene progress={progress} />
       </Canvas>
     </div>

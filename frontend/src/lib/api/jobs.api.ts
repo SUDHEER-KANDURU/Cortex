@@ -21,8 +21,8 @@ export async function createJob(request: JobCreateRequest): Promise<Job> {
  * GET /api/v1/jobs
  */
 export async function listJobs(): Promise<Job[]> {
-  const response = await apiClient.get<Job[]>('/jobs');
-  return response.data;
+  const response = await apiClient.get<{ jobs: Job[]; total: number }>('/jobs');
+  return response.data.jobs;
 }
 
 /**
