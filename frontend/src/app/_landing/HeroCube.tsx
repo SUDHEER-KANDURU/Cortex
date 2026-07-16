@@ -6,7 +6,7 @@
 // cinematic scroll experience — it is never a static hero prop, it IS the story.
 // =============================================================================
 
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, memo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { RoundedBox, PerspectiveCamera, Environment, ContactShadows, Line } from '@react-three/drei';
 import * as THREE from 'three';
@@ -147,20 +147,24 @@ function SceneController({
   linesGroupRef: React.RefObject<THREE.Group>;
   mouse: React.MutableRefObject<{ x: number; y: number }>;
 }) {
-  const { camera } = useThree();
+  const { camera, scene, gl } = useThree();
   const parallaxTarget = useRef({ x: 0, y: 0 });
+  const reducedMotion = useRef(false);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    reducedMotion.current = prefersReducedMotion;
     if (prefersReducedMotion) return;
 
     // ── BUG FIX: R3F hasn't committed groupRef when useEffect fires.
     // Poll with rAF until the Three.js object is mounted, then build the timeline.
     let rafId = 0;
     let killed = false;
+    // Store the timeline so we can kill only this component's ScrollTrigger on cleanup
+    let ownTl: gsap.core.Timeline | null = null;
 
     function waitAndBuild() {
       if (killed) return;
@@ -253,6 +257,9 @@ function SceneController({
 
     // ── Finale — settle for the CTA, cube keeps its idle breathing ──────────
     tl.to(camera.position, { z: 9.5, duration: 1, ease: 'power2.out' }, SCENES.finale);
+
+    // Store reference so cleanup can kill only this timeline's ScrollTrigger
+    ownTl = tl;
     } // end buildTimeline
 
     rafId = requestAnimationFrame(waitAndBuild);
@@ -260,10 +267,33 @@ function SceneController({
     return () => {
       killed = true;
       cancelAnimationFrame(rafId);
-      ScrollTrigger.getAll().forEach((t) => t.kill());
+      // Kill only this component's own timeline (and its embedded ScrollTrigger).
+      // Using getAll() would incorrectly kill ScrollTrigger instances created by
+      // useScrollStory and useDepthOfField in page.tsx.
+      if (ownTl) {
+        ownTl.kill();
+        ownTl = null;
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, containerRef, groupRef, coreRef, pieces, linesGroupRef]);
+
+  // GPU cleanup — dispose all geometries and materials, then release the renderer (Req 11.6, 11.7)
+  useEffect(() => {
+    return () => {
+      scene.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          obj.geometry.dispose();
+          if (Array.isArray(obj.material)) {
+            obj.material.forEach((m) => m.dispose());
+          } else {
+            obj.material.dispose();
+          }
+        }
+      });
+      gl.dispose();
+    };
+  }, [scene, gl]);
 
   // Perpetual idle motion — breathing, floating, mouse parallax. Runs always,
   // independent of scroll, so the cube never feels inert between scenes.
@@ -271,16 +301,31 @@ function SceneController({
     if (!groupRef.current) return;
     const t = state.clock.elapsedTime;
 
-    const floatY = Math.sin(t * 0.6) * 0.12;
-
-    // Idle rotation drift (very slow — weight & precision, not spin)
-    groupRef.current.rotation.y += delta * 0.04;
-
-    // Mouse parallax (lerped for smoothness)
+    // Mouse parallax (lerped for smoothness) — runs regardless of reduced-motion
+    // so the user's interaction always has some feedback.
     parallaxTarget.current.x += (mouse.current.x - parallaxTarget.current.x) * 0.04;
     parallaxTarget.current.y += (mouse.current.y - parallaxTarget.current.y) * 0.04;
-    groupRef.current.rotation.x = parallaxTarget.current.y * 0.15;
-    groupRef.current.position.y = floatY + parallaxTarget.current.y * 0.05;
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (!prefersReducedMotion) {
+      // Idle rotation drift — ≤ 0.5°/s (Req 11.1)
+      groupRef.current.rotation.y += delta * 0.008;
+
+      // Floating Y — vertical breathing (Req 11.2)
+      const floatY = Math.sin(t * 0.6) * 0.12;
+      groupRef.current.rotation.x = parallaxTarget.current.y * 0.15;
+      groupRef.current.position.y = floatY + parallaxTarget.current.y * 0.05;
+
+      // Polar coordinate camera orbit — ≤ 0.3°/s around Y axis (Req 17.1)
+      // Camera breathing — ±0.08 units at 0.4 rad/s (Req 17.2)
+      // FOV micro-zoom — ±0.5° based on mouse Y (Req 17.3)
+      camera.position.x = Math.sin(t * 0.008) * 0.5;
+      camera.position.y = Math.sin(t * 0.4) * 0.08;
+      (camera as THREE.PerspectiveCamera).fov = 32 + mouse.current.y * 0.5;
+      (camera as THREE.PerspectiveCamera).updateProjectionMatrix();
+      camera.lookAt(0, 0, 0);
+    }
   });
 
   return (
@@ -293,7 +338,7 @@ function SceneController({
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
-export default function CortexCube() {
+function CortexCube() {
   const containerRef = useRef<HTMLDivElement>(null);
   const groupRef = useRef<THREE.Group>(null);
   const coreRef = useRef<THREE.Mesh>(null);
@@ -379,3 +424,5 @@ export default function CortexCube() {
     </div>
   );
 }
+
+export default memo(CortexCube);

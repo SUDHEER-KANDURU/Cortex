@@ -2,6 +2,7 @@
 
 import { SectionTitle } from "@/components/ui/section-title"
 import { useEffect, useRef, useState } from "react"
+import gsap from "gsap"
 
 function useInView(threshold = 0.3) {
   const ref = useRef<HTMLDivElement>(null)
@@ -22,16 +23,31 @@ function useInView(threshold = 0.3) {
 function AnimatedNumber({ value, suffix = "", active }: { value: number; suffix?: string; active: boolean }) {
   const [display, setDisplay] = useState(0)
   const started = useRef(false)
+  const rafId = useRef<number | null>(null)
   useEffect(() => {
     if (!active || started.current) return
     started.current = true
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setDisplay(value)
+      return
+    }
     const start = performance.now()
     const tick = (now: number) => {
       const p = Math.min((now - start) / 1200, 1)
       setDisplay(Math.round((1 - Math.pow(1 - p, 3)) * value))
-      if (p < 1) requestAnimationFrame(tick)
+      if (p < 1) {
+        rafId.current = requestAnimationFrame(tick)
+      } else {
+        rafId.current = null
+      }
     }
-    requestAnimationFrame(tick)
+    rafId.current = requestAnimationFrame(tick)
+    return () => {
+      if (rafId.current !== null) {
+        cancelAnimationFrame(rafId.current)
+        rafId.current = null
+      }
+    }
   }, [active, value])
   return <span>{display}{suffix}</span>
 }
@@ -160,7 +176,7 @@ export function PortfolioAbout() {
           <div className="flex flex-wrap gap-2" data-stagger>
             {skills.map(skill => (
               <span key={skill}
-                className="px-4 py-2 text-sm font-medium rounded-full transition-all duration-250 hover:-translate-y-0.5"
+                className="px-4 py-2 text-sm font-medium rounded-full"
                 style={{
                   background: "rgba(255,255,255,0.65)",
                   backdropFilter: "blur(12px) saturate(160%)",
@@ -169,7 +185,10 @@ export function PortfolioAbout() {
                   boxShadow: "0 2px 8px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,1)",
                   color: "rgba(0,0,0,0.6)",
                   cursor: "default",
-                }}>
+                }}
+                onMouseEnter={e => gsap.to(e.currentTarget, { y: -2, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', duration: 0.2, ease: 'power2.out' })}
+                onMouseLeave={e => gsap.to(e.currentTarget, { y: 0, boxShadow: 'none', duration: 0.2, ease: 'power2.out' })}
+              >
                 {skill}
               </span>
             ))}

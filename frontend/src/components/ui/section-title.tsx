@@ -21,14 +21,16 @@ function useTextScramble(text: string, trigger: boolean, duration = 600) {
       if (!startTs.current) startTs.current = ts
       const elapsed  = ts - startTs.current
       const progress = Math.min(elapsed / duration, 1)
-      const revealed = Math.floor(progress * text.length)
 
       setDisplay(
         text
           .split("")
           .map((ch, i) => {
             if (ch === " ") return " "
-            if (i < revealed) return ch
+            // Each character reveals when its personal stagger deadline passes
+            // (spread over the first 200ms of the animation)
+            const revealAt = (i / text.length) * 200
+            if (elapsed > revealAt) return ch
             return CHARS[Math.floor(Math.random() * CHARS.length)]
           })
           .join(""),
@@ -58,6 +60,11 @@ export function SectionTitle({
   const [visible, setVisible] = useState(false)
   const ref = useRef<HTMLHeadingElement>(null)
 
+  // Detect reduced motion preference — SSR-safe
+  const prefersReducedMotion = typeof window !== "undefined"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false
+
   useEffect(() => {
     const el = ref.current
     if (!el) return
@@ -70,7 +77,9 @@ export function SectionTitle({
   }, [visible])
 
   const plainText = typeof children === "string" ? children : ""
-  const scrambled = useTextScramble(plainText, visible && scramble && !!plainText, 600)
+  // When reduced motion is preferred, trigger is always false → useTextScramble
+  // returns plain text immediately without running the animation loop.
+  const scrambled = useTextScramble(plainText, visible && scramble && !!plainText && !prefersReducedMotion, 600)
 
   return (
     <h2

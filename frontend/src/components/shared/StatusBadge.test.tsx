@@ -18,22 +18,22 @@ describe('StatusBadge', () => {
     expect(badge.textContent).toContain(expectedLabel);
   });
 
-  it('applies yellow color class for pending status', () => {
+  it('applies slate color class for pending status', () => {
     render(<StatusBadge status="pending" />);
+    const badge = screen.getByTestId('status-badge');
+    expect(badge.className).toContain('slate');
+  });
+
+  it('applies yellow color class for running status', () => {
+    render(<StatusBadge status="running" />);
     const badge = screen.getByTestId('status-badge');
     expect(badge.className).toContain('yellow');
   });
 
-  it('applies blue color class for running status', () => {
-    render(<StatusBadge status="running" />);
-    const badge = screen.getByTestId('status-badge');
-    expect(badge.className).toContain('blue');
-  });
-
-  it('applies green color class for completed status', () => {
+  it('applies emerald color class for completed status', () => {
     render(<StatusBadge status="completed" />);
     const badge = screen.getByTestId('status-badge');
-    expect(badge.className).toContain('green');
+    expect(badge.className).toContain('emerald');
   });
 
   it('applies red color class for failed status', () => {
@@ -42,16 +42,16 @@ describe('StatusBadge', () => {
     expect(badge.className).toContain('red');
   });
 
-  it('applies gray color class for cancelled status', () => {
+  it('applies slate color class for cancelled status', () => {
     render(<StatusBadge status="cancelled" />);
     const badge = screen.getByTestId('status-badge');
-    expect(badge.className).toContain('gray');
+    expect(badge.className).toContain('slate');
   });
 
   it('renders animated pulse dot for running status', () => {
     render(<StatusBadge status="running" />);
-    // The pulse dot uses animate-ping class
-    const pulseDot = document.querySelector('.animate-ping');
+    // The pulse dot uses animate-pulse class
+    const pulseDot = document.querySelector('.animate-pulse');
     expect(pulseDot).not.toBeNull();
   });
 

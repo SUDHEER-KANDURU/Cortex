@@ -10,12 +10,14 @@ const socialLinks = [
 ]
 
 const footerLinks = [
-  { href: "/",          label: "Home"         },
-  { href: "#about",     label: "About"        },
-  { href: "#works",     label: "Capabilities" },
-  { href: "#insights",  label: "Insights"     },
-  { href: "/dashboard", label: "Dashboard"    },
+  { href: "https://github.com/SUDHEER-KANDURU/cortex", label: "GitHub",        external: true  },
+  { href: "/docs",                                      label: "Documentation", external: false },
+  { href: "/api",                                       label: "API",           external: false },
+  { href: "/roadmap",                                   label: "Roadmap",       external: false },
+  { href: "/contact",                                   label: "Contact",       external: false },
 ]
+
+const VERSION = "v0.1.0"
 
 export function PortfolioFooter() {
   return (
@@ -31,6 +33,12 @@ export function PortfolioFooter() {
 
           {/* Brand */}
           <div className="md:col-span-2" data-reveal="up">
+            <div
+              className="logo-cube"
+              style={{ width: 20, height: 20, background: '#111', borderRadius: 4,
+                animation: 'logo-cube-rotate 120s linear infinite',
+                marginBottom: 8 }}
+            />
             <Link href="/"
               style={{
                 fontFamily: "var(--font-display,'Syne',sans-serif)",
@@ -85,6 +93,7 @@ export function PortfolioFooter() {
             <div className="mt-5">
               <Link href="https://github.com/SUDHEER-KANDURU/cortex"
                 target="_blank" rel="noopener noreferrer"
+                className="footer-link"
                 style={{
                   fontSize: "12px", color: "rgba(0,0,0,0.4)",
                   fontFamily: "var(--font-mono,'Fira Code',monospace)",
@@ -97,15 +106,17 @@ export function PortfolioFooter() {
             </div>
           </div>
 
-          {/* Pages */}
+          {/* Links */}
           <div data-reveal="up" style={{ transitionDelay: "80ms" }}>
             <h4 style={{ fontSize: "12px", fontWeight: 700, color: "#111", marginBottom: "18px", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
-              Pages
+              Links
             </h4>
             <ul className="space-y-3">
               {footerLinks.map((link) => (
                 <li key={link.label}>
                   <Link href={link.href}
+                    {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                    className="footer-link"
                     style={{ fontSize: "14px", color: "rgba(0,0,0,0.45)", textDecoration: "none", transition: "color 0.2s ease" }}
                     onMouseEnter={e => (e.currentTarget.style.color = "#111")}
                     onMouseLeave={e => (e.currentTarget.style.color = "rgba(0,0,0,0.45)")}>
@@ -153,10 +164,14 @@ export function PortfolioFooter() {
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-16 pt-8"
           style={{ borderTop: "1px solid rgba(0,0,0,0.07)" }}>
           <p style={{ fontSize: "12px", color: "rgba(0,0,0,0.3)", fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
-            © {new Date().getFullYear()} Cortex — Built by Sudheer Kanduru · SRMIST, Chennai
+            © {new Date().getFullYear()} Cortex — Built by Sudheer Kanduru
           </p>
+          <span style={{ fontSize: "12px", color: "rgba(0,0,0,0.3)", fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
+            {VERSION}
+          </span>
           <Link href="https://github.com/SUDHEER-KANDURU/cortex"
             target="_blank" rel="noopener noreferrer"
+            className="footer-link"
             style={{ fontSize: "12px", color: "rgba(0,0,0,0.3)", textDecoration: "none", fontFamily: "var(--font-mono,'Fira Code',monospace)", transition: "color 0.2s ease" }}
             onMouseEnter={e => (e.currentTarget.style.color = "#111")}
             onMouseLeave={e => (e.currentTarget.style.color = "rgba(0,0,0,0.3)")}>

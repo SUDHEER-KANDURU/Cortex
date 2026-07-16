@@ -89,3 +89,5 @@ research/
 prompts/
 kiro/
 .dev/
+
+test_parser.py

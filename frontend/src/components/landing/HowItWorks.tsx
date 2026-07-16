@@ -4,8 +4,8 @@
 // HowItWorks — Scroll-pinned cinematic pipeline
 //
 // Behaviour:
-//  • Section pins to viewport while you scroll through all 4 steps
-//  • Each step advances with scroll (25% of scroll runway per step)
+//  • Section pins to viewport while you scroll through all 6 steps
+//  • Each step advances with scroll (1/6 of scroll runway per step)
 //  • When idle (no scroll) the steps auto-cycle every 3.2 s
 //  • Releasing the scroll lets the page continue past the section
 //  • Zero blue, zero purple — monochrome + ink palette only
@@ -13,6 +13,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react"
 import { SectionTitle } from "@/components/ui/section-title"
+import gsap from "gsap"
 
 // ── Palette — NO blue, NO purple ─────────────────────────────────────────────
 const ACCENT = {
@@ -20,6 +21,8 @@ const ACCENT = {
   1: "#1a1a1a", // step 02
   2: "#222222", // step 03
   3: "#2a2a2a", // step 04
+  4: "#333333", // step 05
+  5: "#3a3a3a", // step 06
 } as const
 
 const STEP_COLORS = {
@@ -257,29 +260,274 @@ function ArtifactsVisual({ active }: { active: boolean }) {
   )
 }
 
-// ── Step definitions — no blue, no purple ─────────────────────────────────────
+function RepositoryVisual({ active }: { active: boolean }) {
+  const [pulse, setPulse] = useState(0)
+  useEffect(() => {
+    if (!active) { setPulse(0); return }
+    const t = setInterval(() => setPulse(v => v + 1), 600)
+    return () => clearInterval(t)
+  }, [active])
+
+  const items = [
+    { label: "main",       icon: "⌥", depth: 0 },
+    { label: "src/",       icon: "◈", depth: 1 },
+    { label: "tests/",     icon: "◈", depth: 1 },
+    { label: "README.md",  icon: "◎", depth: 1 },
+    { label: "pyproject.toml", icon: "◎", depth: 1 },
+  ]
+
+  return (
+    <div style={{ padding: "20px 24px", fontFamily: "var(--font-mono,'Fira Code',monospace)", fontSize: "11px" }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: "8px",
+        marginBottom: "14px", fontSize: "10px",
+        color: "rgba(0,0,0,0.4)", letterSpacing: "0.08em",
+      }}>
+        <span style={{
+          display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+          background: active ? "#28c840" : "rgba(0,0,0,0.18)",
+          transition: "background 0.4s ease",
+        }} />
+        {active ? "Connected — cloning…" : "Awaiting URL"}
+      </div>
+      {items.map((item, i) => {
+        const isHighlighted = active && pulse % (items.length + 1) === i
+        return (
+          <div key={item.label} style={{
+            display: "flex", alignItems: "center", gap: "8px",
+            paddingLeft: `${item.depth * 16 + 8}px`,
+            padding: `5px 8px 5px ${item.depth * 16 + 8}px`,
+            borderRadius: "6px", marginBottom: "3px",
+            background: isHighlighted ? "rgba(0,0,0,0.04)" : "transparent",
+            opacity: active ? (isHighlighted ? 1 : 0.7) : 0.25,
+            transition: "all 0.3s ease",
+          }}>
+            <span style={{ fontSize: "9px", color: "rgba(0,0,0,0.4)", minWidth: "12px" }}>{item.icon}</span>
+            <span style={{ color: isHighlighted ? "#0a0a0a" : "rgba(0,0,0,0.5)" }}>{item.label}</span>
+          </div>
+        )
+      })}
+      <div style={{
+        marginTop: "12px", padding: "8px 10px", borderRadius: "8px",
+        background: "rgba(0,0,0,0.03)", border: "1px solid rgba(0,0,0,0.06)",
+        fontSize: "10px", color: "rgba(0,0,0,0.45)", letterSpacing: "0.05em",
+      }}>
+        <span style={{ color: "rgba(0,0,0,0.3)", marginRight: "6px" }}>$</span>
+        git clone {active ? <span style={{ opacity: 0.6 }}>github.com/…</span> : "—"}
+      </div>
+    </div>
+  )
+}
+
+function ReasoningEngineVisual({ active }: { active: boolean }) {
+  const [step, setStep] = useState(0)
+  useEffect(() => {
+    if (!active) { setStep(0); return }
+    const t = setInterval(() => setStep(v => (v + 1) % 5), 700)
+    return () => clearInterval(t)
+  }, [active])
+
+  const thoughts = [
+    "Traversing dependency subgraph…",
+    "Resolving cross-module refs…",
+    "Ranking symbol relevance…",
+    "Composing context window…",
+    "Generating reasoning chain…",
+  ]
+
+  return (
+    <div style={{ padding: "20px 24px", fontFamily: "var(--font-mono,'Fira Code',monospace)", fontSize: "11px" }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: "8px",
+        marginBottom: "14px", fontSize: "10px", color: "rgba(0,0,0,0.4)", letterSpacing: "0.06em",
+      }}>
+        <span style={{
+          display: "inline-block", width: 7, height: 12,
+          background: active ? "#0a0a0a" : "rgba(0,0,0,0.18)",
+          verticalAlign: "middle",
+          animation: active ? "caret-blink 0.9s step-end infinite" : "none",
+        }} />
+        {active ? "Reasoning engine active" : "Idle"}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        {thoughts.map((thought, i) => {
+          const isDone    = active && i < step
+          const isCurrent = active && i === step
+          return (
+            <div key={thought} style={{
+              display: "flex", alignItems: "center", gap: "10px",
+              padding: "6px 10px", borderRadius: "8px",
+              background: isCurrent ? "rgba(0,0,0,0.04)" : "transparent",
+              opacity: isDone ? 0.45 : (isCurrent ? 1 : 0.2),
+              transition: "all 0.35s ease",
+            }}>
+              <span style={{
+                fontSize: "9px",
+                color: isDone ? "#28c840" : (isCurrent ? "#0a0a0a" : "rgba(0,0,0,0.25)"),
+                minWidth: "12px",
+              }}>
+                {isDone ? "✓" : (isCurrent ? "›" : "·")}
+              </span>
+              <span style={{ color: isCurrent ? "#0a0a0a" : "rgba(0,0,0,0.45)", lineHeight: 1.4 }}>
+                {thought}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── ConnectorLine — SVG draw-on connector between adjacent stage bubbles ─────
+const LINE_LENGTH = 20 // SVG line height in px (matches previous 20px div)
+
+interface ConnectorLineProps {
+  active: boolean  // when true, triggers draw-on animation
+  isDone: boolean  // when true, show line fully without animation
+}
+
+function ConnectorLine({ active, isDone }: ConnectorLineProps) {
+  const lineRef = useRef<SVGLineElement>(null)
+  const glowRef = useRef<SVGLineElement>(null)
+  const particleRef = useRef<SVGLineElement>(null)
+  const hasAnimated = useRef(false)
+
+  useEffect(() => {
+    const line = lineRef.current
+    const glow = glowRef.current
+    if (!line || !glow) return
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (prefersReducedMotion) {
+      if (lineRef.current) lineRef.current.style.strokeDashoffset = '0'
+      if (glowRef.current) glowRef.current.style.strokeDashoffset = '0'
+      return
+    }
+
+    if (isDone) {
+      // Already past — show fully, no animation
+      line.style.strokeDashoffset = "0"
+      glow.style.strokeDashoffset = "0"
+      hasAnimated.current = true
+      return
+    }
+
+    if (active && !hasAnimated.current) {
+      hasAnimated.current = true
+      // Draw-on animation: strokeDashoffset from LINE_LENGTH → 0
+      gsap.fromTo(
+        [line, glow],
+        { strokeDashoffset: LINE_LENGTH },
+        { strokeDashoffset: 0, duration: 0.4, ease: "power2.out" }
+      )
+    }
+
+    if (!active && !isDone) {
+      // Reset so it can animate again if needed
+      hasAnimated.current = false
+      line.style.strokeDashoffset = String(LINE_LENGTH)
+      glow.style.strokeDashoffset = String(LINE_LENGTH)
+    }
+  }, [active, isDone])
+
+  // Data-flow particle — loops continuously once this connector is done
+  useEffect(() => {
+    const particle = particleRef.current
+    if (!particle) return
+    if (!isDone) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    const tween = gsap.to(particle, {
+      strokeDashoffset: -LINE_LENGTH,
+      duration: 2,
+      ease: 'none',
+      repeat: -1,
+    })
+    return () => { tween.kill() }
+  }, [isDone])
+
+  return (
+    <svg
+      width="2"
+      height={LINE_LENGTH}
+      viewBox={`0 0 2 ${LINE_LENGTH}`}
+      overflow="visible"
+      style={{ display: "block", margin: "0 auto" }}
+    >
+      {/* Glow line — rendered beneath the main line */}
+      <line
+        ref={glowRef}
+        x1="1" y1="0"
+        x2="1" y2={LINE_LENGTH}
+        stroke="var(--electric-blue, #00d4ff)"
+        strokeWidth="2"
+        strokeDasharray={LINE_LENGTH}
+        strokeDashoffset={isDone ? 0 : LINE_LENGTH}
+        opacity="0.35"
+        style={{ filter: "blur(2px)" }}
+      />
+      {/* Main connector line */}
+      <line
+        ref={lineRef}
+        x1="1" y1="0"
+        x2="1" y2={LINE_LENGTH}
+        stroke={isDone ? "#111" : STEP_COLORS.line}
+        strokeWidth="1"
+        strokeDasharray={LINE_LENGTH}
+        strokeDashoffset={isDone ? 0 : LINE_LENGTH}
+      />
+      {/* Data-flow particle — 2px dot animated along the connector */}
+      <line
+        ref={particleRef}
+        x1="1" y1="0"
+        x2="1" y2={LINE_LENGTH}
+        stroke="#111"
+        strokeWidth="2"
+        strokeDasharray={`4 ${LINE_LENGTH}`}
+        strokeDashoffset={LINE_LENGTH}
+        opacity={isDone ? 0.6 : 0}
+        style={{ transition: 'opacity 0.3s ease' }}
+      />
+    </svg>
+  )
+}
+
+// ── Pipeline stages — 6 entries per spec requirement 2.1 ──────────────────────
 const STEPS = [
   {
     number: "01",
-    title: "Repository Scan",
+    title: "Repository",
     description: "Paste any GitHub URL. Cortex clones and recursively indexes every file — Python, JS, TypeScript, and more.",
-    Visual: ScanVisual,
+    Visual: RepositoryVisual,
   },
   {
     number: "02",
+    title: "Scanning",
+    description: "Every file is discovered, read, and queued for parsing. Cortex records file types, sizes, and entry points.",
+    Visual: ScanVisual,
+  },
+  {
+    number: "03",
     title: "AST Parsing",
     description: "Every file is parsed at the syntax-tree level. Functions, classes, imports, and relationships are extracted — not just text.",
     Visual: ASTVisual,
   },
   {
-    number: "03",
+    number: "04",
     title: "Knowledge Graph",
     description: "All symbols and dependencies are written as nodes and edges into Neo4j. The structure of your codebase becomes queryable.",
     Visual: GraphVisual,
   },
   {
-    number: "04",
-    title: "Artifact Generation",
+    number: "05",
+    title: "Reasoning Engine",
+    description: "Cortex traverses the knowledge graph, resolves cross-module references, and composes a rich context for generation.",
+    Visual: ReasoningEngineVisual,
+  },
+  {
+    number: "06",
+    title: "Artifacts",
     description: "Cortex queries the graph and generates architecture diagrams, learning paths, interview questions, and more.",
     Visual: ArtifactsVisual,
   },
@@ -310,6 +558,12 @@ export function PortfolioHowItWorks() {
 
   // ── Scroll-driven step advancement ────────────────────────────────────────
   useEffect(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (prefersReducedMotion) {
+      setActiveStep(STEPS.length - 1) // show all stages
+      return
+    }
+
     startAuto()
 
     const onScroll = () => {
@@ -322,7 +576,7 @@ export function PortfolioHowItWorks() {
       const scrolled = -rect.top
       const progress  = Math.max(0, Math.min(1, scrolled / total))
 
-      // Map 0–1 progress across 4 steps
+      // Map 0–1 progress across 6 steps (progress = i / 6 per stage)
       const step = Math.min(Math.floor(progress * STEPS.length), STEPS.length - 1)
 
       if (step !== undefined) {
@@ -352,7 +606,7 @@ export function PortfolioHowItWorks() {
   }, [startAuto, stopAuto])
 
   return (
-    // Tall wrapper — 300vh gives the scroll runway for all 4 steps
+    // Tall wrapper — 300vh gives the scroll runway for all 6 steps
     <div
       ref={wrapperRef}
       id="how-it-works"
@@ -380,7 +634,7 @@ export function PortfolioHowItWorks() {
               How Cortex works
             </SectionTitle>
             <p className="text-sm text-muted-foreground max-w-xs md:text-right leading-relaxed">
-              Four steps from raw repository to structured understanding. Everything runs on your machine.
+              Six steps from raw repository to structured understanding. Everything runs on your machine.
             </p>
           </div>
 
@@ -432,11 +686,7 @@ export function PortfolioHowItWorks() {
                           </span>
                         </div>
                         {i < STEPS.length - 1 && (
-                          <div style={{
-                            width: "1px", height: "20px",
-                            background: isDone ? "#111" : STEP_COLORS.line,
-                            transition: "background 0.5s ease",
-                          }} />
+                          <ConnectorLine active={isActive} isDone={isDone} />
                         )}
                       </div>
 
@@ -451,17 +701,23 @@ export function PortfolioHowItWorks() {
                         }}>
                           {step.title}
                         </h3>
-                        <p style={{
-                          fontSize: "13px", lineHeight: 1.6,
-                          color: "rgba(0,0,0,0.4)",
-                          marginTop: "4px",
-                          maxHeight: isActive ? "80px" : "0",
+                        {/* CLS-safe reveal: only opacity + transform (no layout properties animated) */}
+                        <div style={{
                           overflow: "hidden",
+                          transform: isActive ? "scaleY(1)" : "scaleY(0)",
+                          transformOrigin: "top",
                           opacity: isActive ? 1 : 0,
-                          transition: "max-height 0.4s cubic-bezier(0.16,1,0.3,1), opacity 0.3s ease",
+                          transition: "transform 0.4s cubic-bezier(0.16,1,0.3,1), opacity 0.3s ease",
+                          pointerEvents: isActive ? "auto" : "none",
                         }}>
-                          {step.description}
-                        </p>
+                          <p style={{
+                            fontSize: "13px", lineHeight: 1.6,
+                            color: "rgba(0,0,0,0.4)",
+                            marginTop: "4px",
+                          }}>
+                            {step.description}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </button>
@@ -526,7 +782,7 @@ export function PortfolioHowItWorks() {
                 }} />
               </div>
 
-              {/* Visuals — all 4 mounted, only active visible */}
+              {/* Visuals — all 6 mounted, only active visible */}
               <div style={{ minHeight: "260px", position: "relative" }}>
                 {STEPS.map((step, i) => (
                   <div key={step.number} style={{

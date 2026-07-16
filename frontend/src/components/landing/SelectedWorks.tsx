@@ -5,32 +5,26 @@ import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 import { SectionTitle } from "@/components/ui/section-title"
 import { useEffect, useRef, useState } from "react"
-
-function useInView(threshold = 0.2) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [inView, setInView] = useState(false)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setInView(true) },
-      { threshold },
-    )
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [threshold])
-  return { ref, inView }
-}
+import gsap from "gsap"
 
 // ── Visuals — ink palette only, zero blue/purple ──────────────────────────────
 
-function ArchitectureDemoVisual({ active }: { active: boolean }) {
+function ArchitectureDemoVisual({ onStart }: { onStart?: (startFn: () => void) => void }) {
   const [step, setStep] = useState(0)
   useEffect(() => {
-    if (!active) return
-    const t = setInterval(() => setStep(s => (s + 1) % 7), 900)
-    return () => clearInterval(t)
-  }, [active])
+    if (!onStart) return
+    onStart(() => {
+      // Animation will be implemented in task 12.2
+      // Placeholder: advance through all steps sequentially
+      let s = 0
+      const t = setInterval(() => {
+        s += 1
+        setStep(s)
+        if (s >= 6) clearInterval(t)
+      }, 900)
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // 2×2 grid layout — no horizontal overflow possible
   // api/    domain/
@@ -121,7 +115,7 @@ function LearningPathVisual() {
   )
 }
 
-function InterviewPrepVisual({ active }: { active: boolean }) {
+function InterviewPrepVisual({ onStart }: { onStart?: (startFn: () => void) => void }) {
   const [idx, setIdx] = useState(0)
   const questions = [
     "What design pattern does JobRepository use?",
@@ -129,11 +123,22 @@ function InterviewPrepVisual({ active }: { active: boolean }) {
     "Explain the dependency between api/ and domain/",
   ]
   useEffect(() => {
-    if (!active) return
-    const t = setInterval(() => setIdx(s => (s + 1) % questions.length), 2000)
-    return () => clearInterval(t)
+    if (!onStart) return
+    onStart(() => {
+      // Animation will be implemented in task 12.4
+      // Placeholder: cycle through questions sequentially once
+      let i = 0
+      const t = setInterval(() => {
+        i += 1
+        if (i < questions.length) {
+          setIdx(i)
+        } else {
+          clearInterval(t)
+        }
+      }, 2000)
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active])
+  }, [])
 
   return (
     <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", background: "rgba(255,255,255,0.55)", backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)" }}>
@@ -166,13 +171,18 @@ function InterviewPrepVisual({ active }: { active: boolean }) {
   )
 }
 
-function VibeCodeVisual({ active }: { active: boolean }) {
+function VibeCodeVisual({ onStart }: { onStart?: (startFn: () => void) => void }) {
   const [flash, setFlash] = useState(false)
   useEffect(() => {
-    if (!active) return
-    const t = setInterval(() => setFlash(f => !f), 1600)
-    return () => clearInterval(t)
-  }, [active])
+    if (!onStart) return
+    onStart(() => {
+      // Animation will be implemented in task 12.6
+      // Placeholder: flash once
+      setFlash(true)
+      setTimeout(() => setFlash(false), 1600)
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const issues = [
     { line: "14", text: "Missing error handling", severity: "high", color: "#ef4444" },
@@ -211,17 +221,45 @@ function VibeCodeVisual({ active }: { active: boolean }) {
 
 interface Work {
   id: number; title: string; category: string; description: string
-  Visual: React.FC<{ active: boolean }>; tags: string[]; accent: string
+  Visual: React.FC<{ onStart?: (startFn: () => void) => void }>; tags: string[]; accent: string
 }
 
 function WorkCard({ work, index }: { work: Work; index: number }) {
-  const { ref, inView } = useInView(0.15)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const articleRef = useRef<HTMLElement>(null)
+  const hasPlayed = useRef(false)
+  const startAnimationRef = useRef<(() => void) | null>(null)
+
+  // Register the startAnimation callback provided by the Visual component
+  const handleRegisterStart = (startFn: () => void) => {
+    startAnimationRef.current = startFn
+  }
+
+  useEffect(() => {
+    const cardEl = cardRef.current
+    if (!cardEl) return
+
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !hasPlayed.current) {
+        hasPlayed.current = true
+        // Call the visual's startAnimation if registered
+        if (startAnimationRef.current) {
+          startAnimationRef.current()
+        }
+        obs.disconnect()
+      }
+    }, { threshold: 0.15 })
+
+    obs.observe(cardEl)
+    return () => obs.disconnect()
+  }, [])
   return (
-    <div ref={ref} className="sticky" style={{ top: `${72 + index * 8}px`, zIndex: index + 1 }}>
+    <div ref={cardRef} className="sticky" style={{ top: `${72 + index * 8}px`, zIndex: index + 1 }}>
       <Link href="/dashboard" className="group block pt-6">
         <article
+          ref={articleRef as React.RefObject<HTMLElement>}
           data-spotlight
-          className="overflow-hidden rounded-2xl md:rounded-3xl transition-all duration-500 hover:-translate-y-1.5 tilt-card"
+          className="overflow-hidden rounded-2xl md:rounded-3xl transition-all duration-500 tilt-card"
           style={{
             background: "rgba(255,255,255,0.72)",
             backdropFilter: "blur(8px) saturate(180%) brightness(1.02)",
@@ -233,11 +271,13 @@ function WorkCard({ work, index }: { work: Work; index: number }) {
             const el = e.currentTarget as HTMLElement
             el.style.boxShadow = "0 20px 60px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,1)"
             el.style.borderColor = "rgba(255,255,255,1)"
+            gsap.to(articleRef.current, { y: -6, duration: 0.1, ease: 'power2.out' })
           }}
           onMouseLeave={e => {
             const el = e.currentTarget as HTMLElement
             el.style.boxShadow = "0 4px 32px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(0,0,0,0.03)"
             el.style.borderColor = "rgba(255,255,255,0.88)"
+            gsap.to(articleRef.current, { y: 0, duration: 0.55, ease: 'cubic.out' })
           }}>
 
           <div className="relative overflow-hidden"
@@ -274,7 +314,9 @@ function WorkCard({ work, index }: { work: Work; index: number }) {
             <div className="flex flex-wrap gap-2 mt-4">
               {work.tags.map(tag => (
                 <span key={tag} className="px-3 py-1 text-xs font-medium rounded-full"
-                  style={{ background: "rgba(0,0,0,0.05)", color: "rgba(0,0,0,0.55)", border: "1px solid rgba(0,0,0,0.08)" }}>
+                  style={{ background: "rgba(0,0,0,0.05)", color: "rgba(0,0,0,0.55)", border: "1px solid rgba(0,0,0,0.08)" }}
+                  onMouseEnter={e => gsap.to(e.currentTarget, { y: -2, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', duration: 0.2, ease: 'power2.out' })}
+                  onMouseLeave={e => gsap.to(e.currentTarget, { y: 0, boxShadow: 'none', duration: 0.2, ease: 'power2.out' })}>
                   {tag}
                 </span>
               ))}

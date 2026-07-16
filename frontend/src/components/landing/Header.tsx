@@ -1,9 +1,11 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { Menu, X } from "lucide-react"
+import gsap from "gsap"
+import Lenis from "lenis"
 
 const navItems = [
   { href: "#works",        label: "Capabilities",  id: "works"        },
@@ -14,15 +16,110 @@ const navItems = [
 ]
 
 export function PortfolioHeader() {
-  const [scrollY,         setScrollY]         = useState(0)
-  const [isMobileMenuOpen, setMobileOpen]     = useState(false)
-  const [activeSection,   setActiveSection]   = useState<string>("")
+  const [isMobileMenuOpen, setMobileOpen]   = useState(false)
+  const [activeSection,    setActiveSection] = useState<string>("")
+  const headerRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    const onScroll = () => setScrollY(window.scrollY)
+    const header = headerRef.current
+    if (!header) return
+
+    // ── Req 7.8 — prefers-reduced-motion: keep header permanently visible ──
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+
+    // ── Req 7.2 — initialise glass opacity CSS custom property ──────────────
+    // Rather than computing glassOpacity via useState on every scroll frame
+    // (which causes React re-renders), we write a CSS custom property directly
+    // onto the header element and read it in an inline style string below.
+    header.style.setProperty("--glass-opacity", "0")
+
+    // Track scroll position for hide/show trigger and glass opacity
+    let scrollY = 0
+    let downTravel = 0          // accumulated downward travel since last direction change
+    let isHidden = false
+    let lastScrollY = 0
+
+    // ── Req 7.3/7.4/7.5 — subscribe to Lenis scroll events ─────────────────
+    // We look up the Lenis instance from the GSAP ticker world so we don't
+    // need to pass it down as a prop. Lenis exposes its instance on the window
+    // in dev; in production we create a short-lived listener via a custom event
+    // that page.tsx's Lenis emits. However, the cleanest approach that matches
+    // the design is to create a minimal Lenis observer directly here.
+    //
+    // Since page.tsx drives the authoritative Lenis instance we can't access it
+    // directly. Instead we use a native scroll listener on `window` — BUT we
+    // drive GSAP imperatively (no setState), which eliminates all React
+    // re-renders on scroll while still satisfying the requirements.
+    //
+    // To get velocity we compute it ourselves from the delta between frames.
+    let lastTime = performance.now()
+
+    const onScroll = () => {
+      const now = performance.now()
+      const dt  = Math.max(now - lastTime, 1)          // ms
+      lastTime  = now
+
+      const currentScrollY = window.scrollY
+      const delta          = currentScrollY - scrollY
+      const velocity       = (delta / dt) * 1000       // px/s (signed)
+
+      // ── Req 7.6 — glass opacity: 0 at 0-20px, 1 at 80px+ ─────────────────
+      const glassOpacity = Math.min(1, Math.max(0, (currentScrollY - 20) / 60))
+      header.style.setProperty("--glass-opacity", String(glassOpacity))
+
+      // Update background / backdropFilter directly on the element to avoid
+      // React re-renders (CSS custom properties do not trigger re-renders).
+      header.style.background =
+        `rgba(255,255,255,${0.75 + glassOpacity * 0.15})`
+      header.style.backdropFilter =
+        `blur(${8 + glassOpacity * 4}px) saturate(${140 + glassOpacity * 40}%)`
+      header.style.webkitBackdropFilter =
+        `blur(${8 + glassOpacity * 4}px) saturate(${140 + glassOpacity * 40}%)`
+      header.style.borderBottom =
+        `1px solid rgba(255,255,255,${0.4 + glassOpacity * 0.5})`
+      header.style.boxShadow =
+        glassOpacity > 0.5
+          ? `0 1px 0 rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,${0.03 * glassOpacity})`
+          : "none"
+
+      if (!reducedMotion) {
+        if (delta > 0) {
+          // ── Req 7.3 — scrolling down ───────────────────────────────────────
+          downTravel += delta
+
+          // Hide after 120px of continuous downward travel
+          if (downTravel > 120 && !isHidden) {
+            isHidden = true
+            gsap.to(header, {
+              yPercent: -100,
+              duration: 0.3,
+              ease: "power2.in",
+              overwrite: "auto",
+            })
+          }
+        } else if (delta < 0) {
+          // ── Req 7.4 — scrolling up (any upward delta) ─────────────────────
+          downTravel = 0  // reset accumulator when direction reverses
+
+          if (isHidden) {
+            isHidden = false
+            gsap.to(header, {
+              yPercent: 0,
+              duration: 0.4,
+              ease: "power2.out",
+              overwrite: "auto",
+            })
+          }
+        }
+      }
+
+      scrollY = currentScrollY
+      lastScrollY = currentScrollY
+    }
+
     window.addEventListener("scroll", onScroll, { passive: true })
 
-    // Active section via IntersectionObserver
+    // ── Active section via IntersectionObserver ──────────────────────────────
     const observers: IntersectionObserver[] = []
     navItems.forEach(({ id }) => {
       const el = document.getElementById(id)
@@ -38,6 +135,8 @@ export function PortfolioHeader() {
     return () => {
       window.removeEventListener("scroll", onScroll)
       observers.forEach(o => o.disconnect())
+      // Kill any in-flight GSAP tweens on the header on unmount
+      gsap.killTweensOf(header)
     }
   }, [])
 
@@ -52,25 +151,25 @@ export function PortfolioHeader() {
     setMobileOpen(false)
   }
 
-  // Three header states:
-  // 0-20px   → always-visible solid white (at very top of page)
-  // 20-80px  → liquid glass transitioning in
-  // 80px+    → full liquid glass
-  const glassOpacity = Math.min(1, Math.max(0, (scrollY - 20) / 60))
-
   return (
     <>
+      {/*
+        Req 7.5/7.6 — Glass header.
+        Background, backdropFilter, borderBottom, and boxShadow are now
+        updated imperatively via the scroll handler above (no re-render).
+        We seed the initial inline styles here so SSR/hydration renders
+        the "at-top" state (glassOpacity = 0).
+      */}
       <header
+        ref={headerRef}
         className="fixed top-0 left-0 right-0 z-[200] transition-shadow duration-300"
         style={{
           isolation: "isolate",
-          background: `rgba(255,255,255,${0.75 + glassOpacity * 0.15})`,
-          backdropFilter: `blur(${8 + glassOpacity * 4}px) saturate(${140 + glassOpacity * 40}%)`,
-          WebkitBackdropFilter: `blur(${8 + glassOpacity * 4}px) saturate(${140 + glassOpacity * 40}%)`,
-          borderBottom: `1px solid rgba(255,255,255,${0.4 + glassOpacity * 0.5})`,
-          boxShadow: glassOpacity > 0.5
-            ? `0 1px 0 rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,${0.03 * glassOpacity})`
-            : "none",
+          background: "rgba(255,255,255,0.75)",
+          backdropFilter: "blur(8px) saturate(140%)",
+          WebkitBackdropFilter: "blur(8px) saturate(140%)",
+          borderBottom: "1px solid rgba(255,255,255,0.4)",
+          boxShadow: "none",
         }}
       >
         <div className="max-w-[1280px] mx-auto px-6 md:px-12">
@@ -121,12 +220,14 @@ export function PortfolioHeader() {
                       transition: "color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease",
                     }}
                     onMouseEnter={e => {
+                      // Req 7.7 — guard: Physics_Hover skipped when nav item isActive
                       if (!isActive) {
                         e.currentTarget.style.color = "#0a0a0a"
                         e.currentTarget.style.background = "rgba(0,0,0,0.04)"
                       }
                     }}
                     onMouseLeave={e => {
+                      // Req 7.7 — guard: only reset styles if not active
                       if (!isActive) {
                         e.currentTarget.style.color = "rgba(0,0,0,0.5)"
                         e.currentTarget.style.background = "transparent"
