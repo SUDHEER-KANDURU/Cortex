@@ -1,6 +1,6 @@
 // =============================================================================
 // Dashboard Page — Premium redesign
-// All logic unchanged — only layout and styling updated.
+// Progressive loading: shell renders immediately, content loads progressively.
 // =============================================================================
 
 'use client';
@@ -10,14 +10,51 @@ import type { Job, ArtifactType } from '@/types';
 import { useJobPolling } from '@/features/jobs/hooks/useJobPolling';
 import { useArtifact } from '@/features/artifacts/hooks/useArtifact';
 import { useSubmitJob } from '@/features/jobs/hooks/useSubmitJob';
-import ArtifactViewer from '@/features/artifacts/components/ArtifactViewer';
 import StatusBadge from '@/components/shared/StatusBadge';
 import Navbar from '@/components/layout/Navbar';
 import { listJobs } from '@/lib/api/jobs.api';
 import { ARTIFACT_TYPE_LABELS } from '@/features/jobs/jobs.types';
 import { Github, ChevronDown, Sparkles, Code2 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 
-// ── Artifact type options ─────────────────────────────────────────────────────
+// Lazy-load the heavy ArtifactViewer — it may include Mermaid/ReactFlow
+const ArtifactViewer = dynamic(
+  () => import('@/features/artifacts/components/ArtifactViewer'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="space-y-3">
+        <div className="h-4 w-3/4 animate-pulse rounded bg-slate-800" />
+        <div className="h-4 w-1/2 animate-pulse rounded bg-slate-800" />
+        <div className="mt-4 h-48 animate-pulse rounded-lg bg-slate-800/50" />
+      </div>
+    ),
+  }
+);
+
+// ── Skeleton components for progressive loading ───────────────────────────────
+
+function JobRowSkeleton() {
+  return (
+    <div className="rounded-lg px-3 py-2.5 animate-pulse">
+      <div className="flex items-center justify-between">
+        <div className="flex-1 pr-4 space-y-1.5">
+          <div className="h-3 w-2/3 rounded bg-slate-800" />
+          <div className="h-2.5 w-1/2 rounded bg-slate-800/70" />
+        </div>
+        <div className="h-5 w-14 rounded-full bg-slate-800/60" />
+      </div>
+    </div>
+  );
+}
+
+function SidebarJobsSkeleton() {
+  return (
+    <div className="flex flex-col gap-1">
+      {[1, 2, 3].map(i => <JobRowSkeleton key={i} />)}
+    </div>
+  );
+}
 
 const ARTIFACT_TYPES: ArtifactType[] = [
   'folder_structure',
@@ -191,14 +228,18 @@ function Sidebar({ jobs, jobsLoading, jobsError, selectedJobId, onJobSelected, o
           Recent Jobs
         </p>
 
-        {jobsLoading && (
-          <p className="py-4 text-center text-xs text-slate-600">Loading…</p>
-        )}
+        {jobsLoading && <SidebarJobsSkeleton />}
         {jobsError && (
           <p className="px-1 py-2 text-xs text-red-400">Could not load jobs</p>
         )}
         {!jobsLoading && jobs.length === 0 && (
-          <p className="py-8 text-center text-xs text-slate-600">No jobs yet</p>
+          <div className="py-8 text-center">
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/50">
+              <Code2 className="h-4 w-4 text-slate-600" />
+            </div>
+            <p className="text-xs text-slate-600">No jobs yet</p>
+            <p className="mt-1 text-[11px] text-slate-700">Submit a URL above to start</p>
+          </div>
         )}
 
         <div className="flex flex-col gap-0.5">

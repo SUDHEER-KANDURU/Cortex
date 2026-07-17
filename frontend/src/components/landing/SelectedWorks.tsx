@@ -11,62 +11,94 @@ import gsap from "gsap"
 
 function ArchitectureDemoVisual({ onStart }: { onStart?: (startFn: () => void) => void }) {
   const [step, setStep] = useState(0)
+  const [edgeStep, setEdgeStep] = useState(0)
+  const [pulsing, setPulsing] = useState(0)
+
   useEffect(() => {
     if (!onStart) return
     onStart(() => {
-      // Animation will be implemented in task 12.2
-      // Placeholder: advance through all steps sequentially
       let s = 0
-      const t = setInterval(() => {
+      // First animate nodes in
+      const nodeTimer = setInterval(() => {
         s += 1
         setStep(s)
-        if (s >= 6) clearInterval(t)
-      }, 900)
+        if (s >= 4) {
+          clearInterval(nodeTimer)
+          // Then animate edges
+          let e = 0
+          const edgeTimer = setInterval(() => {
+            e += 1
+            setEdgeStep(e)
+            if (e >= 6) {
+              clearInterval(edgeTimer)
+              // Then start pulse
+              setPulsing(1)
+            }
+          }, 200)
+        }
+      }, 250)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 2×2 grid layout — no horizontal overflow possible
-  // api/    domain/
-  // infra/  shared/
+  // Pulse animation: cycle through edges
+  useEffect(() => {
+    if (!pulsing) return
+    let p = 0
+    const t = setInterval(() => {
+      p = (p + 1) % 6
+      setPulsing(p + 1)
+    }, 600)
+    return () => clearInterval(t)
+  }, [pulsing])
+
+  // 2×2 grid layout
   const boxes = [
     { label: "api/",    x: 30,  y: 18,  fill: "#111" },
     { label: "domain/", x: 145, y: 18,  fill: "#444" },
     { label: "infra/",  x: 30,  y: 85,  fill: "#666" },
     { label: "shared/", x: 145, y: 85,  fill: "#888" },
   ]
-  // center of each box (width=80, height=26)
   const cx = (i: number) => boxes[i].x + 40
   const cy = (i: number) => boxes[i].y + 13
   const edges = [
-    { a: 0, b: 1, dash: false }, // api → domain  (horizontal)
-    { a: 0, b: 2, dash: false }, // api → infra   (vertical)
-    { a: 1, b: 3, dash: false }, // domain → shared (vertical)
-    { a: 2, b: 3, dash: true  }, // infra → shared (horizontal)
-    { a: 0, b: 3, dash: true  }, // api → shared  (diagonal)
-    { a: 1, b: 2, dash: true  }, // domain → infra (diagonal)
+    { a: 0, b: 1, dash: false },
+    { a: 0, b: 2, dash: false },
+    { a: 1, b: 3, dash: false },
+    { a: 2, b: 3, dash: true  },
+    { a: 0, b: 3, dash: true  },
+    { a: 1, b: 2, dash: true  },
   ]
 
   return (
     <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "16px", background: "rgba(255,255,255,0.55)", backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)" }}>
       <svg viewBox="0 0 255 128" style={{ width: "100%", maxWidth: 255, overflow: "hidden" }}>
-        {edges.map((e, i) => (
-          <line key={i}
-            x1={cx(e.a)} y1={cy(e.a)}
-            x2={cx(e.b)} y2={cy(e.b)}
-            stroke={i < step ? (e.dash ? "#ccc" : "#333") : "rgba(0,0,0,0.07)"}
-            strokeWidth={e.dash ? 1 : 1.5}
-            strokeDasharray={e.dash ? "4 3" : "none"}
-            style={{ transition: "stroke 0.35s ease" }} />
-        ))}
+        {edges.map((e, i) => {
+          const isActive = pulsing > 0 && ((pulsing - 1) % 6) === i
+          return (
+            <line key={i}
+              x1={cx(e.a)} y1={cy(e.a)}
+              x2={cx(e.b)} y2={cy(e.b)}
+              stroke={edgeStep > i
+                ? (isActive ? "#111" : (e.dash ? "#bbb" : "#444"))
+                : "rgba(0,0,0,0.06)"}
+              strokeWidth={isActive ? 2 : (e.dash ? 1 : 1.5)}
+              strokeDasharray={e.dash ? "4 3" : "none"}
+              style={{ transition: "stroke 0.3s ease, stroke-width 0.3s ease" }} />
+          )
+        })}
         {boxes.map((box, i) => (
-          <g key={i}>
+          <g key={i} style={{
+            opacity: step > i ? 1 : 0,
+            transform: step > i ? "none" : "translateY(8px)",
+            transition: `opacity 0.35s ease ${i * 40}ms, transform 0.35s ease ${i * 40}ms`,
+          }}>
             <rect x={box.x} y={box.y} width={80} height={26} rx={6}
-              fill={i < step ? box.fill : "rgba(0,0,0,0.05)"}
+              fill={step > i ? box.fill : "rgba(0,0,0,0.05)"}
               style={{ transition: "fill 0.35s ease" }} />
             <text x={box.x + 40} y={box.y + 17} textAnchor="middle"
               fontSize="9" fontWeight="600"
-              fill={i < step ? "#fff" : "#ccc"}
+              fill={step > i ? "#fff" : "#ccc"}
               style={{ fontFamily: "var(--font-mono,'Fira Code',monospace)", transition: "fill 0.35s ease" }}>
               {box.label}
             </text>
@@ -117,6 +149,7 @@ function LearningPathVisual() {
 
 function InterviewPrepVisual({ onStart }: { onStart?: (startFn: () => void) => void }) {
   const [idx, setIdx] = useState(0)
+  const [revealed, setRevealed] = useState(false)
   const questions = [
     "What design pattern does JobRepository use?",
     "How does Celery handle task retries here?",
@@ -125,17 +158,14 @@ function InterviewPrepVisual({ onStart }: { onStart?: (startFn: () => void) => v
   useEffect(() => {
     if (!onStart) return
     onStart(() => {
-      // Animation will be implemented in task 12.4
-      // Placeholder: cycle through questions sequentially once
+      setRevealed(true)
+      // Cycle through questions with a delay
       let i = 0
       const t = setInterval(() => {
-        i += 1
-        if (i < questions.length) {
-          setIdx(i)
-        } else {
-          clearInterval(t)
-        }
-      }, 2000)
+        i = (i + 1) % questions.length
+        setIdx(i)
+      }, 1800)
+      return () => clearInterval(t)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -151,6 +181,7 @@ function InterviewPrepVisual({ onStart }: { onStart?: (startFn: () => void) => v
             border: `1px solid ${i === idx ? "rgba(0,0,0,0.25)" : "rgba(0,0,0,0.08)"}`,
             background: i === idx ? "rgba(0,0,0,0.05)" : "rgba(0,0,0,0.02)",
             color: i === idx ? "#111" : "#999",
+            opacity: revealed ? 1 : 0,
             transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
             transform: i === idx ? "translateX(4px)" : "none",
             display: "flex", alignItems: "center", gap: "8px",
@@ -163,6 +194,8 @@ function InterviewPrepVisual({ onStart }: { onStart?: (startFn: () => void) => v
           marginTop: "8px", padding: "8px 12px", borderRadius: "10px",
           fontSize: "9px", fontFamily: "var(--font-mono,'Fira Code',monospace)",
           background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.1)", color: "#555",
+          opacity: revealed ? 1 : 0,
+          transition: "opacity 0.5s ease 0.3s",
         }}>
           ✓ Model answer generated from your code
         </div>
@@ -172,14 +205,19 @@ function InterviewPrepVisual({ onStart }: { onStart?: (startFn: () => void) => v
 }
 
 function VibeCodeVisual({ onStart }: { onStart?: (startFn: () => void) => void }) {
-  const [flash, setFlash] = useState(false)
+  const [revealed, setRevealed] = useState(false)
+  const [highlight, setHighlight] = useState(-1)
   useEffect(() => {
     if (!onStart) return
     onStart(() => {
-      // Animation will be implemented in task 12.6
-      // Placeholder: flash once
-      setFlash(true)
-      setTimeout(() => setFlash(false), 1600)
+      setRevealed(true)
+      // Pulse through each issue in sequence
+      let i = 0
+      const t = setInterval(() => {
+        setHighlight(i % 3)
+        i++
+      }, 1200)
+      return () => clearInterval(t)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -193,7 +231,8 @@ function VibeCodeVisual({ onStart }: { onStart?: (startFn: () => void) => void }
   return (
     <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", background: "rgba(255,255,255,0.55)", backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)" }}>
       <div style={{ width: "100%", maxWidth: 300, fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
-        <div style={{ marginBottom: "8px", fontSize: "9px", color: "#999", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+        <div style={{ marginBottom: "8px", fontSize: "9px", color: "#999", letterSpacing: "0.1em", textTransform: "uppercase",
+          opacity: revealed ? 1 : 0, transition: "opacity 0.4s ease" }}>
           repository.py — 3 issues found
         </div>
         {issues.map((issue, i) => (
@@ -201,16 +240,19 @@ function VibeCodeVisual({ onStart }: { onStart?: (startFn: () => void) => void }
             display: "flex", alignItems: "center", gap: "8px",
             padding: "7px 10px", marginBottom: "5px", borderRadius: "8px",
             border: `1px solid ${issue.color}30`,
-            background: `${issue.color}08`,
-            opacity: flash && i === 0 ? 0.5 : 1,
-            transition: "opacity 0.4s ease",
+            background: highlight === i ? `${issue.color}12` : `${issue.color}06`,
+            opacity: revealed ? 1 : 0,
+            transform: revealed ? "none" : "translateX(-8px)",
+            transition: `opacity 0.4s ease ${i * 80}ms, transform 0.4s ease ${i * 80}ms, background 0.35s ease`,
+            boxShadow: highlight === i ? `0 0 0 1px ${issue.color}40` : "none",
           }}>
             <span style={{ fontSize: "8px", color: issue.color, fontWeight: 700, minWidth: 24 }}>L{issue.line}</span>
             <span style={{ fontSize: "9px", color: "#444", flex: 1 }}>{issue.text}</span>
             <span style={{ fontSize: "7px", fontWeight: 700, textTransform: "uppercase", color: issue.color, letterSpacing: "0.06em" }}>{issue.severity}</span>
           </div>
         ))}
-        <div style={{ marginTop: "8px", display: "flex", alignItems: "center", gap: "6px", fontSize: "9px", color: "#555" }}>
+        <div style={{ marginTop: "8px", display: "flex", alignItems: "center", gap: "6px", fontSize: "9px", color: "#555",
+          opacity: revealed ? 1 : 0, transition: "opacity 0.5s ease 0.4s" }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#28c840", display: "inline-block" }} />
           LLM-free — static analysis only
         </div>
@@ -221,7 +263,8 @@ function VibeCodeVisual({ onStart }: { onStart?: (startFn: () => void) => void }
 
 interface Work {
   id: number; title: string; category: string; description: string
-  Visual: React.FC<{ onStart?: (startFn: () => void) => void }>; tags: string[]; accent: string
+  Visual: React.FC<{ onStart?: (startFn: () => void) => void; active?: boolean }>
+  tags: string[]; accent: string
 }
 
 function WorkCard({ work, index }: { work: Work; index: number }) {
@@ -229,6 +272,7 @@ function WorkCard({ work, index }: { work: Work; index: number }) {
   const articleRef = useRef<HTMLElement>(null)
   const hasPlayed = useRef(false)
   const startAnimationRef = useRef<(() => void) | null>(null)
+  const [inView, setInView] = useState(false)
 
   // Register the startAnimation callback provided by the Visual component
   const handleRegisterStart = (startFn: () => void) => {
@@ -242,6 +286,7 @@ function WorkCard({ work, index }: { work: Work; index: number }) {
     const obs = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && !hasPlayed.current) {
         hasPlayed.current = true
+        setInView(true)
         // Call the visual's startAnimation if registered
         if (startAnimationRef.current) {
           startAnimationRef.current()
@@ -282,7 +327,7 @@ function WorkCard({ work, index }: { work: Work; index: number }) {
 
           <div className="relative overflow-hidden"
             style={{ height: "200px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-            <work.Visual active={inView} />
+            <work.Visual onStart={handleRegisterStart} active={inView} />
             <div style={{
               position: "absolute", top: "12px", left: "12px",
               padding: "3px 10px", borderRadius: "100px",
@@ -347,11 +392,10 @@ export function PortfolioSelectedWorks() {
   return (
     <section id="works" className="py-20 md:py-10 md:pt-32 pb-4"
       style={{
-        borderTop: "1px solid rgba(255,255,255,0.6)",
-        background: "rgba(255,255,255,0.6)",
-        backdropFilter: "blur(8px) saturate(170%)",
-        WebkitBackdropFilter: "blur(8px) saturate(170%)",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.9)",
+        borderTop: "1px solid rgba(255,255,255,0.9)",
+        background: "rgba(255,255,255,0.72)",
+        backdropFilter: "saturate(180%) blur(20px)",
+        WebkitBackdropFilter: "saturate(180%) blur(20px)",
       }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
         <div className="flex items-center justify-between mb-12 md:mb-16">

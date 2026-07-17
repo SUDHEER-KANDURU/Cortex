@@ -209,3 +209,47 @@ async def get_stats(
 ) -> dict:
     stats = await service.get_stats()
     return {status.value: count for status, count in stats.items()}
+
+
+@router.post(
+    "/{job_id}/analyze",
+    response_model=JobResponse,
+    summary="Run the full analysis pipeline for a job",
+    description="Fetches the repo, parses code, builds graph, "
+    "generates artifacts. Updates job status automatically.",
+)
+async def analyze_job(
+    job_id: str,
+    service: JobService = Depends(get_job_service),
+) -> JobResponse:
+    try:
+        job = await service.get(job_id)
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if not job.can_cancel():
+        raise HTTPException(
+            status_code=409,
+            detail=f"Job is already in status '{job.status.value}'",
+        )
+
+    try:
+        from cortex.pipeline.application.orchestrator import (
+            build_default_pipeline,
+        )
+        await service.mark_running(job_id)
+
+        pipeline = build_default_pipeline()
+        context = await pipeline.run(job)
+
+        await service.mark_completed(job_id)
+
+        updated_job = await service.get(job_id)
+        return JobResponse.from_job(updated_job)
+
+    except Exception as e:
+        await service.mark_failed(job_id, str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Pipeline failed: {str(e)}"
+        )

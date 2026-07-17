@@ -126,11 +126,10 @@ export function PortfolioAbout() {
   return (
     <section id="about" className="py-20 md:py-10 md:pb-32 md:pt-32"
       style={{
-        borderTop: "1px solid rgba(255,255,255,0.6)",
-        background: "rgba(255,255,255,0.45)",
-        backdropFilter: "blur(8px) saturate(160%)",
-        WebkitBackdropFilter: "blur(8px) saturate(160%)",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.9)",
+        borderTop: "1px solid rgba(255,255,255,0.9)",
+        background: "rgba(255,255,255,0.72)",
+        backdropFilter: "saturate(180%) blur(20px)",
+        WebkitBackdropFilter: "saturate(180%) blur(20px)",
       }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 mb-16 md:mb-24">

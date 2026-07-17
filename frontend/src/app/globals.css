@@ -577,16 +577,11 @@ body { background:#000; color:#fff; -webkit-font-smoothing:antialiased; overflow
 
 /* ── Portfolio page light theme tweaks ─────────────────────────────────────── */
 .portfolio-page {
-  --section-gap: 1px solid rgba(255,255,255,0.6);
+  --section-gap: 1px solid rgba(255,255,255,0.8);
   font-family: var(--font-sans), 'DM Sans', system-ui, sans-serif;
   font-size: 15px;
-  /* Multi-layer background: soft gradient + subtle noise gives glass surfaces
-     something real to blur against instead of flat white */
-  background:
-    radial-gradient(ellipse 100% 60% at 50% 0%,   rgba(240,240,240,0.8) 0%, transparent 60%),
-    radial-gradient(ellipse 80%  50% at 20% 80%,  rgba(235,235,235,0.6) 0%, transparent 55%),
-    radial-gradient(ellipse 70%  40% at 85% 60%,  rgba(238,238,238,0.5) 0%, transparent 50%),
-    linear-gradient(180deg, #f7f7f7 0%, #ffffff 40%, #f9f9f9 100%);
+  /* Apple system background: #f5f5f7 — very subtle warm grey, not pure white */
+  background: #f5f5f7;
   min-height: 100vh;
 }
 
@@ -790,28 +785,30 @@ body { background:#000; color:#fff; -webkit-font-smoothing:antialiased; overflow
    ============================================================================= */
 
 /* ── Liquid Glass base utility ───────────────────────────────────────────────
-   Apply .glass-light on light backgrounds, .glass-dark on dark backgrounds  */
+   Apple-style glass: saturate + blur, crisp white border, barely-there shadow.
+   .glass-light  → for light (white) backgrounds  
+   .glass-dark   → for dark surfaces              */
 
 .glass-light {
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(8px) saturate(180%);
-  -webkit-backdrop-filter: blur(8px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-bottom-color: rgba(0, 0, 0, 0.06);
   box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+    0 2px 20px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
 }
 
 .glass-dark {
-  background: rgba(10, 10, 10, 0.55);
-  backdrop-filter: blur(10px) saturate(160%);
-  -webkit-backdrop-filter: blur(10px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(20, 20, 20, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top-color: rgba(255, 255, 255, 0.18);
   box-shadow:
-    0 4px 32px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+    0 2px 20px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* ── Frosted pill — for badges, tags, labels ──────────────────────────────── */
@@ -837,34 +834,31 @@ body { background:#000; color:#fff; -webkit-font-smoothing:antialiased; overflow
 
 /* ── Glass card — for capability cards, insight cards ────────────────────── */
 .glass-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(8px) saturate(180%) brightness(1.02);
-  -webkit-backdrop-filter: blur(8px) saturate(180%) brightness(1.02);
-  border: 1px solid rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-bottom-color: rgba(0, 0, 0, 0.05);
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.08),
-    0 1px 0 rgba(255, 255, 255, 1) inset,
-    0 -1px 0 rgba(0, 0, 0, 0.04) inset;
-  transition: box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.3s ease;
+    0 4px 24px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  transition: box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .glass-card:hover {
   box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.12),
-    0 1px 0 rgba(255, 255, 255, 1) inset,
-    0 -1px 0 rgba(0, 0, 0, 0.06) inset;
-  border-color: rgba(255, 255, 255, 1);
-  transform: translateY(-4px);
+    0 16px 48px rgba(0, 0, 0, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  transform: translateY(-3px);
 }
 
-/* ── Glass header (scrolled state) ───────────────────────────────────────── */
+/* ── Glass header (scrolled state) — Apple menu bar formula ─────────────── */
 .glass-header {
   background: rgba(255, 255, 255, 0.72) !important;
-  backdrop-filter: blur(12px) saturate(200%) !important;
-  -webkit-backdrop-filter: blur(12px) saturate(200%) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.6) !important;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06), 0 4px 20px rgba(0, 0, 0, 0.04) !important;
+  backdrop-filter: saturate(180%) blur(20px) !important;
+  -webkit-backdrop-filter: saturate(180%) blur(20px) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.9), 0 2px 12px rgba(0,0,0,0.06) !important;
 }
 
 /* ── Cinematic scroll-reveal — Apple-tuned timing ────────────────────────── */
@@ -1281,9 +1275,9 @@ html {
 
 /* Blurred state — sections fully outside the viewport */
 .section-dof-blur {
-  filter: blur(2px);
-  transition: filter 500ms cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: filter;
+  /* DOF effect disabled — blur degrades readability on this layout */
+  filter: none;
+  transition: none;
 }
 
 /* Focused state — section occupying >50% of viewport */

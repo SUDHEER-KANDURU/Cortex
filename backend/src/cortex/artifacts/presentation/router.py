@@ -2,9 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Depends
 from cortex.artifacts.application.use_cases import ArtifactService
-from cortex.artifacts.infrastructure.repository import (
-    InMemoryArtifactRepository,
-)
+from cortex.artifacts.infrastructure.dependencies import artifact_repository
 from cortex.artifacts.presentation.models import (
     ArtifactCreateRequest,
     ArtifactResponse,
@@ -14,11 +12,9 @@ from shared.exceptions import NotFoundError, ValidationError
 
 router = APIRouter(prefix="/artifacts", tags=["artifacts"])
 
-_repository = InMemoryArtifactRepository()
-
 
 def get_artifact_service() -> ArtifactService:
-    return ArtifactService(_repository)
+    return ArtifactService(artifact_repository)
 
 
 @router.post(

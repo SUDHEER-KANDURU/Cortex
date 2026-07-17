@@ -1,125 +1,27 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Menu, X } from "lucide-react"
-import gsap from "gsap"
-import Lenis from "lenis"
+import { X, Zap, Layers, Users, Cpu, BookOpen, LayoutDashboard } from "lucide-react"
 
 const navItems = [
-  { href: "#works",        label: "Capabilities",  id: "works"        },
-  { href: "#about",        label: "About",          id: "about"        },
-  { href: "#testimonials", label: "What users say", id: "testimonials" },
-  { href: "#awards",       label: "Tech & Stack",   id: "awards"       },
-  { href: "#insights",     label: "Insights",       id: "insights"     },
+  { href: "#works",        label: "Capabilities", id: "works",        Icon: Layers   },
+  { href: "#about",        label: "About",         id: "about",        Icon: Users    },
+  { href: "#testimonials", label: "Reviews",       id: "testimonials", Icon: Zap      },
+  { href: "#awards",       label: "Stack",         id: "awards",       Icon: Cpu      },
+  { href: "#insights",     label: "Insights",      id: "insights",     Icon: BookOpen },
 ]
 
 export function PortfolioHeader() {
-  const [isMobileMenuOpen, setMobileOpen]   = useState(false)
-  const [activeSection,    setActiveSection] = useState<string>("")
-  const headerRef = useRef<HTMLElement>(null)
+  const [isMobileMenuOpen, setMobileOpen] = useState(false)
+  const [activeSection, setActiveSection] = useState<string>("")
+  const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
-    const header = headerRef.current
-    if (!header) return
-
-    // ── Req 7.8 — prefers-reduced-motion: keep header permanently visible ──
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-
-    // ── Req 7.2 — initialise glass opacity CSS custom property ──────────────
-    // Rather than computing glassOpacity via useState on every scroll frame
-    // (which causes React re-renders), we write a CSS custom property directly
-    // onto the header element and read it in an inline style string below.
-    header.style.setProperty("--glass-opacity", "0")
-
-    // Track scroll position for hide/show trigger and glass opacity
-    let scrollY = 0
-    let downTravel = 0          // accumulated downward travel since last direction change
-    let isHidden = false
-    let lastScrollY = 0
-
-    // ── Req 7.3/7.4/7.5 — subscribe to Lenis scroll events ─────────────────
-    // We look up the Lenis instance from the GSAP ticker world so we don't
-    // need to pass it down as a prop. Lenis exposes its instance on the window
-    // in dev; in production we create a short-lived listener via a custom event
-    // that page.tsx's Lenis emits. However, the cleanest approach that matches
-    // the design is to create a minimal Lenis observer directly here.
-    //
-    // Since page.tsx drives the authoritative Lenis instance we can't access it
-    // directly. Instead we use a native scroll listener on `window` — BUT we
-    // drive GSAP imperatively (no setState), which eliminates all React
-    // re-renders on scroll while still satisfying the requirements.
-    //
-    // To get velocity we compute it ourselves from the delta between frames.
-    let lastTime = performance.now()
-
-    const onScroll = () => {
-      const now = performance.now()
-      const dt  = Math.max(now - lastTime, 1)          // ms
-      lastTime  = now
-
-      const currentScrollY = window.scrollY
-      const delta          = currentScrollY - scrollY
-      const velocity       = (delta / dt) * 1000       // px/s (signed)
-
-      // ── Req 7.6 — glass opacity: 0 at 0-20px, 1 at 80px+ ─────────────────
-      const glassOpacity = Math.min(1, Math.max(0, (currentScrollY - 20) / 60))
-      header.style.setProperty("--glass-opacity", String(glassOpacity))
-
-      // Update background / backdropFilter directly on the element to avoid
-      // React re-renders (CSS custom properties do not trigger re-renders).
-      header.style.background =
-        `rgba(255,255,255,${0.75 + glassOpacity * 0.15})`
-      header.style.backdropFilter =
-        `blur(${8 + glassOpacity * 4}px) saturate(${140 + glassOpacity * 40}%)`
-      header.style.webkitBackdropFilter =
-        `blur(${8 + glassOpacity * 4}px) saturate(${140 + glassOpacity * 40}%)`
-      header.style.borderBottom =
-        `1px solid rgba(255,255,255,${0.4 + glassOpacity * 0.5})`
-      header.style.boxShadow =
-        glassOpacity > 0.5
-          ? `0 1px 0 rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,${0.03 * glassOpacity})`
-          : "none"
-
-      if (!reducedMotion) {
-        if (delta > 0) {
-          // ── Req 7.3 — scrolling down ───────────────────────────────────────
-          downTravel += delta
-
-          // Hide after 120px of continuous downward travel
-          if (downTravel > 120 && !isHidden) {
-            isHidden = true
-            gsap.to(header, {
-              yPercent: -100,
-              duration: 0.3,
-              ease: "power2.in",
-              overwrite: "auto",
-            })
-          }
-        } else if (delta < 0) {
-          // ── Req 7.4 — scrolling up (any upward delta) ─────────────────────
-          downTravel = 0  // reset accumulator when direction reverses
-
-          if (isHidden) {
-            isHidden = false
-            gsap.to(header, {
-              yPercent: 0,
-              duration: 0.4,
-              ease: "power2.out",
-              overwrite: "auto",
-            })
-          }
-        }
-      }
-
-      scrollY = currentScrollY
-      lastScrollY = currentScrollY
-    }
-
+    const onScroll = () => setScrolled(window.scrollY > 10)
     window.addEventListener("scroll", onScroll, { passive: true })
 
-    // ── Active section via IntersectionObserver ──────────────────────────────
     const observers: IntersectionObserver[] = []
     navItems.forEach(({ id }) => {
       const el = document.getElementById(id)
@@ -135,8 +37,6 @@ export function PortfolioHeader() {
     return () => {
       window.removeEventListener("scroll", onScroll)
       observers.forEach(o => o.disconnect())
-      // Kill any in-flight GSAP tweens on the header on unmount
-      gsap.killTweensOf(header)
     }
   }, [])
 
@@ -151,222 +51,245 @@ export function PortfolioHeader() {
     setMobileOpen(false)
   }
 
+  const pillStyle: React.CSSProperties = {
+    marginTop: "12px",
+    pointerEvents: "auto",
+    background: scrolled ? "rgba(255,255,255,0.82)" : "rgba(255,255,255,0.68)",
+    backdropFilter: "saturate(180%) blur(20px)",
+    WebkitBackdropFilter: "saturate(180%) blur(20px)",
+    border: "1px solid rgba(255,255,255,0.9)",
+    borderBottom: "1px solid rgba(0,0,0,0.06)",
+    borderRadius: "100px",
+    boxShadow: scrolled
+      ? "0 2px 20px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)"
+      : "0 1px 12px rgba(0,0,0,0.07)",
+    padding: "5px",
+    display: "flex",
+    alignItems: "center",
+    gap: "2px",
+    transition: "background 0.4s ease, box-shadow 0.4s ease",
+  }
+
   return (
     <>
-      {/*
-        Req 7.5/7.6 — Glass header.
-        Background, backdropFilter, borderBottom, and boxShadow are now
-        updated imperatively via the scroll handler above (no re-render).
-        We seed the initial inline styles here so SSR/hydration renders
-        the "at-top" state (glassOpacity = 0).
-      */}
       <header
-        ref={headerRef}
-        className="fixed top-0 left-0 right-0 z-[200] transition-shadow duration-300"
-        style={{
-          isolation: "isolate",
-          background: "rgba(255,255,255,0.75)",
-          backdropFilter: "blur(8px) saturate(140%)",
-          WebkitBackdropFilter: "blur(8px) saturate(140%)",
-          borderBottom: "1px solid rgba(255,255,255,0.4)",
-          boxShadow: "none",
-        }}
+        className="fixed top-0 left-0 right-0 z-[200] flex justify-center"
+        style={{ pointerEvents: "none" }}
       >
-        <div className="max-w-[1280px] mx-auto px-6 md:px-12">
-          <nav className="flex items-center justify-between h-16 md:h-20">
-
-            {/* Logo */}
-            <Link
-              href="#"
-              onClick={(e) => {
-                e.preventDefault()
-                setActiveSection("")
-                window.scrollTo({ top: 0, behavior: "smooth" })
-              }}
-              style={{
-                fontFamily: "var(--font-display,'Syne',sans-serif)",
-                fontSize: "18px", fontWeight: 700,
-                letterSpacing: "-0.03em", color: "#0a0a0a",
-                textDecoration: "none",
-              }}>
+        <div style={pillStyle}>
+          {/* Logo */}
+          <Link
+            href="#"
+            onClick={e => {
+              e.preventDefault()
+              setActiveSection("")
+              window.scrollTo({ top: 0, behavior: "smooth" })
+            }}
+            style={{
+              display: "flex", alignItems: "center", gap: "7px",
+              padding: "7px 14px 7px 8px",
+              borderRadius: "100px",
+              background: "rgba(0,0,0,0.04)",
+              border: "1px solid rgba(0,0,0,0.05)",
+              textDecoration: "none",
+              transition: "background 0.2s ease",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = "rgba(0,0,0,0.07)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "rgba(0,0,0,0.04)")}
+          >
+            <span style={{
+              width: 24, height: 24, borderRadius: "7px",
+              background: "#0a0a0a",
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0,
+            }}>
+              <LayoutDashboard style={{ width: 12, height: 12, color: "#fff" }} />
+            </span>
+            <span style={{
+              fontFamily: "var(--font-display,'Syne',sans-serif)",
+              fontSize: "14px", fontWeight: 700,
+              letterSpacing: "-0.03em", color: "#0a0a0a",
+            }}>
               Cortex
-            </Link>
+            </span>
+          </Link>
 
-            {/* Desktop nav */}
-            <div className="hidden md:flex items-center gap-1">
-              {navItems.map((item) => {
-                const isActive = activeSection === item.id
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={(e) => handleNavClick(e, item.href, item.id)}
-                    className="relative px-4 py-2 rounded-full text-sm transition-all duration-250"
-                    style={{
-                      color: isActive ? "#0a0a0a" : "rgba(0,0,0,0.5)",
-                      fontWeight: isActive ? 600 : 400,
-                      background: isActive
-                        ? "rgba(255,255,255,0.75)"
-                        : "transparent",
-                      backdropFilter: isActive ? "blur(8px) saturate(200%)" : "none",
-                      WebkitBackdropFilter: isActive ? "blur(8px) saturate(200%)" : "none",
-                      border: isActive
-                        ? "1px solid rgba(255,255,255,0.9)"
-                        : "1px solid transparent",
-                      boxShadow: isActive
-                        ? "0 2px 12px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)"
-                        : "none",
-                      textDecoration: "none",
-                      transition: "color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease",
-                    }}
-                    onMouseEnter={e => {
-                      // Req 7.7 — guard: Physics_Hover skipped when nav item isActive
-                      if (!isActive) {
-                        e.currentTarget.style.color = "#0a0a0a"
-                        e.currentTarget.style.background = "rgba(0,0,0,0.04)"
-                      }
-                    }}
-                    onMouseLeave={e => {
-                      // Req 7.7 — guard: only reset styles if not active
-                      if (!isActive) {
-                        e.currentTarget.style.color = "rgba(0,0,0,0.5)"
-                        e.currentTarget.style.background = "transparent"
-                      }
-                    }}
-                  >
-                    {item.label}
-                    {isActive && (
-                      <span style={{
-                        position: "absolute", bottom: "4px", left: "50%",
-                        transform: "translateX(-50%)",
-                        width: "4px", height: "4px", borderRadius: "50%",
-                        background: "#0a0a0a", display: "block",
-                      }} />
-                    )}
-                  </Link>
-                )
-              })}
-            </div>
+          {/* Divider */}
+          <div style={{ width: 1, height: 18, background: "rgba(0,0,0,0.1)", margin: "0 3px", flexShrink: 0 }} />
 
-            {/* CTA button — liquid glass outline on default, solid on hover */}
-            <div className="hidden md:block">
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold rounded-full transition-all duration-250"
-                style={{
-                  background: "#0a0a0a",
-                  color: "#fff",
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.18)",
-                  textDecoration: "none",
-                }}
-                onMouseEnter={e => {
-                  const el = e.currentTarget as HTMLElement
-                  el.style.background = "#000"
-                  el.style.boxShadow = "0 6px 24px rgba(0,0,0,0.28)"
-                  el.style.transform = "translateY(-1px)"
-                }}
-                onMouseLeave={e => {
-                  const el = e.currentTarget as HTMLElement
-                  el.style.background = "#0a0a0a"
-                  el.style.boxShadow = "0 2px 12px rgba(0,0,0,0.18)"
-                  el.style.transform = "none"
-                }}>
-                Launch App
-              </Link>
-            </div>
+          {/* Desktop nav */}
+          <div className="hidden md:flex items-center gap-0.5">
+            {navItems.map(({ href, label, id, Icon }) => {
+              const isActive = activeSection === id
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={e => handleNavClick(e, href, id)}
+                  style={{
+                    display: "flex", alignItems: "center",
+                    gap: isActive ? "6px" : "0",
+                    padding: isActive ? "7px 13px 7px 10px" : "7px 11px",
+                    borderRadius: "100px",
+                    background: isActive ? "#0a0a0a" : "transparent",
+                    boxShadow: isActive
+                      ? "0 1px 6px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.1)"
+                      : "none",
+                    textDecoration: "none",
+                    transition: "all 0.3s cubic-bezier(0.16,1,0.3,1)",
+                    overflow: "hidden",
+                    whiteSpace: "nowrap",
+                    minWidth: isActive ? undefined : "36px",
+                    justifyContent: "center",
+                  }}
+                  onMouseEnter={e => {
+                    if (!isActive) e.currentTarget.style.background = "rgba(0,0,0,0.05)"
+                  }}
+                  onMouseLeave={e => {
+                    if (!isActive) e.currentTarget.style.background = "transparent"
+                  }}
+                >
+                  <Icon style={{
+                    width: 14, height: 14, flexShrink: 0,
+                    color: isActive ? "#fff" : "rgba(0,0,0,0.4)",
+                    transition: "color 0.2s ease",
+                  }} />
+                  {isActive && (
+                    <span style={{
+                      fontSize: "13px", fontWeight: 600,
+                      color: "#fff",
+                      fontFamily: "var(--font-sans,'DM Sans',sans-serif)",
+                    }}>
+                      {label}
+                    </span>
+                  )}
+                </Link>
+              )
+            })}
+          </div>
 
-            {/* Mobile burger */}
-            <button
-              onClick={() => setMobileOpen(true)}
-              className="md:hidden p-2 -mr-2"
-              aria-label="Open menu"
-              style={{ color: "#0a0a0a" }}>
-              <Menu className="w-5 h-5" />
-            </button>
-          </nav>
+          {/* Divider */}
+          <div className="hidden md:block" style={{ width: 1, height: 18, background: "rgba(0,0,0,0.1)", margin: "0 3px", flexShrink: 0 }} />
+
+          {/* CTA */}
+          <Link
+            href="/dashboard"
+            data-magnetic
+            data-magnetic-dark
+            className="hidden md:inline-flex items-center justify-center"
+            style={{
+              padding: "7px 15px",
+              borderRadius: "100px",
+              background: "#0a0a0a",
+              color: "#fff",
+              fontSize: "13px",
+              fontWeight: 600,
+              textDecoration: "none",
+              boxShadow: "0 1px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.08)",
+              whiteSpace: "nowrap",
+              transition: "box-shadow 0.2s ease",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.boxShadow = "0 3px 14px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.08)"
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.boxShadow = "0 1px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.08)"
+            }}
+          >
+            Launch App
+          </Link>
+
+          {/* Mobile burger */}
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="md:hidden flex items-center justify-center"
+            aria-label="Open menu"
+            style={{
+              width: 36, height: 36, borderRadius: "100px",
+              background: "rgba(0,0,0,0.04)",
+              border: "1px solid rgba(0,0,0,0.07)",
+              cursor: "pointer", color: "#0a0a0a",
+            }}
+          >
+            <svg width="14" height="11" viewBox="0 0 14 11" fill="none">
+              <rect width="14" height="1.5" rx="0.75" fill="currentColor"/>
+              <rect y="4.75" width="9" height="1.5" rx="0.75" fill="currentColor"/>
+              <rect y="9.5" width="14" height="1.5" rx="0.75" fill="currentColor"/>
+            </svg>
+          </button>
         </div>
       </header>
 
-      {/* Mobile overlay — liquid glass */}
+      {/* Mobile overlay */}
       {isMobileMenuOpen && (
         <div
-          className="fixed inset-0 z-[200] md:hidden"
+          className="fixed inset-0 z-[201] md:hidden flex flex-col"
           style={{
-            background: "rgba(255,255,255,0.92)",
-            backdropFilter: "blur(14px) saturate(200%)",
-            WebkitBackdropFilter: "blur(14px) saturate(200%)",
-          }}>
-          <div className="flex flex-col h-full p-6">
-            <div className="flex items-center justify-between h-16">
-              <span style={{
-                fontFamily: "var(--font-display,'Syne',sans-serif)",
-                fontSize: "18px", fontWeight: 700,
-                letterSpacing: "-0.03em", color: "#0a0a0a",
-              }}>
-                Cortex
-              </span>
-              <button
-                onClick={() => setMobileOpen(false)}
-                className="p-2 -mr-2"
-                aria-label="Close menu">
-                <X className="w-5 h-5" style={{ color: "#0a0a0a" }} />
-              </button>
-            </div>
+            background: "rgba(248,248,248,0.94)",
+            backdropFilter: "saturate(180%) blur(24px)",
+            WebkitBackdropFilter: "saturate(180%) blur(24px)",
+          }}
+        >
+          <div className="flex items-center justify-between px-6 pt-5 pb-4">
+            <span style={{
+              fontFamily: "var(--font-display,'Syne',sans-serif)",
+              fontSize: "17px", fontWeight: 700,
+              letterSpacing: "-0.03em", color: "#0a0a0a",
+            }}>Cortex</span>
+            <button
+              onClick={() => setMobileOpen(false)}
+              style={{
+                width: 32, height: 32, borderRadius: "50%",
+                background: "rgba(0,0,0,0.07)",
+                border: "1px solid rgba(0,0,0,0.08)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer",
+              }}
+              aria-label="Close menu"
+            >
+              <X style={{ width: 14, height: 14, color: "#0a0a0a" }} />
+            </button>
+          </div>
 
-            <nav className="flex flex-col gap-1 mt-8">
-              {navItems.map((item) => {
-                const isActive = activeSection === item.id
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={(e) => handleNavClick(e, item.href, item.id)}
-                    style={{
-                      display: "block",
-                      padding: "14px 16px",
-                      borderRadius: "14px",
-                      fontSize: "22px",
-                      fontWeight: isActive ? 700 : 500,
-                      color: isActive ? "#0a0a0a" : "rgba(0,0,0,0.4)",
-                      background: isActive
-                        ? "rgba(255,255,255,0.8)"
-                        : "transparent",
-                      backdropFilter: isActive ? "blur(12px)" : "none",
-                      WebkitBackdropFilter: isActive ? "blur(12px)" : "none",
-                      border: isActive
-                        ? "1px solid rgba(255,255,255,0.9)"
-                        : "1px solid transparent",
-                      fontFamily: "var(--font-display,'Syne',sans-serif)",
-                      textDecoration: "none",
-                      transition: "all 0.25s ease",
-                    }}>
-                    {item.label}
-                  </Link>
-                )
-              })}
-            </nav>
+          <nav className="flex flex-col gap-1 px-4 flex-1">
+            {navItems.map(({ href, label, id, Icon }) => {
+              const isActive = activeSection === id
+              return (
+                <Link
+                  key={href} href={href}
+                  onClick={e => handleNavClick(e, href, id)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: "12px",
+                    padding: "13px 16px",
+                    borderRadius: "14px",
+                    fontSize: "17px", fontWeight: isActive ? 700 : 500,
+                    color: isActive ? "#fff" : "rgba(0,0,0,0.55)",
+                    background: isActive ? "#0a0a0a" : "rgba(0,0,0,0.03)",
+                    border: `1px solid ${isActive ? "transparent" : "rgba(0,0,0,0.05)"}`,
+                    fontFamily: "var(--font-display,'Syne',sans-serif)",
+                    textDecoration: "none",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <Icon style={{ width: 17, height: 17, color: isActive ? "#fff" : "rgba(0,0,0,0.35)" }} />
+                  {label}
+                </Link>
+              )
+            })}
+          </nav>
 
-            <div className="mt-auto pb-4">
-              <Link
-                href="/dashboard"
-                onClick={() => setMobileOpen(false)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: "100%",
-                  padding: "16px",
-                  fontSize: "16px",
-                  fontWeight: 600,
-                  borderRadius: "16px",
-                  background: "#0a0a0a",
-                  color: "#fff",
-                  textDecoration: "none",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
-                }}>
-                Launch App
-              </Link>
-            </div>
+          <div className="px-4 pb-8 pt-4">
+            <Link href="/dashboard" onClick={() => setMobileOpen(false)} style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: "100%", padding: "15px",
+              fontSize: "15px", fontWeight: 600,
+              borderRadius: "14px",
+              background: "#0a0a0a", color: "#fff",
+              textDecoration: "none",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.18)",
+            }}>
+              Launch App
+            </Link>
           </div>
         </div>
       )}

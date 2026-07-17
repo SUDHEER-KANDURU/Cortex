@@ -126,3 +126,30 @@ class PipelineOrchestrator:
         )
 
         return context
+
+
+def build_default_pipeline() -> "PipelineOrchestrator":
+    """Build the default pipeline with all four stages in order.
+    Import here to avoid circular imports."""
+
+    from cortex.pipeline.infrastructure.stages import (
+        GitHubFetchStage,
+        ASTParseStage,
+        GraphBuildStage,
+        ArtifactGenerateStage,
+    )
+    from cortex.artifacts.infrastructure.dependencies import (
+        artifact_repository,
+    )
+    from cortex.artifacts.application.use_cases import ArtifactService
+
+    artifact_service = ArtifactService(artifact_repository)
+
+    return PipelineOrchestrator(
+        stages=[
+            GitHubFetchStage(),
+            ASTParseStage(),
+            GraphBuildStage(),
+            ArtifactGenerateStage(artifact_service),
+        ]
+    )

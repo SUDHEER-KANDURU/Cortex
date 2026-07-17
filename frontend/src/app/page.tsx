@@ -494,13 +494,125 @@ function useSpotlight() {
   }, [])
 }
 
+// ── Magnetic pull — buttons and nav links get pulled toward cursor + scale up ─
+// On mouseenter the element translates toward the cursor (max ±8px) and scales
+// to 1.06. On mouseleave it springs back with elastic ease.
+// Dark buttons ([data-magnetic-dark]) also get an orange radial glow under the cursor.
+// Applied to: [data-magnetic] elements (buttons, CTAs, nav items).
+function useMagneticPull() {
+  useEffect(() => {
+    if (!window.matchMedia('(pointer: fine)').matches) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    const targets = document.querySelectorAll<HTMLElement>('[data-magnetic]')
+    const cleanup: Array<() => void> = []
+
+    targets.forEach((el) => {
+      let rafId = 0
+      // Inject glow overlay for dark buttons
+      const isDark = el.hasAttribute('data-magnetic-dark') ||
+        el.style.background?.includes('#0a0a0a') ||
+        el.style.background?.includes('#111') ||
+        el.style.background?.includes('#000') ||
+        getComputedStyle(el).backgroundColor === 'rgb(10, 10, 10)' ||
+        getComputedStyle(el).backgroundColor === 'rgb(17, 17, 17)'
+
+      let glowEl: HTMLDivElement | null = null
+      if (isDark) {
+        glowEl = document.createElement('div')
+        glowEl.style.cssText = [
+          'position:absolute',
+          'inset:0',
+          'border-radius:inherit',
+          'pointer-events:none',
+          'z-index:1',
+          'opacity:0',
+          'transition:opacity 0.25s ease',
+          'background:radial-gradient(60% 100% at var(--gx,50%) var(--gy,50%), rgba(255,140,0,0.45) 0%, rgba(255,100,0,0.18) 45%, transparent 80%)',
+          'mix-blend-mode:screen',
+        ].join(';')
+        const pos = getComputedStyle(el).position
+        if (pos === 'static') el.style.position = 'relative'
+        el.style.overflow = 'hidden'
+        el.appendChild(glowEl)
+      }
+
+      const onMove = (e: MouseEvent) => {
+        cancelAnimationFrame(rafId)
+        rafId = requestAnimationFrame(() => {
+          const rect = el.getBoundingClientRect()
+          const cx = rect.left + rect.width  / 2
+          const cy = rect.top  + rect.height / 2
+          // Normalised offset from center (-1 … 1)
+          const dx = (e.clientX - cx) / (rect.width  / 2)
+          const dy = (e.clientY - cy) / (rect.height / 2)
+
+          // Update glow position
+          if (glowEl) {
+            const gx = ((e.clientX - rect.left) / rect.width)  * 100
+            const gy = ((e.clientY - rect.top)  / rect.height) * 100
+            glowEl.style.setProperty('--gx', `${gx}%`)
+            glowEl.style.setProperty('--gy', `${gy}%`)
+            glowEl.style.opacity = '1'
+          }
+
+          // Pull strength: max 8px horizontal, 5px vertical
+          gsap.to(el, {
+            x: dx * 8,
+            y: dy * 5,
+            scale: isDark ? 1.08 : 1.05,
+            duration: 0.2,
+            ease: 'power2.out',
+            overwrite: 'auto',
+          })
+        })
+      }
+
+      const onEnter = () => {
+        if (glowEl) glowEl.style.opacity = '0.85'
+      }
+
+      const onLeave = () => {
+        cancelAnimationFrame(rafId)
+        if (glowEl) glowEl.style.opacity = '0'
+        gsap.to(el, {
+          x: 0,
+          y: 0,
+          scale: 1,
+          duration: 0.55,
+          ease: 'elastic.out(1, 0.4)',
+          overwrite: 'auto',
+        })
+      }
+
+      el.addEventListener('mouseenter', onEnter,  { passive: true })
+      el.addEventListener('mousemove',  onMove,   { passive: true })
+      el.addEventListener('mouseleave', onLeave,  { passive: true })
+      cleanup.push(() => {
+        cancelAnimationFrame(rafId)
+        el.removeEventListener('mouseenter', onEnter)
+        el.removeEventListener('mousemove',  onMove)
+        el.removeEventListener('mouseleave', onLeave)
+        if (glowEl && glowEl.parentNode) glowEl.parentNode.removeChild(glowEl)
+        gsap.set(el, { clearProps: 'x,y,scale' })
+      })
+    })
+
+    return () => cleanup.forEach(fn => fn())
+  }, [])
+}
+
 export default function HomePage() {
   useLenis()
   useScrollReveal()
   useMouseSpotlight()
-  useScrollStory()
-  useDepthOfField()
+  // useScrollStory() — disabled: GSAP entrance/exit on sections fights the
+  // [data-reveal] IntersectionObserver system, causing sections to render
+  // invisible (opacity:0) before their trigger fires. useScrollReveal() handles
+  // entrance animations cleanly via CSS transitions — no GSAP needed.
+  // useDepthOfField() — disabled: blur on non-focused sections degraded readability
   useSpotlight()
+  useMagneticPull()
 
   return (
     <div

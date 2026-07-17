@@ -22,11 +22,10 @@ const VERSION = "v0.1.0"
 export function PortfolioFooter() {
   return (
     <footer style={{
-      borderTop: "1px solid rgba(255,255,255,0.7)",
-      background: "rgba(255,255,255,0.6)",
-      backdropFilter: "blur(10px) saturate(180%)",
-      WebkitBackdropFilter: "blur(10px) saturate(180%)",
-      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.9)",
+      borderTop: "1px solid rgba(0,0,0,0.06)",
+      background: "rgba(255,255,255,0.72)",
+      backdropFilter: "saturate(180%) blur(20px)",
+      WebkitBackdropFilter: "saturate(180%) blur(20px)",
     }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12 py-16 md:py-24">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8">
@@ -137,6 +136,8 @@ export function PortfolioFooter() {
             </p>
             <Link href="https://github.com/SUDHEER-KANDURU/cortex"
               target="_blank" rel="noopener noreferrer"
+              data-magnetic
+              data-magnetic-dark
               className="cta-shimmer inline-flex items-center justify-center w-full px-4 py-3 text-sm font-semibold text-white rounded-xl transition-all duration-300"
               style={{
                 background: "#0a0a0a",
@@ -147,13 +148,11 @@ export function PortfolioFooter() {
                 const el = e.currentTarget as HTMLElement
                 el.style.background = "#000"
                 el.style.boxShadow = "0 8px 28px rgba(0,0,0,0.3)"
-                el.style.transform = "translateY(-2px)"
               }}
               onMouseLeave={e => {
                 const el = e.currentTarget as HTMLElement
                 el.style.background = "#0a0a0a"
                 el.style.boxShadow = "0 4px 16px rgba(0,0,0,0.2)"
-                el.style.transform = "none"
               }}>
               ★&nbsp; Star on GitHub
             </Link>

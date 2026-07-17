@@ -5,16 +5,71 @@ import { ArrowDown, GitBranch, Cpu, Database, FileCode } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 
+// Lazy-load the heavy 3D RepoTree only after the page has painted.
+// A CSS skeleton placeholder is shown until then — no layout shift.
 const RepoTree = dynamic(() => import("@/features/tree/RepoTree"), {
   ssr: false,
-  loading: () => <div style={{ width: "100%", height: "100%" }} />,
+  loading: () => (
+    <div style={{
+      width: "100%", height: "100%",
+      display: "flex", flexDirection: "column",
+      justifyContent: "flex-end", padding: "24px",
+    }}>
+      {/* Skeleton lines — mimic a tree structure */}
+      {[80, 60, 70, 45, 55, 38, 65].map((w, i) => (
+        <div key={i} style={{
+          height: "10px", borderRadius: "5px", marginBottom: "10px",
+          marginLeft: `${i % 3 === 0 ? 0 : i % 3 === 1 ? 16 : 32}px`,
+          width: `${w}%`,
+          background: "rgba(255,255,255,0.07)",
+          animation: "pulse-skeleton 1.6s ease-in-out infinite",
+          animationDelay: `${i * 120}ms`,
+        }} />
+      ))}
+    </div>
+  ),
 })
+
+// Delay-mount the heavy component until idle to not block first paint
+function LazyRepoTree({ progress }: { progress: React.MutableRefObject<number> }) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const id = requestIdleCallback
+      ? requestIdleCallback(() => setMounted(true), { timeout: 2000 })
+      : (setTimeout(() => setMounted(true), 400) as unknown as number)
+    return () => {
+      if (requestIdleCallback && typeof id === "number") cancelIdleCallback(id)
+      else clearTimeout(id as unknown as ReturnType<typeof setTimeout>)
+    }
+  }, [])
+
+  if (!mounted) {
+    return (
+      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "24px" }}>
+        {[80, 60, 70, 45, 55, 38, 65].map((w, i) => (
+          <div key={i} style={{
+            height: "10px", borderRadius: "5px", marginBottom: "10px",
+            marginLeft: `${i % 3 === 0 ? 0 : i % 3 === 1 ? 16 : 32}px`,
+            width: `${w}%`,
+            background: "rgba(255,255,255,0.07)",
+            animation: "pulse-skeleton 1.6s ease-in-out infinite",
+            animationDelay: `${i * 120}ms`,
+          }} />
+        ))}
+      </div>
+    )
+  }
+
+  return <RepoTree progress={progress} />
+}
 
 const PIPELINE_STEPS = [
   { icon: GitBranch, label: "Scan Repo" },
   { icon: Cpu,       label: "Parse AST" },
   { icon: Database,  label: "Build Graph" },
-  { icon: FileCode,  label: "Generate Artifacts" },
+  { icon: FileCode,  label: "Generate" },
 ]
 
 export function PortfolioHero() {
@@ -88,15 +143,15 @@ export function PortfolioHero() {
                 </span>
               </div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-[62px] font-semibold tracking-tight leading-[1.05] text-balance"
-                style={{ fontFamily: "var(--font-display,'Syne',system-ui,sans-serif)" }}>
+              <h1 className="text-[42px] sm:text-[54px] lg:text-[68px] font-semibold tracking-tight leading-[1.04] text-balance"
+                style={{ fontFamily: "var(--font-display,'Syne',system-ui,sans-serif)", letterSpacing: "-0.045em" }}>
                 {words.map((word, index) => (
                   <span
                     key={index}
                     className="hero-word py-1 font-semibold"
                     style={{
                       display: "inline-block",
-                      animationDelay: `${index * 0.1}s`,
+                      animationDelay: `${index * 0.08}s`,
                       marginRight: index < words.length - 1 ? "0.22em" : "0",
                     }}
                   >
@@ -105,28 +160,29 @@ export function PortfolioHero() {
                 ))}
               </h1>
 
-              <p className="mt-5 max-w-[420px] leading-[1.7] text-base" style={{ color: "rgba(0,0,0,0.5)" }}>
+              <p className="mt-5 max-w-[400px] leading-[1.65] text-[15px]" style={{ color: "rgba(0,0,0,0.42)" }}>
                 Paste any GitHub URL. Cortex parses your repository at the AST level, constructs a Neo4j knowledge graph, and generates architecture diagrams, learning paths, and interview prep — fully offline, zero API keys.
               </p>
 
               {/* CTAs — black only */}
               <div className="flex flex-row flex-wrap items-center gap-3 mt-8">
                 <Link href="/dashboard"
+                  data-magnetic
+                  data-magnetic-dark
                   className="hero-cta-primary cta-shimmer inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold text-white rounded-full transition-all duration-300"
                   style={{ background: "#111", boxShadow: "0 4px 20px rgba(0,0,0,0.18)" }}
                   onMouseEnter={e => {
                     e.currentTarget.style.background = "#000"
                     e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.28)"
-                    e.currentTarget.style.transform = "translateY(-2px)"
                   }}
                   onMouseLeave={e => {
                     e.currentTarget.style.background = "#111"
                     e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.18)"
-                    e.currentTarget.style.transform = "translateY(0)"
                   }}>
                   Analyze a Repository
                 </Link>
                 <Link href="#works"
+                  data-magnetic
                   className="inline-flex items-center gap-2 px-5 py-3 text-sm font-medium rounded-full transition-all duration-250 hover:gap-3"
                   style={{
                     color: "rgba(0,0,0,0.6)",
@@ -135,16 +191,6 @@ export function PortfolioHero() {
                     WebkitBackdropFilter: "blur(12px) saturate(160%)",
                     border: "1px solid rgba(255,255,255,0.85)",
                     boxShadow: "0 2px 10px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,1)",
-                  }}
-                  onMouseEnter={e => {
-                    const el = e.currentTarget as HTMLElement
-                    el.style.background = "rgba(255,255,255,0.85)"
-                    el.style.transform = "translateY(-1px)"
-                  }}
-                  onMouseLeave={e => {
-                    const el = e.currentTarget as HTMLElement
-                    el.style.background = "rgba(255,255,255,0.6)"
-                    el.style.transform = "none"
                   }}>
                   See Capabilities
                   <ArrowDown className="w-3.5 h-3.5" />
@@ -259,7 +305,7 @@ export function PortfolioHero() {
                   </span>
                 </div>
 
-                <RepoTree progress={progressRef} />
+                <LazyRepoTree progress={progressRef} />
 
                 {/* Bottom fade */}
                 <div style={{
