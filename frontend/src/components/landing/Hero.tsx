@@ -36,12 +36,18 @@ function LazyRepoTree({ progress }: { progress: React.MutableRefObject<number> }
 
   useEffect(() => {
     if (typeof window === "undefined") return
-    const id = requestIdleCallback
-      ? requestIdleCallback(() => setMounted(true), { timeout: 2000 })
-      : (setTimeout(() => setMounted(true), 400) as unknown as number)
+    let idleId: number | undefined
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+    if (typeof requestIdleCallback !== "undefined") {
+      idleId = requestIdleCallback(() => setMounted(true), { timeout: 2000 })
+    } else {
+      timeoutId = setTimeout(() => setMounted(true), 400)
+    }
+
     return () => {
-      if (requestIdleCallback && typeof id === "number") cancelIdleCallback(id)
-      else clearTimeout(id as unknown as ReturnType<typeof setTimeout>)
+      if (idleId !== undefined) cancelIdleCallback(idleId)
+      if (timeoutId !== undefined) clearTimeout(timeoutId)
     }
   }, [])
 
@@ -164,33 +170,79 @@ export function PortfolioHero() {
                 Paste any GitHub URL. Cortex parses your repository at the AST level, constructs a Neo4j knowledge graph, and generates architecture diagrams, learning paths, and interview prep — fully offline, zero API keys.
               </p>
 
-              {/* CTAs — black only */}
+              {/* CTAs */}
               <div className="flex flex-row flex-wrap items-center gap-3 mt-8">
+                {/* Primary — Liquid Glass dark: same treatment as FinalCTA */}
                 <Link href="/dashboard"
                   data-magnetic
-                  data-magnetic-dark
-                  className="hero-cta-primary cta-shimmer inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold text-white rounded-full transition-all duration-300"
-                  style={{ background: "#111", boxShadow: "0 4px 20px rgba(0,0,0,0.18)" }}
+                  className="hero-cta-primary cta-shimmer inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold text-white rounded-full"
+                  style={{
+                    background: "#111",
+                    boxShadow: [
+                      "0 4px 20px rgba(0,0,0,0.20)",
+                      "0 1px 4px rgba(0,0,0,0.14)",
+                      "0 0 0 1px rgba(255,255,255,0.06)",
+                      "inset 0 1px 0 rgba(255,255,255,0.10)",
+                      "inset 0 -1px 0 rgba(0,0,0,0.22)",
+                    ].join(", "),
+                    transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s ease",
+                  }}
                   onMouseEnter={e => {
-                    e.currentTarget.style.background = "#000"
-                    e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.28)"
+                    e.currentTarget.style.transform = "translateY(-2px)"
+                    e.currentTarget.style.boxShadow = [
+                      "0 8px 28px rgba(0,0,0,0.28)",
+                      "0 2px 6px rgba(0,0,0,0.16)",
+                      "0 0 0 1px rgba(255,255,255,0.08)",
+                      "inset 0 1px 0 rgba(255,255,255,0.12)",
+                      "inset 0 -1px 0 rgba(0,0,0,0.22)",
+                    ].join(", ")
                   }}
                   onMouseLeave={e => {
-                    e.currentTarget.style.background = "#111"
-                    e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.18)"
+                    e.currentTarget.style.transform = ""
+                    e.currentTarget.style.boxShadow = [
+                      "0 4px 20px rgba(0,0,0,0.20)",
+                      "0 1px 4px rgba(0,0,0,0.14)",
+                      "0 0 0 1px rgba(255,255,255,0.06)",
+                      "inset 0 1px 0 rgba(255,255,255,0.10)",
+                      "inset 0 -1px 0 rgba(0,0,0,0.22)",
+                    ].join(", ")
                   }}>
                   Analyze a Repository
                 </Link>
+
+                {/* Secondary — Liquid Glass light: dual-tone border */}
                 <Link href="#works"
                   data-magnetic
-                  className="inline-flex items-center gap-2 px-5 py-3 text-sm font-medium rounded-full transition-all duration-250 hover:gap-3"
+                  className="inline-flex items-center gap-2 px-5 py-3 text-sm font-medium rounded-full"
                   style={{
-                    color: "rgba(0,0,0,0.6)",
-                    background: "rgba(255,255,255,0.6)",
-                    backdropFilter: "blur(12px) saturate(160%)",
-                    WebkitBackdropFilter: "blur(12px) saturate(160%)",
-                    border: "1px solid rgba(255,255,255,0.85)",
-                    boxShadow: "0 2px 10px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,1)",
+                    color: "rgba(0,0,0,0.58)",
+                    background: "rgba(255,255,255,0.62)",
+                    backdropFilter: "blur(12px) saturate(180%)",
+                    WebkitBackdropFilter: "blur(12px) saturate(180%)",
+                    border: "1px solid rgba(255,255,255,0.90)",
+                    borderBottom: "1px solid rgba(0,0,0,0.06)",
+                    boxShadow: [
+                      "0 2px 10px rgba(0,0,0,0.05)",
+                      "inset 0 1px 0 rgba(255,255,255,1)",
+                      "inset 0 -1px 0 rgba(0,0,0,0.04)",
+                    ].join(", "),
+                    transition: "background 0.2s ease, box-shadow 0.2s ease, gap 0.25s ease",
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.80)"
+                    e.currentTarget.style.boxShadow = [
+                      "0 4px 16px rgba(0,0,0,0.08)",
+                      "inset 0 1px 0 rgba(255,255,255,1)",
+                      "inset 0 -1px 0 rgba(0,0,0,0.04)",
+                    ].join(", ")
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.62)"
+                    e.currentTarget.style.boxShadow = [
+                      "0 2px 10px rgba(0,0,0,0.05)",
+                      "inset 0 1px 0 rgba(255,255,255,1)",
+                      "inset 0 -1px 0 rgba(0,0,0,0.04)",
+                    ].join(", ")
                   }}>
                   See Capabilities
                   <ArrowDown className="w-3.5 h-3.5" />

@@ -24,9 +24,18 @@ export function PortfolioAwards() {
         boxShadow: "inset 0 1px 0 rgba(255,255,255,0.9)",
       }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
-        <SectionTitle className="text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight mb-12 md:mb-16">
-          Tech &amp; Architecture
-        </SectionTitle>
+        <div className="mb-12 md:mb-16" data-reveal="up">
+          <p style={{
+            fontSize: "10px", fontWeight: 700, letterSpacing: "0.16em",
+            textTransform: "uppercase", color: "rgba(0,0,0,0.35)",
+            fontFamily: "var(--font-mono,'Fira Code',monospace)", marginBottom: "10px",
+          }}>
+            Architecture
+          </p>
+          <SectionTitle className="text-3xl md:text-4xl lg:text-[52px] font-semibold tracking-tight">
+            Tech &amp; Architecture
+          </SectionTitle>
+        </div>
         <div className="flex flex-col gap-3" data-stagger>
           {awards.map((item, index) => (
             <Link key={index} href={item.link}

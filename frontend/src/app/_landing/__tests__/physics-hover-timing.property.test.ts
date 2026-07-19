@@ -16,8 +16,12 @@ import * as fc from 'fast-check'
 
 // Enter + settle durations for Physics_Hover as defined in design.md
 const ENTER_DURATION = 0.1   // 100ms
-const SETTLE_DURATION = 0.55 // 550ms
-const MAX_TOTAL_DURATION = 0.3 // 300ms requirement per Req 14.6
+// SETTLE_DURATION and MAX_TOTAL_DURATION are documented here for design ref;
+// they are intentionally not used in assertions (settle is post-interaction).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _SETTLE_DURATION = 0.55 // 550ms — spring-back after release
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _MAX_TOTAL_DURATION = 0.3 // 300ms interactive budget (Req 14.6)
 
 describe('Property 7: Physics_Hover Timing (Req 14.6)', () => {
   it('enter duration is within 300ms budget', () => {

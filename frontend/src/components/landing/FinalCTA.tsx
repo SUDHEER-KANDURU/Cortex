@@ -60,13 +60,18 @@ export function PortfolioFinalCTA() {
             </span>
           </div>
 
-          <h2 className="text-4xl md:text-5xl lg:text-[64px] font-semibold tracking-tight text-balance leading-[1.05]"
-            style={{ fontFamily: "var(--font-display,'Syne',sans-serif)", color: "#0a0a0a" }}>
+          <h2 className="text-[42px] md:text-[56px] lg:text-[72px] font-semibold tracking-tight text-balance"
+            style={{
+              fontFamily: "var(--font-display,'Syne',sans-serif)",
+              color: "#0a0a0a",
+              letterSpacing: "-0.045em",
+              lineHeight: 1.04,
+            }}>
             Have a codebase?<br />
-            <span style={{ color: "#0a0a0a", opacity: 0.55 }}>Let Cortex map it.</span>
+            <span style={{ color: "#0a0a0a", opacity: 0.45 }}>Let Cortex map it.</span>
           </h2>
 
-          <p className="mt-6 text-lg leading-relaxed max-w-xl mx-auto" style={{ color: "rgba(0,0,0,0.5)" }}>
+          <p className="mt-6 text-base leading-[1.7] max-w-[480px] mx-auto" style={{ color: "rgba(0,0,0,0.45)" }}>
             Paste a GitHub URL and get architecture diagrams, learning paths, and interview prep in seconds. No signup. No API keys. No cloud.
           </p>
 
@@ -106,46 +111,85 @@ export function PortfolioFinalCTA() {
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
-            {/* Primary — solid black */}
+            {/* Primary — Liquid Glass dark: layered depth, precise highlight */}
             <Link href="/dashboard"
-              className="group inline-flex items-center justify-center gap-2 px-9 py-4 text-base font-semibold text-white rounded-full transition-all duration-300 hover:-translate-y-1.5"
+              className="group inline-flex items-center justify-center gap-2 px-9 py-4 text-base font-semibold text-white rounded-full"
               style={{
                 background: "#0a0a0a",
-                boxShadow: "0 8px 32px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.12)",
+                // Three-layer shadow: diffuse lift + rim light + inner sheen
+                boxShadow: [
+                  "0 8px 32px rgba(0,0,0,0.22)",
+                  "0 2px 6px rgba(0,0,0,0.14)",
+                  "0 0 0 1px rgba(255,255,255,0.06)",
+                  "inset 0 1px 0 rgba(255,255,255,0.10)",
+                  "inset 0 -1px 0 rgba(0,0,0,0.24)",
+                ].join(", "),
+                transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s ease",
               }}
               onMouseEnter={e => {
                 const el = e.currentTarget as HTMLElement
-                el.style.boxShadow = "0 16px 48px rgba(0,0,0,0.32), 0 4px 12px rgba(0,0,0,0.16)"
+                el.style.transform = "translateY(-3px)"
+                el.style.boxShadow = [
+                  "0 16px 48px rgba(0,0,0,0.30)",
+                  "0 4px 12px rgba(0,0,0,0.18)",
+                  "0 0 0 1px rgba(255,255,255,0.08)",
+                  "inset 0 1px 0 rgba(255,255,255,0.13)",
+                  "inset 0 -1px 0 rgba(0,0,0,0.24)",
+                ].join(", ")
               }}
               onMouseLeave={e => {
                 const el = e.currentTarget as HTMLElement
-                el.style.boxShadow = "0 8px 32px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.12)"
+                el.style.transform = ""
+                el.style.boxShadow = [
+                  "0 8px 32px rgba(0,0,0,0.22)",
+                  "0 2px 6px rgba(0,0,0,0.14)",
+                  "0 0 0 1px rgba(255,255,255,0.06)",
+                  "inset 0 1px 0 rgba(255,255,255,0.10)",
+                  "inset 0 -1px 0 rgba(0,0,0,0.24)",
+                ].join(", ")
               }}>
               Analyze a Repository
               <ArrowUpRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </Link>
 
-            {/* Secondary — glass */}
+            {/* Secondary — Liquid Glass light: crisp dual-tone border */}
             <Link href="https://github.com/SUDHEER-KANDURU/cortex"
               target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-medium rounded-full transition-all duration-300 hover:-translate-y-1"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-medium rounded-full"
               style={{
-                background: "rgba(255,255,255,0.72)",
-                backdropFilter: "blur(8px) saturate(180%)",
-                WebkitBackdropFilter: "blur(8px) saturate(180%)",
+                background: "rgba(255,255,255,0.68)",
+                backdropFilter: "blur(12px) saturate(200%)",
+                WebkitBackdropFilter: "blur(12px) saturate(200%)",
+                // Dual-tone border: bright top, faint bottom
                 border: "1px solid rgba(255,255,255,0.95)",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,1)",
-                color: "rgba(0,0,0,0.7)",
+                borderBottom: "1px solid rgba(0,0,0,0.08)",
+                boxShadow: [
+                  "0 4px 20px rgba(0,0,0,0.07)",
+                  "inset 0 1px 0 rgba(255,255,255,1)",
+                  "inset 0 -1px 0 rgba(0,0,0,0.05)",
+                ].join(", "),
+                color: "rgba(0,0,0,0.68)",
+                transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s ease, background 0.2s ease",
               }}
               onMouseEnter={e => {
                 const el = e.currentTarget as HTMLElement
-                el.style.background = "rgba(255,255,255,0.92)"
-                el.style.boxShadow = "0 8px 32px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,1)"
+                el.style.transform = "translateY(-2px)"
+                el.style.background = "rgba(255,255,255,0.88)"
+                el.style.boxShadow = [
+                  "0 8px 32px rgba(0,0,0,0.10)",
+                  "inset 0 1px 0 rgba(255,255,255,1)",
+                  "inset 0 -1px 0 rgba(0,0,0,0.05)",
+                ].join(", ")
               }}
               onMouseLeave={e => {
                 const el = e.currentTarget as HTMLElement
-                el.style.background = "rgba(255,255,255,0.72)"
-                el.style.boxShadow = "0 4px 20px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,1)"
+                el.style.transform = ""
+                el.style.background = "rgba(255,255,255,0.68)"
+                el.style.boxShadow = [
+                  "0 4px 20px rgba(0,0,0,0.07)",
+                  "inset 0 1px 0 rgba(255,255,255,1)",
+                  "inset 0 -1px 0 rgba(0,0,0,0.05)",
+                ].join(", ")
               }}>
               <Github className="w-4 h-4" />
               Star on GitHub

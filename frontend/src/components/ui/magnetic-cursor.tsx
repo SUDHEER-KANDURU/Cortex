@@ -1,137 +1,185 @@
 "use client"
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MagneticCursor — portal-based, always on top
+// =============================================================================
+// MagneticCursor — premium engineering cursor
 //
-// Root cause of cursor going behind navbar:
-//   backdrop-filter on the header creates an isolated composited layer.
-//   Any sibling element — even z-index:99999 — can be drawn behind it
-//   because the compositor paints backdrop-filter layers last within their
-//   stacking context.
+// Two elements appended directly to <body> (bypasses backdrop-filter z stacking):
+//   dot  — 5px solid circle, tight lerp (0.35), tracks cursor precisely
+//   ring — 28px outline circle, looser lerp (0.14), trails slightly behind
 //
-// Solution: append cursor elements directly to <body> via a portal,
-//   making them the absolute last nodes in the DOM paint order.
-//   Also use pointer-events:none so they never interfere with interaction.
-// ─────────────────────────────────────────────────────────────────────────────
+// Behaviour:
+//   - On interactive elements: dot shrinks to 3px, ring expands to 40px
+//     with a reduced border opacity. No color change — only geometry.
+//   - On text/copy: ring shrinks to 16px (text I-beam feel)
+//   - All transitions are CSS (GPU-accelerated), not JS
+//
+// The cursor makes the page feel alive and precise without adding visual noise.
+// =============================================================================
 
 import { useEffect } from "react"
 
 export function MagneticCursor() {
   useEffect(() => {
-    // Only run on fine-pointer (mouse) devices
     if (!window.matchMedia("(pointer: fine)").matches) return
 
-    // ── Create cursor elements directly on body ──────────────────────────────
-    // Being the last children of body means they are ALWAYS painted on top,
-    // above any backdrop-filter stacking context in the page.
+    // ── Elements ──────────────────────────────────────────────────────────────
     const dot  = document.createElement("div")
     const ring = document.createElement("div")
 
-    const dotInner  = document.createElement("div")
-    const ringInner = document.createElement("div")
-
-    // Outer wrappers — position anchors
-    const baseStyle = [
-      "position:fixed", "top:0", "left:0",
+    // Fixed position anchors — transform moves them each frame
+    const fixedBase = [
+      "position:fixed",
+      "top:0", "left:0",
       "pointer-events:none",
       "will-change:transform",
-      "z-index:2147483647",    // INT_MAX — absolute maximum z-index
+      "z-index:2147483647",
       "opacity:0",
-      "transition:opacity 0.12s ease",
+      "transition:opacity 0.15s ease",
     ].join(";")
 
-    dot.style.cssText  = baseStyle
-    ring.style.cssText = baseStyle
+    dot.style.cssText  = fixedBase
+    ring.style.cssText = fixedBase
 
-    // Dot inner
-    dotInner.className = "cursor-dot-inner"
+    // ── Dot inner — 5px filled circle ────────────────────────────────────────
+    const dotInner = document.createElement("div")
     Object.assign(dotInner.style, {
-      position: "relative",
-      transform: "translate(-50%,-50%)",
+      position:     "relative",
+      transform:    "translate(-50%,-50%)",
       borderRadius: "50%",
-      background: "#0a0a0a",
-      width: "7px",
-      height: "7px",
+      background:   "#0a0a0a",
+      width:  "5px",
+      height: "5px",
+      // Size transitions — CSS handles it, no JS needed
+      transition: "width 0.2s cubic-bezier(0.16,1,0.3,1), height 0.2s cubic-bezier(0.16,1,0.3,1)",
     })
-
-    // Ring inner
-    ringInner.className = "cursor-ring-inner"
-    Object.assign(ringInner.style, {
-      position: "relative",
-      transform: "translate(-50%,-50%)",
-      borderRadius: "50%",
-      border: "1.5px solid rgba(10,10,10,0.28)",
-      width: "34px",
-      height: "34px",
-    })
-
     dot.appendChild(dotInner)
+
+    // ── Ring inner — 28px outline circle ─────────────────────────────────────
+    const ringInner = document.createElement("div")
+    Object.assign(ringInner.style, {
+      position:     "relative",
+      transform:    "translate(-50%,-50%)",
+      borderRadius: "50%",
+      border:       "1px solid rgba(10,10,10,0.22)",
+      width:  "28px",
+      height: "28px",
+      transition: [
+        "width 0.3s cubic-bezier(0.16,1,0.3,1)",
+        "height 0.3s cubic-bezier(0.16,1,0.3,1)",
+        "border-color 0.25s ease",
+        "border-width 0.25s ease",
+      ].join(", "),
+    })
     ring.appendChild(ringInner)
 
-    // Append as LAST children of body — paint order guarantees top-most
+    // Append last — guaranteed above all stacking contexts
     document.body.appendChild(ring)
     document.body.appendChild(dot)
 
-    // ── cursor: none injection ───────────────────────────────────────────────
-    const styleEl      = document.createElement("style")
+    // ── Hide native cursor ────────────────────────────────────────────────────
+    const styleEl = document.createElement("style")
     styleEl.textContent = "@media (pointer: fine) { * { cursor: none !important; } }"
     document.head.appendChild(styleEl)
 
-    // ── State ────────────────────────────────────────────────────────────────
+    // ── Lerp state ────────────────────────────────────────────────────────────
     let rafId: number
+    // Dot position — tight
+    let dX = -300, dY = -300
+    // Ring position — trailing
+    let rX = -300, rY = -300
+    // Target
     let tX = -300, tY = -300
-    let cX = -300, cY = -300
     let hasMovedOnce = false
 
+    // ── Interactive / text selectors ──────────────────────────────────────────
     const INTERACTIVE = [
       "a[href]", "button", "[role='button']",
-      "input[type='submit']", "label[for]",
+      "input[type='submit']", "[data-magnetic]", "label",
     ].join(",")
 
-    // ── Mouse tracking ───────────────────────────────────────────────────────
+    const TEXT = "p, span, li, blockquote, h1, h2, h3, h4, td"
+
+    // ── State tracking ────────────────────────────────────────────────────────
+    type CursorMode = "default" | "hover" | "text"
+    let mode: CursorMode = "default"
+
+    function applyMode(next: CursorMode) {
+      if (next === mode) return
+      mode = next
+      switch (next) {
+        case "hover":
+          // Dot smaller, ring larger — geometry only
+          dotInner.style.width  = "3px"
+          dotInner.style.height = "3px"
+          ringInner.style.width  = "40px"
+          ringInner.style.height = "40px"
+          ringInner.style.borderColor = "rgba(10,10,10,0.14)"
+          break
+        case "text":
+          // Ring contracts to a narrow bar (I-beam feel)
+          dotInner.style.width  = "2px"
+          dotInner.style.height = "16px"
+          dotInner.style.borderRadius = "1px"
+          ringInner.style.width  = "16px"
+          ringInner.style.height = "16px"
+          ringInner.style.borderColor = "rgba(10,10,10,0.10)"
+          break
+        default:
+          dotInner.style.width  = "5px"
+          dotInner.style.height = "5px"
+          dotInner.style.borderRadius = "50%"
+          ringInner.style.width  = "28px"
+          ringInner.style.height = "28px"
+          ringInner.style.borderColor = "rgba(10,10,10,0.22)"
+          ringInner.style.borderWidth = "1px"
+          break
+      }
+    }
+
+    // ── Mouse tracking ────────────────────────────────────────────────────────
     const onMove = (e: MouseEvent) => {
       tX = e.clientX
       tY = e.clientY
 
       if (!hasMovedOnce) {
         hasMovedOnce = true
-        cX = tX; cY = tY          // snap on first move — no drift from corner
+        dX = tX; dY = tY
+        rX = tX; rY = tY
         dot.style.opacity  = "1"
         ring.style.opacity = "1"
       }
 
-      // Hover detection
-      const el = (e.target as HTMLElement).closest(INTERACTIVE) as HTMLElement | null
-      if (el) {
-        dot.classList.add("cursor-hover")
-        ring.classList.add("cursor-hover")
-        // Gentle magnetic pull
-        const r    = el.getBoundingClientRect()
-        const ecx  = r.left + r.width  / 2
-        const ecy  = r.top  + r.height / 2
-        const dx   = tX - ecx, dy = tY - ecy
-        const dist = Math.sqrt(dx * dx + dy * dy)
-        if (dist < 70) { tX -= dx * 0.20; tY -= dy * 0.20 }
+      // Mode detection — check what the cursor is currently over
+      const target = e.target as HTMLElement
+      if (target.closest(INTERACTIVE)) {
+        applyMode("hover")
+      } else if (target.closest(TEXT)) {
+        applyMode("text")
       } else {
-        dot.classList.remove("cursor-hover")
-        ring.classList.remove("cursor-hover")
+        applyMode("default")
       }
     }
 
-    // ── RAF loop ─────────────────────────────────────────────────────────────
+    // ── RAF render loop ───────────────────────────────────────────────────────
     const tick = () => {
-      cX += (tX - cX) * 0.30          // dot — tight
-      cY += (tY - cY) * 0.30
-      const rX = cX + (tX - cX) * 0.10  // ring — trailing
-      const rY = cY + (tY - cY) * 0.10
+      // Dot — tight (0.35), stays close to cursor
+      dX += (tX - dX) * 0.35
+      dY += (tY - dY) * 0.35
 
-      dot.style.transform  = `translate(${cX}px,${cY}px) translateZ(0)`
+      // Ring — looser (0.14), trails naturally
+      rX += (tX - rX) * 0.14
+      rY += (tY - rY) * 0.14
+
+      dot.style.transform  = `translate(${dX}px,${dY}px) translateZ(0)`
       ring.style.transform = `translate(${rX}px,${rY}px) translateZ(0)`
+
       rafId = requestAnimationFrame(tick)
     }
 
-    const onLeave = () => { dot.style.opacity = "0"; ring.style.opacity = "0" }
-    const onEnter = () => { if (hasMovedOnce) { dot.style.opacity = "1"; ring.style.opacity = "1" } }
+    const onLeave  = () => { dot.style.opacity = "0"; ring.style.opacity = "0" }
+    const onEnter  = () => {
+      if (hasMovedOnce) { dot.style.opacity = "1"; ring.style.opacity = "1" }
+    }
 
     window.addEventListener("mousemove",    onMove,   { passive: true })
     document.addEventListener("mouseleave", onLeave)
@@ -150,6 +198,5 @@ export function MagneticCursor() {
     }
   }, [])
 
-  // Render nothing — elements are created imperatively in the DOM
   return null
 }

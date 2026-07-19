@@ -15,14 +15,6 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import gsap from "gsap"
 
 // ── Palette — NO blue, NO purple ─────────────────────────────────────────────
-const ACCENT = {
-  0: "#111111", // step 01 — near-black
-  1: "#1a1a1a", // step 02
-  2: "#222222", // step 03
-  3: "#2a2a2a", // step 04
-  4: "#333333", // step 05
-  5: "#3a3a3a", // step 06
-} as const
 
 const STEP_COLORS = {
   active:   "#0a0a0a",

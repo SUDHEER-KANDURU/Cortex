@@ -3,12 +3,16 @@ const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['three', '@react-three/fiber', '@react-three/drei'],
 
-  // Disable webpack cache symlinks — required when project lives inside OneDrive
-  // OneDrive's virtual filesystem breaks Node's readlink on Windows
+  // Disable webpack cache — required when project lives inside OneDrive
   webpack: (config, { isServer }) => {
     config.cache = false;
+    // Disable webpack's resolve.symlinks to prevent TypeScript path assertion
+    // failures caused by OneDrive reparse points and junctions on Windows.
+    config.resolve = {
+      ...config.resolve,
+      symlinks: false,
+    };
 
-    // Move Three.js + R3F into a dedicated async chunk so the main bundle stays small
     if (!isServer) {
       config.optimization.splitChunks = {
         ...config.optimization.splitChunks,

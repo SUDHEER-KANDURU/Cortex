@@ -399,9 +399,18 @@ export function PortfolioSelectedWorks() {
       }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
         <div className="flex items-center justify-between mb-12 md:mb-16">
-          <SectionTitle className="text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight">
-            Capabilities
-          </SectionTitle>
+          <div>
+            <p style={{
+              fontSize: "10px", fontWeight: 700, letterSpacing: "0.16em",
+              textTransform: "uppercase", color: "rgba(0,0,0,0.35)",
+              fontFamily: "var(--font-mono,'Fira Code',monospace)", marginBottom: "8px",
+            }}>
+              Outputs
+            </p>
+            <SectionTitle className="text-3xl md:text-4xl lg:text-[52px] font-semibold tracking-tight">
+              Capabilities
+            </SectionTitle>
+          </div>
           <Link href="/dashboard"
             className="hidden md:inline-flex items-center gap-2 text-sm font-medium transition-all duration-200 hover:gap-3"
             style={{ color: "#111" }}>

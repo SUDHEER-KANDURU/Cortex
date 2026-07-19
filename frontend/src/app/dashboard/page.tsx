@@ -146,12 +146,52 @@ function SidebarForm({ onJobSubmitted }: SidebarFormProps) {
         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
       </div>
 
-      {/* Submit */}
+      {/* Submit — Liquid Glass dark button */}
       <button
         type="submit"
         disabled={isSubmitting || !repoUrl.trim()}
         aria-busy={isSubmitting}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-violet-500 hover:shadow-[0_0_16px_rgba(124,58,237,0.3)] active:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+        style={{
+          background: isSubmitting
+            ? 'rgba(124,58,237,0.7)'
+            : 'rgba(124,58,237,0.92)',
+          // Liquid Glass: top sheen + depth shadow + rim
+          boxShadow: [
+            '0 2px 12px rgba(124,58,237,0.30)',
+            '0 1px 3px rgba(0,0,0,0.24)',
+            '0 0 0 1px rgba(255,255,255,0.06)',
+            'inset 0 1px 0 rgba(255,255,255,0.14)',
+            'inset 0 -1px 0 rgba(0,0,0,0.18)',
+          ].join(', '),
+          transition: 'background 0.2s ease, box-shadow 0.2s ease',
+        }}
+        onMouseEnter={e => {
+          if (!isSubmitting) {
+            const el = e.currentTarget
+            el.style.background = 'rgba(124,58,237,1)'
+            el.style.boxShadow = [
+              '0 4px 20px rgba(124,58,237,0.40)',
+              '0 1px 3px rgba(0,0,0,0.24)',
+              '0 0 0 1px rgba(255,255,255,0.08)',
+              'inset 0 1px 0 rgba(255,255,255,0.16)',
+              'inset 0 -1px 0 rgba(0,0,0,0.18)',
+            ].join(', ')
+          }
+        }}
+        onMouseLeave={e => {
+          if (!isSubmitting) {
+            const el = e.currentTarget
+            el.style.background = 'rgba(124,58,237,0.92)'
+            el.style.boxShadow = [
+              '0 2px 12px rgba(124,58,237,0.30)',
+              '0 1px 3px rgba(0,0,0,0.24)',
+              '0 0 0 1px rgba(255,255,255,0.06)',
+              'inset 0 1px 0 rgba(255,255,255,0.14)',
+              'inset 0 -1px 0 rgba(0,0,0,0.18)',
+            ].join(', ')
+          }
+        }}
       >
         {isSubmitting ? (
           <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -217,8 +257,12 @@ function Sidebar({ jobs, jobsLoading, jobsError, selectedJobId, onJobSelected, o
       style={{ width: 360, background: '#0A0F1A' }}
       aria-label="Sidebar"
     >
-      {/* Form section */}
-      <div className="border-b border-[#1A2340] p-5">
+      {/* Form section — glass panel header */}
+      <div className="p-5"
+        style={{
+          borderBottom: '1px solid rgba(255,255,255,0.05)',
+          boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.18)',
+        }}>
         <SidebarForm onJobSubmitted={onJobSubmitted} />
       </div>
 
@@ -269,12 +313,14 @@ interface RightPanelProps {
 function RightPanel({ activeJob, artifacts, artifactsLoading, artifactsError }: RightPanelProps) {
   if (!activeJob) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900">
           <Code2 className="h-7 w-7 text-slate-600" aria-hidden="true" />
         </div>
-        <p className="text-sm text-slate-500">Select a repository to analyze</p>
-        <p className="text-xs text-slate-600">Submit a GitHub URL to get started</p>
+        <div>
+          <p className="text-sm font-medium text-slate-400">No repository selected</p>
+          <p className="mt-1 text-xs text-slate-600 max-w-[200px]">Paste a GitHub URL in the sidebar and click Analyze</p>
+        </div>
       </div>
     );
   }
@@ -283,8 +329,19 @@ function RightPanel({ activeJob, artifacts, artifactsLoading, artifactsError }: 
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      {/* Top bar */}
-      <div className="flex items-center justify-between border-b border-[#1A2340] px-6 py-4">
+      {/* Top bar — Liquid Glass panel header */}
+      <div className="flex items-center justify-between px-6 py-4"
+        style={{
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          background: 'rgba(15,22,41,0.85)',
+          backdropFilter: 'blur(12px) saturate(150%)',
+          WebkitBackdropFilter: 'blur(12px) saturate(150%)',
+          // Dual-tone: top highlight + bottom separator
+          boxShadow: [
+            'inset 0 1px 0 rgba(255,255,255,0.07)',
+            'inset 0 -1px 0 rgba(0,0,0,0.20)',
+          ].join(', '),
+        }}>
         <div className="flex items-baseline gap-2 min-w-0">
           <span className="truncate text-base font-medium text-white">{repoName}</span>
           <span className="shrink-0 text-sm text-slate-500">
@@ -294,45 +351,68 @@ function RightPanel({ activeJob, artifacts, artifactsLoading, artifactsError }: 
         <div className="flex shrink-0 items-center gap-3">
           <StatusBadge status={activeJob.status} />
           {activeJob.status === 'running' && (
-            <span className="animate-pulse text-xs text-violet-400">Analyzing...</span>
+            <span className="animate-pulse text-xs text-violet-400">Analyzing…</span>
           )}
         </div>
       </div>
 
       {/* Artifacts area */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
-        {/* Running skeleton */}
-        {activeJob.status === 'running' && artifacts.length === 0 && (
-          <div className="space-y-3">
-            <div className="h-4 w-3/4 animate-pulse rounded bg-slate-800" />
-            <div className="h-4 w-1/2 animate-pulse rounded bg-slate-800" />
-            <div className="mt-4 h-32 animate-pulse rounded-lg bg-slate-800/50" />
-          </div>
-        )}
+      <div className="flex-1 overflow-y-auto px-6 py-5">
 
-        {/* Non-completed status messages */}
+        {/* Pending */}
         {activeJob.status === 'pending' && (
-          <p className="text-sm text-slate-500">Job is queued and waiting to start.</p>
-        )}
-        {activeJob.status === 'failed' && (
-          <p className="text-sm text-red-400">Job failed. Check logs for details.</p>
-        )}
-        {activeJob.status === 'cancelled' && (
-          <p className="text-sm text-slate-500">Job was cancelled.</p>
-        )}
-
-        {/* Artifacts */}
-        {artifactsLoading && (
-          <div className="space-y-3">
-            <div className="h-4 w-3/4 animate-pulse rounded bg-slate-800" />
-            <div className="h-32 animate-pulse rounded-lg bg-slate-800/50" />
+          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-800 border-t-slate-500" />
+            <p className="text-sm text-slate-500">Queued — waiting for a worker</p>
           </div>
         )}
-        {artifactsError && (
-          <p className="text-xs text-red-400">{artifactsError}</p>
+
+        {/* Running skeleton — progressive staggered bars */}
+        {activeJob.status === 'running' && artifacts.length === 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-xs text-violet-400">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-violet-800 border-t-violet-400" />
+              Building knowledge graph…
+            </div>
+            <div className="space-y-2.5">
+              {[75, 55, 85, 45, 65].map((w, i) => (
+                <div key={i} className="animate-pulse rounded bg-slate-800"
+                  style={{ height: i === 2 ? 80 : 12, width: `${w}%`, animationDelay: `${i * 150}ms` }} />
+              ))}
+            </div>
+          </div>
         )}
+
+        {/* Failed */}
+        {activeJob.status === 'failed' && (
+          <div className="flex flex-col items-center gap-3 py-12 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-red-900/40 bg-red-950/30">
+              <span className="text-lg">✕</span>
+            </div>
+            <p className="text-sm font-medium text-red-400">Analysis failed</p>
+            <p className="text-xs text-slate-600">Check backend logs for details</p>
+          </div>
+        )}
+
+        {/* Cancelled */}
+        {activeJob.status === 'cancelled' && (
+          <p className="py-8 text-center text-sm text-slate-500">Job was cancelled.</p>
+        )}
+
+        {/* Artifacts loading skeleton */}
+        {artifactsLoading && (
+          <div className="space-y-4">
+            <div className="h-3.5 w-2/3 animate-pulse rounded bg-slate-800" />
+            <div className="h-56 animate-pulse rounded-lg bg-slate-800/50" />
+          </div>
+        )}
+
+        {artifactsError && (
+          <p className="py-4 text-xs text-red-400">{artifactsError}</p>
+        )}
+
         {!artifactsLoading && activeJob.status === 'completed' && artifacts.length === 0 && (
-          <p className="text-sm text-slate-500">No artifacts generated yet.</p>
+          <p className="py-8 text-center text-sm text-slate-500">No artifacts generated yet.</p>
         )}
 
         <div className="space-y-6">

@@ -451,7 +451,7 @@ export function PortfolioTestimonials() {
             What Cortex generates
           </SectionTitle>
           <p className="mt-4 text-base max-w-xl" style={{ color: "rgba(0,0,0,0.45)", lineHeight: 1.7 }}>
-            Every artifact is derived from your repository's knowledge graph — not templates, not guesswork.
+            Every artifact is derived from your repository&apos;s knowledge graph — not templates, not guesswork.
           </p>
         </div>
 

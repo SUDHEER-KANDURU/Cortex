@@ -1,4 +1,7 @@
 """Jobs API router — uses JobService via FastAPI dependency injection."""
+import asyncio
+from cortex.artifacts.application.use_cases import ArtifactService
+from cortex.artifacts.domain.entities import ArtifactContentType
 
 from fastapi import APIRouter, HTTPException, Query, Depends
 from cortex.jobs.domain.entities import JobStatus, ArtifactType
@@ -25,16 +28,20 @@ def get_job_service() -> JobService:
     The router, service, and all tests stay exactly the same."""
     return JobService(_repository)
 
+def _get_artifact_service() -> ArtifactService:
+    from cortex.artifacts.presentation.router import (
+        get_shared_artifact_repository,
+    )
+    return ArtifactService(get_shared_artifact_repository())
+
 
 @router.post(
     "",
     response_model=JobResponse,
     status_code=201,
     summary="Submit a new analysis job",
-    description=(
-        "Creates a new job and queues it for processing. "
-        "Returns immediately with status=pending."
-    ),
+    description="Creates a job and immediately starts the full "
+    "analysis pipeline in the background.",
 )
 async def create_job(
     request: JobCreateRequest,
@@ -46,10 +53,40 @@ async def create_job(
             artifact_type=request.artifact_type,
             options=request.options,
         )
-        return JobResponse.from_job(job)
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
+    async def run_pipeline() -> None:
+        try:
+            from cortex.pipeline.application.orchestrator import (
+                build_default_pipeline,
+            )
+            await service.mark_running(job.id)
+            pipeline = build_default_pipeline()
+            context = await pipeline.run(job)
+
+            if context.artifact_content:
+                content_type = getattr(
+                    context,
+                    "_artifact_content_type",
+                    ArtifactContentType.MARKDOWN,
+                )
+                await _get_artifact_service().create(
+                    job_id=job.id,
+                    artifact_type=job.artifact_type.value,
+                    content_type=content_type,
+                    content_inline=context.artifact_content,
+                )
+
+            await service.mark_completed(job.id)
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            await service.mark_failed(job.id, str(e))
+
+    asyncio.create_task(run_pipeline())
+    return JobResponse.from_job(job)
 
 @router.get(
     "",

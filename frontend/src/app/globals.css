@@ -1334,3 +1334,405 @@ html {
     transition: none !important;
   }
 }
+
+/* =============================================================================
+   Performance & Loading Pass — Skeleton + Progressive Loading
+   ============================================================================= */
+
+/* ── Skeleton pulse animation (used in dashboard + hero lazy panel) ──────── */
+@keyframes pulse-skeleton {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 0.9; }
+}
+
+/* ── Dashboard skeleton bars ─────────────────────────────────────────────── */
+.skeleton-bar {
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  animation: pulse-skeleton 1.6s ease-in-out infinite;
+}
+
+/* ── Hero lazy panel — dark skeleton shimmer ─────────────────────────────── */
+.hero-tree-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 0%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.04) 100%
+  );
+  background-size: 400px 100%;
+  animation: shimmer-skeleton 2s ease infinite;
+}
+@keyframes shimmer-skeleton {
+  from { background-position: -400px 0; }
+  to   { background-position:  400px 0; }
+}
+
+/* =============================================================================
+   Typography Hierarchy Pass — Stronger Scale Contrast
+   ============================================================================= */
+
+/* ── Eyebrow / overline labels — restrained, mono, very small ─────────────── */
+.eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-family: var(--font-mono), 'Fira Code', monospace;
+  color: rgba(0, 0, 0, 0.35);
+  display: block;
+  margin-bottom: 10px;
+}
+
+/* ── Section headline — dominant, full optical weight ───────────────────── */
+.headline-xl {
+  font-family: var(--font-display), 'Syne', sans-serif;
+  font-size: clamp(36px, 5vw, 64px);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 1.04;
+  color: oklch(0.03 0 0);
+}
+
+/* ── Section sub-headline ────────────────────────────────────────────────── */
+.headline-lg {
+  font-family: var(--font-display), 'Syne', sans-serif;
+  font-size: clamp(28px, 3.5vw, 48px);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+  color: oklch(0.03 0 0);
+}
+
+/* ── Card headline ───────────────────────────────────────────────────────── */
+.headline-md {
+  font-family: var(--font-display), 'Syne', sans-serif;
+  font-size: clamp(16px, 2vw, 22px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: oklch(0.03 0 0);
+}
+
+/* ── Body copy — restrained, comfortable reading ────────────────────────── */
+.body-copy {
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(0, 0, 0, 0.45);
+  font-weight: 400;
+  max-width: 52ch;
+}
+
+/* ── Enforce hierarchy — section h2 is always dominant ─────────────────── */
+.portfolio-page section h2 {
+  font-size: clamp(28px, 4vw, 52px);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.06;
+}
+
+/* ── Section h3 clearly subordinate to h2 ──────────────────────────────── */
+.portfolio-page section h3 {
+  font-size: clamp(14px, 1.5vw, 18px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+/* ── Muted paragraph — explicit restrained weight ───────────────────────── */
+.portfolio-page section p:not([class]) {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.44);
+  line-height: 1.68;
+}
+
+/* =============================================================================
+   Scroll Pacing Pass — Cinematic Breathing Room
+   ============================================================================= */
+
+/* ── Each section gets extra breathing room on large screens ─────────────── */
+@media (min-width: 1024px) {
+  .portfolio-page section {
+    /* Ensure sections don't feel crowded — minimum 96px top/bottom space */
+    padding-top: max(var(--section-pt, 80px), 80px);
+    padding-bottom: max(var(--section-pb, 80px), 80px);
+  }
+
+  /* How it works is scroll-pinned — no extra padding needed */
+  #how-it-works {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+/* ── Page-level scroll rhythm ────────────────────────────────────────────── */
+.portfolio-page main {
+  /* Prevents sections from feeling like one blob */
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Cinematic inter-section gradient bridges ────────────────────────────── */
+/* Each section has a top gradient that fades from the page BG into itself,
+   softening the hard edge between sections                                  */
+.portfolio-page section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255,255,255,0.6) 20%,
+    rgba(255,255,255,0.9) 50%,
+    rgba(255,255,255,0.6) 80%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Override — sections with explicit border-top don't need the pseudo-border */
+section[style*="borderTop"],
+section[style*="border-top"] {
+  /* The inline style already handles the separator */
+}
+
+/* ── Section reveal transition — tuned for cinematic feel ───────────────── */
+/* Slower, smoother than the default 0.65s */
+[data-reveal] {
+  transition-duration: 0.9s;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+[data-reveal="up"] {
+  transform: translateY(40px);
+}
+
+/* Stagger items take 0.7s each with a longer delay spread */
+[data-stagger] > * {
+  transition-duration: 0.7s;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── HowItWorks — stronger heading scale ────────────────────────────────── */
+#how-it-works h2 {
+  font-size: clamp(28px, 3.5vw, 48px) !important;
+  letter-spacing: -0.045em !important;
+  line-height: 1.06 !important;
+}
+
+/* ── Section with scroll-pinned content — z layering ───────────────────── */
+#how-it-works {
+  z-index: 2;
+  position: relative;
+}
+
+/* =============================================================================
+   Engineering Terminal — HowItWorks visual polish
+   ============================================================================= */
+
+/* ── Terminal text — monospace, crisp rendering ─────────────────────────── */
+.cortex-terminal {
+  font-family: var(--font-mono), 'Fira Code', 'Menlo', 'Monaco', monospace;
+  font-size: 12.5px;
+  line-height: 2;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-variant-ligatures: common-ligatures;
+}
+
+/* ── Cmd line — bright white, heavier weight ───────────────────────────── */
+.terminal-cmd  { color: #e4e4e7; font-weight: 600; }
+.terminal-ok   { color: #34d399; font-weight: 500; }
+.terminal-node { color: #a1a1aa; }
+.terminal-edge { color: #71717a; }
+.terminal-info { color: #71717a; }
+.terminal-step { color: #52525b; }
+.terminal-think{ color: #737373; }
+.terminal-artifact { color: #d4d4d8; font-weight: 500; }
+
+/* ── Terminal chrome bar ────────────────────────────────────────────────── */
+.terminal-chrome {
+  background: #111111;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 11px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* =============================================================================
+   What Cortex Generates — output cards
+   ============================================================================= */
+
+/* ── Output card hover lift ─────────────────────────────────────────────── */
+.output-card {
+  transition:
+    box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    transform  0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.output-card:hover {
+  box-shadow:
+    0 20px 60px rgba(0,0,0,0.10),
+    inset 0 1px 0 rgba(255,255,255,1);
+  transform: translateY(-4px);
+}
+
+/* ── Section heading — "What Cortex generates" ───────────────────────────── */
+#testimonials h2 {
+  font-size: clamp(28px, 4vw, 52px) !important;
+  letter-spacing: -0.045em !important;
+  line-height: 1.06 !important;
+}
+
+/* =============================================================================
+   Dashboard — progressive loading polish
+   ============================================================================= */
+
+/* ── Dashboard shell fades in immediately ──────────────────────────────── */
+.dashboard-shell {
+  animation: fadeIn 0.25s ease both;
+}
+
+/* ── Sidebar skeleton — bars animate with staggered delay ──────────────── */
+.sidebar-skeleton-bar {
+  border-radius: 6px;
+  background: rgba(255,255,255,0.04);
+  animation: pulse-skeleton 1.4s ease-in-out infinite;
+}
+.sidebar-skeleton-bar:nth-child(1) { animation-delay:   0ms; }
+.sidebar-skeleton-bar:nth-child(2) { animation-delay: 120ms; }
+.sidebar-skeleton-bar:nth-child(3) { animation-delay: 240ms; }
+
+/* ── Running state — pulsing border on selected row ────────────────────── */
+@keyframes running-pulse {
+  0%, 100% { border-color: rgba(124,58,237,0.3); }
+  50%       { border-color: rgba(124,58,237,0.7); }
+}
+.job-running {
+  animation: running-pulse 2s ease-in-out infinite;
+}
+
+/* =============================================================================
+   Reduced motion — global safety net for all new additions
+   ============================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .hero-tree-skeleton,
+  .shimmer-skeleton,
+  .pulse-skeleton,
+  .sidebar-skeleton-bar,
+  [class*="animate-"] {
+    animation: none !important;
+  }
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+}
+
+/* =============================================================================
+   Liquid Glass — Systematic Design Tokens (2025)
+   Applied only to: navbar, CTAs, badges, panel headers, floating controls.
+   NOT applied to: content cards, code blocks, terminals, diagrams.
+   ============================================================================= */
+
+/* ── Light surface glass (on white/near-white backgrounds) ───────────────────
+   Use: navbar pill, secondary CTA buttons, pipeline step badges              */
+.lg-light {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: saturate(200%) blur(24px);
+  -webkit-backdrop-filter: saturate(200%) blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-bottom-color: rgba(0, 0, 0, 0.05);
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+}
+
+.lg-light:hover {
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+}
+
+/* ── Dark surface glass (on dark/near-black backgrounds) ─────────────────────
+   Use: nav CTA button, primary CTAs, dashboard submit button                 */
+.lg-dark {
+  background: rgba(10, 10, 10, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.22),
+    0 1px 4px rgba(0, 0, 0, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22);
+}
+
+.lg-dark:hover {
+  background: rgba(17, 17, 17, 0.96);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.30),
+    0 2px 6px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22);
+}
+
+/* ── Dark panel header (dashboard top bar, sidebar section headers) ──────────
+   Subtle: barely-there blur, precise separator lines                         */
+.lg-panel-header {
+  background: rgba(15, 22, 41, 0.85);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.20);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ── Micro-surface badge (status badges, small pills) ────────────────────────
+   4px blur — imperceptible overhead, noticeable polish                       */
+.lg-badge {
+  backdrop-filter: blur(4px) saturate(160%);
+  -webkit-backdrop-filter: blur(4px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.14);
+}
+
+/* ── Scrolled state modifier for the navbar pill ─────────────────────────────
+   More opaque + deeper shadow when user has scrolled past the hero           */
+.lg-scrolled {
+  background: rgba(255, 255, 255, 0.90) !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.10),
+    0 2px 6px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.04) !important;
+}
+
+/* ── Hover transition for all Liquid Glass surfaces ─────────────────────────*/
+.lg-light,
+.lg-dark,
+.lg-panel-header,
+.lg-badge {
+  transition:
+    background    0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow    0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color  0.25s ease;
+}
+
+/* ── Reduced motion: disable all blur/backdrop-filter on glass surfaces ─────*/
+@media (prefers-reduced-motion: reduce) {
+  .lg-light,
+  .lg-dark,
+  .lg-panel-header,
+  .lg-badge {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    transition: none !important;
+  }
+}

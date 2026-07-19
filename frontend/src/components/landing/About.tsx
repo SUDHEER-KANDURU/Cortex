@@ -134,7 +134,14 @@ export function PortfolioAbout() {
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 mb-16 md:mb-24">
           <div data-reveal="up">
-            <SectionTitle className="text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight text-balance">
+            <p style={{
+              fontSize: "10px", fontWeight: 700, letterSpacing: "0.16em",
+              textTransform: "uppercase", color: "rgba(0,0,0,0.35)",
+              fontFamily: "var(--font-mono,'Fira Code',monospace)", marginBottom: "10px",
+            }}>
+              About
+            </p>
+            <SectionTitle className="text-3xl md:text-4xl lg:text-[52px] font-semibold tracking-tight text-balance">
               Bridging Static Code &amp; Structural Understanding
             </SectionTitle>
             <p className="mt-6 text-muted-foreground leading-relaxed">
