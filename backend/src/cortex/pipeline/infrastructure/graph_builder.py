@@ -109,10 +109,17 @@ class GraphBuilder:
             module_nodes[module_path] = module_node
             self._node_index[module_node.id] = module_node
 
-            # Repo CONTAINS Module
+        # Module hierarchy (repo -> top-level module -> nested module)
+        for module_path in modules:
+            parent_module_path = self._get_parent_module_path(module_path)
+            parent_node = (
+                module_nodes[parent_module_path]
+                if parent_module_path and parent_module_path in module_nodes
+                else repo_node
+            )
             result.edges.append(self._create_edge(
-                source=repo_node,
-                target=module_node,
+                source=parent_node,
+                target=module_nodes[module_path],
                 relationship=RelationshipType.CONTAINS,
             ))
 
@@ -143,7 +150,20 @@ class GraphBuilder:
                 relationship=RelationshipType.CONTAINS,
             ))
 
-            # Step 4 — Create class nodes
+        module_name_index: dict[str, list[GraphNode]] = {}
+        for parsed_file in parsed_files:
+            file_node = file_nodes.get(parsed_file.path)
+            if not file_node:
+                continue
+            for module_name in self._candidate_module_names(parsed_file.path):
+                module_name_index.setdefault(module_name, []).append(file_node)
+
+        # Step 4 — Create class and function nodes and import edges
+        for parsed_file in parsed_files:
+            file_node = file_nodes.get(parsed_file.path)
+            if not file_node:
+                continue
+
             for parsed_class in parsed_file.classes:
                 class_node = self._create_class_node(
                     parsed_class, parsed_file.path
@@ -190,16 +210,25 @@ class GraphBuilder:
 
             # Step 7 — Create import edges
             for imp in parsed_file.imports:
-                if not imp.is_relative:
+                if not imp.module:
                     continue
-                # Internal import — find the target file node
-                target_path = imp.module.replace(".", "/") + ".py"
-                target_node = file_nodes.get(target_path)
-                if target_node:
+                target_nodes = self._resolve_import_targets(
+                    imp.module,
+                    module_name_index,
+                    file_node,
+                )
+                for target_node in target_nodes:
+                    if target_node.id == file_node.id:
+                        continue
                     result.edges.append(self._create_edge(
                         source=file_node,
                         target=target_node,
                         relationship=RelationshipType.IMPORTS,
+                    ))
+                    result.edges.append(self._create_edge(
+                        source=file_node,
+                        target=target_node,
+                        relationship=RelationshipType.DEPENDS_ON,
                     ))
 
         # Step 8 — Add inheritance edges between classes
@@ -224,6 +253,7 @@ class GraphBuilder:
                         ))
 
         result.stats = result.summary()
+        self._emit_debug_summary(parsed_files, result, modules)
 
         logger.info(
             "graph_built",
@@ -337,32 +367,147 @@ class GraphBuilder:
         self,
         parsed_files: list[ParsedFile],
     ) -> list[str]:
-        """Detect unique top-level modules from file paths.
-
-        For a file at src/cortex/jobs/domain/entities.py,
-        the top-level module is src/cortex/jobs.
-        Returns unique module paths sorted alphabetically.
-        """
+        """Detect the full directory hierarchy for each parsed file."""
         modules: set[str] = set()
-        for f in parsed_files:
-            parts = f.path.split("/")
-            if len(parts) >= 2:
-                # Use the first two directory levels as the module
-                modules.add("/".join(parts[:2]))
-            elif len(parts) == 1:
-                modules.add("root")
+        for parsed_file in parsed_files:
+            normalized_path = self._normalize_path(parsed_file.path)
+            parts = [part for part in normalized_path.split("/") if part]
+            if not parts:
+                continue
+
+            parent_dirs = parts[:-1]
+            for depth in range(1, len(parent_dirs) + 1):
+                modules.add("/".join(parent_dirs[:depth]))
+
         return sorted(modules)
+
+    def _get_parent_module_path(self, module_path: str) -> str | None:
+        """Return the parent directory module path for a module."""
+        normalized_path = self._normalize_path(module_path)
+        parts = [part for part in normalized_path.split("/") if part]
+        if len(parts) <= 1:
+            return None
+        return "/".join(parts[:-1])
 
     def _find_parent_module(
         self,
         file_path: str,
         module_nodes: dict[str, GraphNode],
     ) -> str | None:
-        """Find which module a file belongs to."""
-        for module_path in sorted(module_nodes.keys(), reverse=True):
-            if file_path.startswith(module_path):
-                return module_path
-        return None
+        """Find which module a file belongs to — longest path match wins."""
+        normalized_file = self._normalize_path(file_path)
+        best_match = None
+        best_length = 0
+        for module_path in module_nodes.keys():
+            normalized_module = self._normalize_path(module_path)
+            if normalized_module and (
+                normalized_file == normalized_module
+                or normalized_file.startswith(f"{normalized_module}/")
+            ) and len(normalized_module) > best_length:
+                best_match = module_path
+                best_length = len(normalized_module)
+        return best_match
+
+    def _normalize_path(self, path: str) -> str:
+        """Normalize a repository-relative path to forward-slash form."""
+        return path.replace("\\", "/").strip("/")
+
+    def _candidate_module_names(self, file_path: str) -> list[str]:
+        """Return import-style module names that could match a file path."""
+        normalized = self._normalize_path(file_path)
+        parts = [part for part in normalized.split("/") if part]
+        if not parts:
+            return []
+
+        names: list[str] = []
+        for index in range(len(parts)):
+            if parts[index].endswith(".py"):
+                stem = parts[index][:-3]
+                module_parts = parts[index + 1:] if index < len(parts) - 1 else []
+                candidates = [
+                    ".".join(parts[index + 1:]),
+                    ".".join(parts[index + 1:-1]) if len(parts[index + 1:]) > 1 else None,
+                    stem,
+                ]
+                names.extend(
+                    candidate
+                    for candidate in candidates
+                    if candidate
+                )
+                break
+
+        if not names:
+            return []
+
+        # Also include suffix-based names for nested packages.
+        suffix_names = []
+        for index in range(1, len(parts)):
+            suffix_names.append(".".join(parts[index:]))
+        return list(dict.fromkeys(names + suffix_names))
+
+    def _resolve_import_targets(
+        self,
+        import_module: str,
+        module_name_index: dict[str, list[GraphNode]],
+        source_node: GraphNode,
+    ) -> list[GraphNode]:
+        """Resolve a Python import to file nodes using module-name matching."""
+        candidates: list[GraphNode] = []
+        seen: set[str] = set()
+        normalized_import = import_module.strip(".")
+
+        for module_name in {normalized_import, normalized_import.split(".")[-1]}:
+            if not module_name:
+                continue
+            for target_node in module_name_index.get(module_name, []):
+                if target_node.id not in seen:
+                    seen.add(target_node.id)
+                    candidates.append(target_node)
+
+        if not candidates:
+            for module_name, targets in module_name_index.items():
+                if module_name.endswith(normalized_import) or normalized_import.endswith(module_name):
+                    for target_node in targets:
+                        if target_node.id != source_node.id and target_node.id not in seen:
+                            seen.add(target_node.id)
+                            candidates.append(target_node)
+
+        return candidates
+
+    def _emit_debug_summary(
+        self,
+        parsed_files: list[ParsedFile],
+        result: GraphBuildResult,
+        modules: list[str],
+    ) -> None:
+        """Temporary debug logging for graph construction."""
+        print("[graph_debug] total_repository_files", len(parsed_files))
+        print("[graph_debug] total_asts_parsed", len(parsed_files))
+        print("[graph_debug] total_graph_nodes", len(result.nodes))
+        print("[graph_debug] total_graph_edges", len(result.edges))
+        print("[graph_debug] detected_modules", modules[:50])
+        print(
+            "[graph_debug] first_20_nodes",
+            [
+                {
+                    "type": node.node_type.value,
+                    "label": node.label,
+                    "path": node.properties.get("path"),
+                }
+                for node in result.nodes[:20]
+            ],
+        )
+        print(
+            "[graph_debug] first_20_edges",
+            [
+                {
+                    "source": edge.source_id,
+                    "target": edge.target_id,
+                    "relationship": edge.relationship.value,
+                }
+                for edge in result.edges[:20]
+            ],
+        )
 
     def _make_id(self, prefix: str, value: str) -> str:
         """Create a deterministic node ID from a prefix and value.

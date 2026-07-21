@@ -365,7 +365,6 @@ class JavaASTParser:
 
         logger.info(
             "java_file_parsed",
-            path=file_path,
             **result.summary(),
         )
 

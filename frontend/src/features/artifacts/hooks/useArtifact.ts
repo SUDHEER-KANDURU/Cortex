@@ -1,10 +1,7 @@
-// =============================================================================
-// useArtifact — Fetches all artifacts for a given job
-// =============================================================================
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Artifact } from '@/types';
 import { getArtifactsForJob } from '@/lib/api/artifacts.api';
 
@@ -15,12 +12,6 @@ export interface UseArtifactReturn {
   refetch: () => void;
 }
 
-/**
- * Fetch all artifacts belonging to a job.
- * Re-fetches whenever jobId changes.
- *
- * @param jobId - UUID of the job whose artifacts to fetch, or null to skip
- */
 export function useArtifact(jobId: string | null): UseArtifactReturn {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -31,6 +22,7 @@ export function useArtifact(jobId: string | null): UseArtifactReturn {
     if (!jobId) {
       setArtifacts([]);
       setError(null);
+      setIsLoading(false);
       return;
     }
 
@@ -60,7 +52,9 @@ export function useArtifact(jobId: string | null): UseArtifactReturn {
     };
   }, [jobId, fetchTrigger]);
 
-  const refetch = (): void => setFetchTrigger((n) => n + 1);
+  const refetch = useCallback((): void => {
+    setFetchTrigger((n) => n + 1);
+  }, []);
 
   return { artifacts, isLoading, error, refetch };
 }

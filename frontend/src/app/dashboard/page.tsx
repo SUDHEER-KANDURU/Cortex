@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Job, ArtifactType } from '@/types';
 import { useJobPolling } from '@/features/jobs/hooks/useJobPolling';
 import { useArtifact } from '@/features/artifacts/hooks/useArtifact';
@@ -459,10 +459,21 @@ export default function DashboardPage() {
     selectedJob?.id ?? null
   );
 
-  // Auto-refetch artifacts when job completes
-  React.useEffect(() => {
-    if (polledJob?.status === 'completed') refetch();
-  }, [polledJob?.status, refetch]);
+  const completedJobRef = useRef<string | null>(null);
+
+  // Auto-refetch artifacts exactly once when the selected job reaches a completed state.
+  useEffect(() => {
+    if (!polledJob || polledJob.status !== 'completed') {
+      return;
+    }
+
+    if (completedJobRef.current === polledJob.id) {
+      return;
+    }
+
+    completedJobRef.current = polledJob.id;
+    refetch();
+  }, [polledJob?.id, polledJob?.status, refetch]);
 
   const handleJobSubmitted = useCallback((job: Job) => {
     setJobs(prev => [job, ...prev]);

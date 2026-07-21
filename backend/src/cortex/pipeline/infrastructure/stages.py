@@ -166,6 +166,56 @@ class GraphBuildStage(AbstractPipelineStage):
 
             graph_result = builder.build(parsed_files)
 
+            print("[graph_debug] graph_build_complete", {
+                "nodes": graph_result.node_count(),
+                "edges": graph_result.edge_count(),
+                "modules": len([
+                    n for n in graph_result.nodes
+                    if n.node_type.value == "Module"
+                ]),
+            })
+            print(
+                "[pipeline_debug][GraphBuildStage] graph_after_build",
+                {
+                    "node_count": graph_result.node_count(),
+                    "edge_count": graph_result.edge_count(),
+                    "first_nodes": [
+                        {
+                            "type": node.node_type.value,
+                            "label": node.label,
+                            "path": node.properties.get("path"),
+                        }
+                        for node in graph_result.nodes[:30]
+                    ],
+                    "first_edges": [
+                        {
+                            "source": edge.source_id,
+                            "target": edge.target_id,
+                            "relationship": edge.relationship.value,
+                        }
+                        for edge in graph_result.edges[:30]
+                    ],
+                    "node_types": {
+                        node_type.value: sum(
+                            1 for n in graph_result.nodes if n.node_type == node_type
+                        )
+                        for node_type in sorted(
+                            {node.node_type for node in graph_result.nodes},
+                            key=lambda item: item.value,
+                        )
+                    },
+                    "edge_types": {
+                        relationship.value: sum(
+                            1 for e in graph_result.edges if e.relationship == relationship
+                        )
+                        for relationship in sorted(
+                            {edge.relationship for edge in graph_result.edges},
+                            key=lambda item: item.value,
+                        )
+                    },
+                },
+            )
+
             context.node_count = graph_result.node_count()
             context.edge_count = graph_result.edge_count()
 
@@ -195,72 +245,83 @@ class ArtifactGenerateStage(AbstractPipelineStage):
         self._artifact_service = artifact_service
 
     async def execute(self, context: PipelineContext) -> PipelineContext:
-        """Generate the requested artifact type."""
+        """Generate artifacts from the knowledge graph."""
         graph_result = getattr(context, "_graph_result", None)
 
         if not graph_result:
             context.mark_error(
-                "ArtifactGenerateStage: no graph result found. "
-                "GraphBuildStage may have failed."
+                "ArtifactGenerateStage: no graph result found."
             )
             return context
 
         try:
-            logger.info(
-                "artifact_generate_stage_started",
-                job_id=context.job.id,
-                artifact_type=context.artifact_type.value,
+            from cortex.pipeline.infrastructure.artifact_generator import (
+                MermaidGenerator,
+                MarkdownReportGenerator,
             )
 
+            repo_name = context.repo_url.rstrip("/").split("/")[-1]
             artifact_type = context.artifact_type.value
+            mermaid_gen = MermaidGenerator()
+            markdown_gen = MarkdownReportGenerator()
 
             if artifact_type == "architecture_diagram":
-                content = self._generate_architecture_diagram(
-                    graph_result
+                print(
+                    "[pipeline_debug][ArtifactGenerateStage] graph_before_mermaid",
+                    {
+                        "node_count": graph_result.node_count(),
+                        "edge_count": graph_result.edge_count(),
+                        "first_nodes": [
+                            {
+                                "type": node.node_type.value,
+                                "label": node.label,
+                                "path": node.properties.get("path"),
+                            }
+                            for node in graph_result.nodes[:30]
+                        ],
+                        "first_edges": [
+                            {
+                                "source": edge.source_id,
+                                "target": edge.target_id,
+                                "relationship": edge.relationship.value,
+                            }
+                            for edge in graph_result.edges[:30]
+                        ],
+                    },
                 )
+                content = mermaid_gen.generate(graph_result, repo_name)
                 content_type = ArtifactContentType.MERMAID
 
             elif artifact_type == "module_breakdown":
-                content = self._generate_module_breakdown(graph_result)
+                content = markdown_gen.generate_module_breakdown(
+                    graph_result, repo_name
+                )
                 content_type = ArtifactContentType.MARKDOWN
 
             elif artifact_type == "learning_path":
-                content = self._generate_learning_path(
-                    graph_result, context
+                content = markdown_gen.generate_learning_path(
+                    graph_result, repo_name
                 )
                 content_type = ArtifactContentType.MARKDOWN
 
             elif artifact_type == "api_spec":
-                content = self._generate_api_spec(graph_result)
+                content = markdown_gen.generate_api_spec(
+                    graph_result, repo_name
+                )
                 content_type = ArtifactContentType.MARKDOWN
 
             elif artifact_type == "interview_questions":
-                content = self._generate_interview_questions(
-                    graph_result, context
+                content = markdown_gen.generate_interview_questions(
+                    graph_result, repo_name
                 )
                 content_type = ArtifactContentType.MARKDOWN
 
-            elif artifact_type == "folder_structure":
-                content = self._generate_folder_structure(context)
-                content_type = ArtifactContentType.PLAIN
-
             else:
-                content = self._generate_architecture_diagram(
-                    graph_result
-                )
+                content = mermaid_gen.generate(graph_result, repo_name)
                 content_type = ArtifactContentType.MERMAID
 
             context.artifact_content = content
             context._artifact_content_type = content_type  # type: ignore[attr-defined]
-
-            # --- Persist the artifact ---
-            artifact = await self._artifact_service.create(
-                job_id=context.job.id,
-                artifact_type=artifact_type,
-                content_type=content_type,
-                content_inline=content,
-            )
-            context.artifact_id = artifact.id
 
             logger.info(
                 "artifact_generate_stage_completed",
@@ -288,7 +349,7 @@ class ArtifactGenerateStage(AbstractPipelineStage):
 
         # Add module nodes
         for module in modules:
-            safe_id = module.id.replace("-", "_")
+            safe_id = "node_" + module.id.replace("-", "_").replace(".", "_")[:20]
             lines.append(f'  {safe_id}["{module.label}"]')
 
         # Add class nodes
