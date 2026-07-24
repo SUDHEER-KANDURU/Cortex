@@ -96,38 +96,52 @@ class MermaidGenerator:
                     lines.append(f'  {safe_id}["{label}"]:::repo')
                 elif node_type == NodeType.MODULE:
                     path = str(node.properties.get("path") or node.label).rstrip("/")
-                    label = f"{path}/" if path else node.label
+                    parts = path.split("/") if path else []
+                    label = "/".join(parts[-2:]) if len(parts) > 2 else path or node.label
                     lines.append(f'  {safe_id}["{label}"]:::module')
                 elif node_type == NodeType.FILE:
                     lines.append(f'  {safe_id}["{node.label}"]:::file')
                 elif node_type == NodeType.CLASS:
                     lines.append(f'  {safe_id}["{node.label}"]:::cls')
 
+        important_classes = classes[:8]
+        class_to_module: dict[str, str] = {}
+        for cls in classes:
+            class_path = str(cls.properties.get("file") or "").strip()
+            for module in modules:
+                module_path = str(module.properties.get("path") or "").rstrip("/")
+                if class_path.startswith(module_path):
+                    class_to_module[cls.id] = module.id
+                    break
+
+        # Edges — repo to modules only (remove class→module edges)
+        if repo_nodes:
+            rid = self._safe_id(repo_nodes[0].id)
+            for module in modules[:8]:
+                mid = self._safe_id(module.id)
+                lines.append(f"  {rid} --> {mid}")
+
+        # Edges — modules to their OWN classes only
+        for cls in important_classes:
+            cid = self._safe_id(cls.id)
+            parent_mid = class_to_module.get(cls.id)
+            if parent_mid:
+                lines.append(f"  {self._safe_id(parent_mid)} --> {cid}")
+
+        # Inheritance — limit to 5 max
+        inheritance_count = 0
         for edge in graph.edges:
-            if edge.relationship not in {RelationshipType.CONTAINS, RelationshipType.INHERITS}:
+            if edge.relationship != RelationshipType.INHERITS:
                 continue
-
-            source = next((n for n in graph.nodes if n.id == edge.source_id), None)
-            target = next((n for n in graph.nodes if n.id == edge.target_id), None)
-            if not source or not target:
-                continue
-
-            if source.node_type not in {NodeType.REPOSITORY, NodeType.MODULE, NodeType.FILE, NodeType.CLASS}:
-                continue
-            if target.node_type not in {NodeType.MODULE, NodeType.FILE, NodeType.CLASS}:
-                continue
-
-            edge_key = (source.id, target.id, edge.relationship.value)
-            if edge_key in rendered_edges:
-                continue
-            rendered_edges.add(edge_key)
-
-            src_id = node_ids.get(source.id, self._safe_id(source.id))
-            tgt_id = node_ids.get(target.id, self._safe_id(target.id))
-            if edge.relationship == RelationshipType.INHERITS:
+            if inheritance_count >= 5:
+                break
+            src = next((n for n in graph.nodes if n.id == edge.source_id), None)
+            tgt = next((n for n in graph.nodes if n.id == edge.target_id), None)
+            if src and tgt:
+                src_id = self._safe_id(src.id)
+                tgt_id = self._safe_id(tgt.id)
                 lines.append(f"  {src_id} -.->|extends| {tgt_id}")
-            else:
-                lines.append(f"  {src_id} --> {tgt_id}")
+                inheritance_count += 1
 
         output = "\n".join(lines)
         rendered_node_count = len(node_ids)
@@ -151,10 +165,9 @@ class MermaidGenerator:
             .replace("/", "_")
             .replace(" ", "_")
         )
-        # Must start with a letter
         if clean and not clean[0].isalpha():
             clean = "n_" + clean
-        return clean[:30]
+        return clean[:24]
 
 
 class MarkdownReportGenerator:
