@@ -165,6 +165,7 @@ class PythonASTParser:
 
                 logger.info(
                     "python_file_parsed",
+                    file=file_path,
                     **result.summary(),
                 )
         logger.debug(
@@ -364,7 +365,7 @@ class JavaASTParser:
                 parameters=params,
             ))
 
-        logger.info("java_file_parsed", path=file_path, **result.summary())
+        logger.info("java_file_parsed", file=file_path, **result.summary())
         return result
 
 

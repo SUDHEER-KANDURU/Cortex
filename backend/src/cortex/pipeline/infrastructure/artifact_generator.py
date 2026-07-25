@@ -51,110 +51,71 @@ class MermaidGenerator:
         graph: GraphBuildResult,
         repo_name: str,
     ) -> str:
-        """Render the repository hierarchy from the existing graph."""
-        snapshot = _graph_debug_snapshot(graph)
-        print("[pipeline_debug][MermaidGenerator] input_graph", snapshot)
-
         lines = ["graph TD"]
+    
+        lines.append("  classDef repo fill:#7C3AED,stroke:#5B21B6,color:#fff")
+        lines.append("  classDef module fill:#1D4ED8,stroke:#1E40AF,color:#fff")
+        lines.append("  classDef cls fill:#065F46,stroke:#064E3B,color:#fff")
 
         repo_nodes = graph.nodes_by_type(NodeType.REPOSITORY)
-        modules = graph.nodes_by_type(NodeType.MODULE)
-        files = graph.nodes_by_type(NodeType.FILE)
+        all_modules = graph.nodes_by_type(NodeType.MODULE)
         classes = graph.nodes_by_type(NodeType.CLASS)
 
-        # Style definitions
-        lines.append(
-            "  classDef repo fill:#7C3AED,stroke:#5B21B6,"
-            "color:#fff,rx:8"
-        )
-        lines.append(
-            "  classDef module fill:#1D4ED8,stroke:#1E40AF,"
-            "color:#fff,rx:6"
-        )
-        lines.append(
-            "  classDef file fill:#F59E0B,stroke:#D97706,"
-            "color:#fff,rx:4"
-        )
-        lines.append(
-            "  classDef cls fill:#065F46,stroke:#064E3B,"
-            "color:#fff,rx:4"
-        )
+        # Skip generic container modules
+        skip_labels = {"main/", "test/", "src/", "java/"}
+        good_modules = [
+            m for m in all_modules
+            if m.label not in skip_labels
+        ][:8]
 
-        node_ids: dict[str, str] = {}
-        rendered_edges: set[tuple[str, str, str]] = set()
-        render_order = [NodeType.REPOSITORY, NodeType.MODULE, NodeType.FILE, NodeType.CLASS]
+        if not good_modules:
+            good_modules = all_modules[:8]
 
-        for node_type in render_order:
-            for node in graph.nodes:
-                if node.node_type != node_type:
-                    continue
-                safe_id = self._safe_id(node.id)
-                node_ids[node.id] = safe_id
-
-                if node_type == NodeType.REPOSITORY:
-                    label = node.label or repo_name
-                    lines.append(f'  {safe_id}["{label}"]:::repo')
-                elif node_type == NodeType.MODULE:
-                    path = str(node.properties.get("path") or node.label).rstrip("/")
-                    parts = path.split("/") if path else []
-                    label = "/".join(parts[-2:]) if len(parts) > 2 else path or node.label
-                    lines.append(f'  {safe_id}["{label}"]:::module')
-                elif node_type == NodeType.FILE:
-                    lines.append(f'  {safe_id}["{node.label}"]:::file')
-                elif node_type == NodeType.CLASS:
-                    lines.append(f'  {safe_id}["{node.label}"]:::cls')
-
-        important_classes = classes[:8]
-        class_to_module: dict[str, str] = {}
-        for cls in classes:
-            class_path = str(cls.properties.get("file") or "").strip()
-            for module in modules:
-                module_path = str(module.properties.get("path") or "").rstrip("/")
-                if class_path.startswith(module_path):
-                    class_to_module[cls.id] = module.id
-                    break
-
-        # Edges — repo to modules only (remove class→module edges)
+        # Repo node
+        repo_id = "REPO"
         if repo_nodes:
-            rid = self._safe_id(repo_nodes[0].id)
-            for module in modules[:8]:
-                mid = self._safe_id(module.id)
-                lines.append(f"  {rid} --> {mid}")
+            lines.append(f'  {repo_id}["{repo_nodes[0].label}"]:::repo')
+        else:
+            lines.append(f'  {repo_id}["{repo_name}"]:::repo')
 
-        # Edges — modules to their OWN classes only
-        for cls in important_classes:
-            cid = self._safe_id(cls.id)
-            parent_mid = class_to_module.get(cls.id)
-            if parent_mid:
-                lines.append(f"  {self._safe_id(parent_mid)} --> {cid}")
+        # One unique ID per module — never reuse
+        module_id_map: dict[str, str] = {}
+        for i, module in enumerate(good_modules):
+            mid = f"MOD{i}"
+            module_id_map[module.id] = mid
+            path = str(module.properties.get("path", ""))
+            parts = [p for p in path.split("/") if p]
+            label = parts[-1] if parts else module.label.rstrip("/")
+            lines.append(f'  {mid}["{label}/"]:::module')
+            # One arrow from repo to this module
+            lines.append(f"  {repo_id} --> {mid}")
 
-        # Inheritance — limit to 5 max
-        inheritance_count = 0
-        for edge in graph.edges:
-            if edge.relationship != RelationshipType.INHERITS:
-                continue
-            if inheritance_count >= 5:
-                break
-            src = next((n for n in graph.nodes if n.id == edge.source_id), None)
-            tgt = next((n for n in graph.nodes if n.id == edge.target_id), None)
-            if src and tgt:
-                src_id = self._safe_id(src.id)
-                tgt_id = self._safe_id(tgt.id)
-                lines.append(f"  {src_id} -.->|extends| {tgt_id}")
-                inheritance_count += 1
+        # Classes — connect to best matching module
+        important_classes = sorted(
+            classes,
+            key=lambda c: int(str(c.properties.get("methods", 0))),
+            reverse=True,
+        )[:10]
 
-        output = "\n".join(lines)
-        rendered_node_count = len(node_ids)
-        rendered_edge_count = len(rendered_edges)
-        print(
-            "[pipeline_debug][MermaidGenerator] rendered_nodes",
-            rendered_node_count,
-        )
-        print(
-            "[pipeline_debug][MermaidGenerator] rendered_edges",
-            rendered_edge_count,
-        )
-        return output
+        for i, cls in enumerate(important_classes):
+            cid = f"CLS{i}"
+            file_path = str(cls.properties.get("file", ""))
+            lines.append(f'  {cid}["{cls.label}"]:::cls')
+
+            best_mid = None
+            best_len = 0
+            for module in good_modules:
+                mpath = str(module.properties.get("path", ""))
+                if file_path.startswith(mpath) and len(mpath) > best_len:
+                    best_mid = module_id_map[module.id]
+                    best_len = len(mpath)
+
+            if best_mid:
+                lines.append(f"  {best_mid} --> {cid}")
+            else:
+                lines.append(f"  {repo_id} --> {cid}")
+
+        return "\n".join(lines)
 
     def _safe_id(self, raw_id: str) -> str:
         """Convert a node ID to a Mermaid-safe identifier."""
