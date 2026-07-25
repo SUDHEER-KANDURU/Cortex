@@ -307,31 +307,36 @@ class JavaASTParser:
                     names=[module_parts[1]],
                     line=content[:match.start()].count("\n") + 1,
                 ))
-            else:
-                result.imports.append(ParsedImport(
-                    module=match.group(1),
-                    line=content[:match.start()].count("\n") + 1,
-                ))
 
-        # Extract classes
-        for match in self.CLASS_PATTERN.finditer(content):
+        # Extract classes — improved pattern
+        class_pattern = re.compile(
+            r'(?:^|\s)(?:public\s+)?(?:abstract\s+|final\s+)?'
+            r'(?:class|interface|enum)\s+(\w+)',
+            re.MULTILINE,
+        )
+        for match in class_pattern.finditer(content):
             class_name = match.group(1)
-            base_class = match.group(2)
+            # Skip keywords that are not class names
+            if class_name in {
+                "if", "while", "for", "switch", "try",
+                "catch", "new", "return", "extends", "implements",
+            }:
+                continue
             line_num = content[:match.start()].count("\n") + 1
 
+            # Find base classes
             base_classes = []
-            if base_class:
-                base_classes.append(base_class)
-            if match.group(3):
-                base_classes.extend(
-                    [i.strip() for i in match.group(3).split(",")]
-                )
+            extends_match = re.search(
+                rf'{class_name}\s+extends\s+(\w+)', content
+            )
+            if extends_match:
+                base_classes.append(extends_match.group(1))
 
             parsed_class = ParsedClass(
                 name=class_name,
                 file_path=file_path,
                 line_start=line_num,
-                line_end=line_num + 10,  # Approximate
+                line_end=line_num + 20,
                 base_classes=base_classes,
             )
             result.classes.append(parsed_class)
@@ -339,13 +344,10 @@ class JavaASTParser:
         # Extract methods
         for match in self.METHOD_PATTERN.finditer(content):
             method_name = match.group(1)
+            if method_name in {"if", "while", "for", "switch", "new"}:
+                continue
             params_str = match.group(2)
             line_num = content[:match.start()].count("\n") + 1
-
-            # Skip constructors and common false positives
-            if method_name in {"if", "while", "for", "switch"}:
-                continue
-
             params = []
             if params_str.strip():
                 for param in params_str.split(","):
@@ -353,21 +355,16 @@ class JavaASTParser:
                     if len(parts) >= 2:
                         params.append(parts[-1])
 
-            fn = ParsedFunction(
+            result.functions.append(ParsedFunction(
                 name=method_name,
                 file_path=file_path,
                 line_start=line_num,
                 line_end=line_num + 5,
                 is_method=True,
                 parameters=params,
-            )
-            result.functions.append(fn)
+            ))
 
-        logger.info(
-            "java_file_parsed",
-            **result.summary(),
-        )
-
+        logger.info("java_file_parsed", path=file_path, **result.summary())
         return result
 
 

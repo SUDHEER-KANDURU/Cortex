@@ -367,19 +367,30 @@ class GraphBuilder:
         self,
         parsed_files: list[ParsedFile],
     ) -> list[str]:
-        """Detect the full directory hierarchy for each parsed file."""
+        """Detect modules — uses the last meaningful directory segment."""
         modules: set[str] = set()
-        for parsed_file in parsed_files:
-            normalized_path = self._normalize_path(parsed_file.path)
-            parts = [part for part in normalized_path.split("/") if part]
-            if not parts:
-                continue
+        for f in parsed_files:
+            parts = f.path.split("/")
+            # For Java: find the package folder after 'dosebuddy' or 'java'
+            meaningful_dirs = {
+                "controller", "service", "repository",
+                "model", "security", "config", "dto",
+                "domain", "application", "infrastructure",
+                "presentation", "shared", "pipeline",
+            }
+            found = False
+            for i, part in enumerate(parts):
+                if part in meaningful_dirs:
+                    modules.add("/".join(parts[:i + 1]))
+                    found = True
+                    break
+            if not found:
+                if len(parts) >= 3:
+                    modules.add("/".join(parts[:3]))
+                elif len(parts) >= 2:
+                    modules.add("/".join(parts[:2]))
 
-            parent_dirs = parts[:-1]
-            for depth in range(1, len(parent_dirs) + 1):
-                modules.add("/".join(parent_dirs[:depth]))
-
-        return sorted(modules)
+        return sorted(modules)[:10]
 
     def _get_parent_module_path(self, module_path: str) -> str | None:
         """Return the parent directory module path for a module."""
