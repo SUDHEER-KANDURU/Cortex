@@ -135,21 +135,17 @@ def build_default_pipeline() -> "PipelineOrchestrator":
     from cortex.pipeline.infrastructure.stages import (
         GitHubFetchStage,
         ASTParseStage,
+        VibeDetectStage,
         GraphBuildStage,
         ArtifactGenerateStage,
     )
-    from cortex.artifacts.infrastructure.dependencies import (
-        artifact_repository,
-    )
-    from cortex.artifacts.application.use_cases import ArtifactService
-
-    artifact_service = ArtifactService(artifact_repository)
 
     return PipelineOrchestrator(
         stages=[
             GitHubFetchStage(),
             ASTParseStage(),
+            VibeDetectStage(),
             GraphBuildStage(),
-            ArtifactGenerateStage(artifact_service),
+            ArtifactGenerateStage(),
         ]
     )

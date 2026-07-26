@@ -137,6 +137,42 @@ class ASTParseStage(AbstractPipelineStage):
         return context
 
 
+class VibeDetectStage(AbstractPipelineStage):
+    """Stage 2b — Runs vibe code detection on parsed files.
+    Runs in parallel with ASTParseStage conceptually but
+    sequentially in the current implementation."""
+
+    async def execute(
+        self, context: PipelineContext
+    ) -> PipelineContext:
+        parsed_files = getattr(context, "_parsed_files", None)
+        if not parsed_files:
+            return context
+
+        try:
+            from cortex.pipeline.infrastructure.vibe_detector import (
+                VibeDetector,
+            )
+            detector = VibeDetector()
+            report = detector.analyze(parsed_files, context.repo_url)
+            context._vibe_report = report  # type: ignore[attr-defined]
+            logger.info(
+                "vibe_detect_stage_completed",
+                job_id=context.job.id,
+                flags=len(report.flags),
+                health_score=report.health_score,
+            )
+        except Exception as e:
+            logger.warning(
+                "vibe_detect_stage_failed",
+                job_id=context.job.id,
+                error=str(e),
+            )
+            # Non-fatal — pipeline continues without vibe data
+
+        return context
+
+
 class GraphBuildStage(AbstractPipelineStage):
     """Stage 3 — Builds the knowledge graph from parsed files.
     Creates nodes and edges representing the codebase structure."""
@@ -237,12 +273,8 @@ class GraphBuildStage(AbstractPipelineStage):
 
 class ArtifactGenerateStage(AbstractPipelineStage):
     """Stage 4 — Generates artifacts from the knowledge graph.
-    Produces Mermaid diagrams, learning paths, and interview prep.
-    Persists the artifact via ArtifactService and stores the artifact_id
-    in the context so callers can retrieve it."""
-
-    def __init__(self, artifact_service: "ArtifactService") -> None:  # type: ignore[name-defined]
-        self._artifact_service = artifact_service
+    Produces Mermaid diagrams, learning paths, interview prep, and vibe reports.
+    Stores the generated artifact content in the context."""
 
     async def execute(self, context: PipelineContext) -> PipelineContext:
         """Generate artifacts from the knowledge graph."""
@@ -314,6 +346,14 @@ class ArtifactGenerateStage(AbstractPipelineStage):
                 content = markdown_gen.generate_interview_questions(
                     graph_result, repo_name
                 )
+                content_type = ArtifactContentType.MARKDOWN
+
+            elif artifact_type == "vibe_code_detection":
+                vibe_report = getattr(context, "_vibe_report", None)
+                if vibe_report:
+                    content = vibe_report.to_markdown()
+                else:
+                    content = "# Vibe Code Detection\n\nNo data available."
                 content_type = ArtifactContentType.MARKDOWN
 
             else:

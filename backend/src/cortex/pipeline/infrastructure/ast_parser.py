@@ -91,6 +91,11 @@ class ParsedFile:
     def has_errors(self) -> bool:
         return len(self.parse_errors) > 0
 
+    def file_contents_available(self) -> bool:
+        """Returns False — content is not stored in parsed files.
+        Used by detectors that need raw content access."""
+        return False
+
     def all_functions(self) -> list[ParsedFunction]:
         """Returns top-level functions AND all class methods."""
         all_fns = list(self.functions)
