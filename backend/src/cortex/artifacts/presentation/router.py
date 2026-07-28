@@ -2,7 +2,8 @@
 
 from fastapi import APIRouter, HTTPException, Depends
 from cortex.artifacts.application.use_cases import ArtifactService
-from cortex.artifacts.infrastructure.repository import InMemoryArtifactRepository
+from cortex.artifacts.infrastructure.pg_repository import PostgresArtifactRepository
+from cortex.config import get_settings
 from cortex.artifacts.presentation.models import (
     ArtifactCreateRequest,
     ArtifactResponse,
@@ -13,10 +14,10 @@ from shared.exceptions import NotFoundError, ValidationError
 router = APIRouter(prefix="/artifacts", tags=["artifacts"])
 
 # Shared instance — same store used by jobs router
-_repository = InMemoryArtifactRepository()
+_repository = PostgresArtifactRepository(get_settings().database_url)
 
 
-def get_shared_artifact_repository() -> InMemoryArtifactRepository:
+def get_shared_artifact_repository() -> PostgresArtifactRepository:
     return _repository
 
 

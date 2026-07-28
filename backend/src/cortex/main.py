@@ -1,5 +1,6 @@
-"""Cortex FastAPI application factory — all modules wired."""
+"""Cortex FastAPI application factory."""
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from cortex.config import get_settings
@@ -11,9 +12,29 @@ from shared.correlation import CorrelationMiddleware
 from shared.logging import configure_logging
 
 
-def create_app() -> FastAPI:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Create all database tables on startup if they don't exist."""
+    from cortex.schema.models import Base
+    from sqlalchemy.ext.asyncio import create_async_engine
     settings = get_settings()
 
+    connect_args = {}
+    if "sqlite" in settings.database_url:
+        connect_args = {"check_same_thread": False}
+
+    engine = create_async_engine(
+        settings.database_url,
+        connect_args=connect_args,
+    )
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    await engine.dispose()
+    yield
+
+
+def create_app() -> FastAPI:
+    settings = get_settings()
     configure_logging(settings.log_level)
 
     app = FastAPI(
@@ -24,6 +45,7 @@ def create_app() -> FastAPI:
         docs_url="/api/docs",
         redoc_url="/api/redoc",
         openapi_url="/api/openapi.json",
+        lifespan=lifespan,
     )
 
     app.add_middleware(CorrelationMiddleware)

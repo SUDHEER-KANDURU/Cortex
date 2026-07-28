@@ -6,7 +6,8 @@ from cortex.artifacts.domain.entities import ArtifactContentType
 from fastapi import APIRouter, HTTPException, Query, Depends
 from cortex.jobs.domain.entities import JobStatus, ArtifactType
 from cortex.jobs.application.use_cases import JobService
-from cortex.jobs.infrastructure.repository import InMemoryJobRepository
+from cortex.jobs.infrastructure.pg_repository import PostgresJobRepository
+from cortex.config import get_settings
 from cortex.jobs.presentation.models import (
     JobCreateRequest,
     JobResponse,
@@ -18,8 +19,7 @@ from shared.exceptions import NotFoundError, ValidationError
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 # Single shared repository instance for the lifetime of the process
-# Replaced with PostgreSQL repository in Week 4 — only this line changes
-_repository = InMemoryJobRepository()
+_repository = PostgresJobRepository(get_settings().database_url)
 
 
 def get_job_service() -> JobService:

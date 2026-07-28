@@ -58,11 +58,14 @@ class PostgresJobRepository(AbstractJobRepository):
     """
 
     def __init__(self, database_url: str) -> None:
+        connect_args = {}
+        if "sqlite" in database_url:
+            connect_args = {"check_same_thread": False}
+
         self._engine = create_async_engine(
             database_url,
             echo=False,
-            pool_size=5,
-            max_overflow=10,
+            connect_args=connect_args,
         )
         self._session_factory = sessionmaker(
             self._engine,

@@ -12,7 +12,6 @@ from sqlalchemy import (
 from sqlalchemy.orm import (
     DeclarativeBase, Mapped, mapped_column, relationship,
 )
-from sqlalchemy.dialects.postgresql import UUID
 from cortex.jobs.domain.entities import JobStatus, ArtifactType
 from cortex.artifacts.domain.entities import ArtifactContentType
 from cortex.graph.domain.entities import NodeType, RelationshipType

@@ -19,6 +19,12 @@ ENV/
 htmlcov/
 coverage.xml
 
+# SQLite database — local only, never commit
+cortex.db
+*.db
+*.sqlite
+*.sqlite3
+
 # ── Node / Next.js ──────────────────────────────────────────────────────────────
 node_modules/
 .next/
