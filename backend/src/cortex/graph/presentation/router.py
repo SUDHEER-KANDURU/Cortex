@@ -2,7 +2,8 @@
 
 from fastapi import APIRouter, HTTPException, Query, Depends
 from cortex.graph.application.use_cases import GraphService
-from cortex.graph.infrastructure.repository import InMemoryGraphRepository
+from cortex.graph.infrastructure.sqlite_repository import SQLiteGraphRepository
+from cortex.config import get_settings
 from cortex.graph.domain.entities import NodeType, RelationshipType
 from cortex.graph.presentation.models import (
     GraphNodeCreate,
@@ -15,7 +16,7 @@ from shared.exceptions import NotFoundError, ValidationError
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 
-_repository = InMemoryGraphRepository()
+_repository = SQLiteGraphRepository(get_settings().database_url)
 
 
 def get_graph_service() -> GraphService:

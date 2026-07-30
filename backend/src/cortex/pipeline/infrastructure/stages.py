@@ -178,13 +178,10 @@ class GraphBuildStage(AbstractPipelineStage):
     Creates nodes and edges representing the codebase structure."""
 
     async def execute(self, context: PipelineContext) -> PipelineContext:
-        """Build graph from parsed files and store via repository."""
         parsed_files = getattr(context, "_parsed_files", None)
-
         if not parsed_files:
             context.mark_error(
-                "GraphBuildStage: no parsed files found. "
-                "ASTParseStage may have failed."
+                "GraphBuildStage: no parsed files found."
             )
             return context
 
@@ -199,64 +196,38 @@ class GraphBuildStage(AbstractPipelineStage):
                 job_id=context.job.id,
                 repo_url=context.repo_url,
             )
-
             graph_result = builder.build(parsed_files)
-
-            print("[graph_debug] graph_build_complete", {
-                "nodes": graph_result.node_count(),
-                "edges": graph_result.edge_count(),
-                "modules": len([
-                    n for n in graph_result.nodes
-                    if n.node_type.value == "Module"
-                ]),
-            })
-            print(
-                "[pipeline_debug][GraphBuildStage] graph_after_build",
-                {
-                    "node_count": graph_result.node_count(),
-                    "edge_count": graph_result.edge_count(),
-                    "first_nodes": [
-                        {
-                            "type": node.node_type.value,
-                            "label": node.label,
-                            "path": node.properties.get("path"),
-                        }
-                        for node in graph_result.nodes[:30]
-                    ],
-                    "first_edges": [
-                        {
-                            "source": edge.source_id,
-                            "target": edge.target_id,
-                            "relationship": edge.relationship.value,
-                        }
-                        for edge in graph_result.edges[:30]
-                    ],
-                    "node_types": {
-                        node_type.value: sum(
-                            1 for n in graph_result.nodes if n.node_type == node_type
-                        )
-                        for node_type in sorted(
-                            {node.node_type for node in graph_result.nodes},
-                            key=lambda item: item.value,
-                        )
-                    },
-                    "edge_types": {
-                        relationship.value: sum(
-                            1 for e in graph_result.edges if e.relationship == relationship
-                        )
-                        for relationship in sorted(
-                            {edge.relationship for edge in graph_result.edges},
-                            key=lambda item: item.value,
-                        )
-                    },
-                },
-            )
 
             context.node_count = graph_result.node_count()
             context.edge_count = graph_result.edge_count()
-
-            # Store graph data in context for artifact generation
             context._graph_result = graph_result  # type: ignore[attr-defined]
+
+            # Persist graph to SQLite
+            try:
+                from cortex.graph.infrastructure.sqlite_repository import (
+                    SQLiteGraphRepository,
+                )
+                from cortex.config import get_settings
+                graph_repo = SQLiteGraphRepository(
+                    get_settings().database_url
+                )
+                for node in graph_result.nodes:
+                    await graph_repo.save_node(node)
+                for edge in graph_result.edges:
+                    await graph_repo.save_edge(edge)
+                logger.info(
+                    "graph_persisted_to_sqlite",
+                    job_id=context.job.id,
+                    nodes=context.node_count,
+                    edges=context.edge_count,
+                )
+            except Exception as e:
+                # Non-fatal — graph still used for artifact generation
+                logger.warning(
+                    "graph_persist_failed",
+                    job_id=context.job.id,
+                    error=str(e),
+                )
 
             logger.info(
                 "graph_build_stage_completed",
