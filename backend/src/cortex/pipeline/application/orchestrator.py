@@ -2,11 +2,21 @@
 This is the brain that connects GitHub fetching, graph building,
 and artifact generation into one end-to-end pipeline."""
 
-from dataclasses import dataclass
-from cortex.jobs.domain.entities import Job, JobStatus, ArtifactType
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+from cortex.jobs.domain.entities import Job, ArtifactType
 from cortex.pipeline.domain.interfaces import AbstractPipelineStage
+from cortex.artifacts.domain.entities import ArtifactContentType
 from shared.exceptions import CortexError
 import structlog
+
+if TYPE_CHECKING:
+    from cortex.pipeline.infrastructure.ast_parser import ParsedFile
+    from cortex.pipeline.infrastructure.vibe_detector import VibeReport
+    from cortex.pipeline.infrastructure.graph_builder import GraphBuildResult
 
 logger = structlog.get_logger()
 
@@ -18,30 +28,36 @@ class PipelineError(CortexError):
 @dataclass
 class PipelineContext:
     """Carries state through every stage of the pipeline.
-    Each stage reads from and writes to this context."""
+    Each stage reads from and writes to this context.
+
+    All inter-stage data uses typed fields — no private _attrs."""
 
     job: Job
     repo_url: str
     artifact_type: ArtifactType
 
     # Populated by GitHubFetchStage
-    file_tree: list[dict] = None
-    file_contents: dict[str, str] = None
+    file_tree: list[dict] = field(default_factory=list)
+    file_contents: dict[str, str] = field(default_factory=dict)
+
+    # Populated by ASTParseStage
+    parsed_files: list[ParsedFile] = field(default_factory=list)
+
+    # Populated by VibeDetectStage
+    vibe_report: VibeReport | None = None
 
     # Populated by GraphBuildStage
+    graph_result: GraphBuildResult | None = None
     node_count: int = 0
     edge_count: int = 0
 
     # Populated by ArtifactGenerateStage
     artifact_id: str | None = None
     artifact_content: str | None = None
+    artifact_content_type: ArtifactContentType | None = None
 
     # Error tracking
     error: str | None = None
-
-    def __post_init__(self) -> None:
-        self.file_tree = self.file_tree or []
-        self.file_contents = self.file_contents or {}
 
     def has_error(self) -> bool:
         return self.error is not None
@@ -129,7 +145,7 @@ class PipelineOrchestrator:
 
 
 def build_default_pipeline() -> "PipelineOrchestrator":
-    """Build the default pipeline with all four stages in order.
+    """Build the default pipeline with all five stages in order.
     Import here to avoid circular imports."""
 
     from cortex.pipeline.infrastructure.stages import (
@@ -140,12 +156,10 @@ def build_default_pipeline() -> "PipelineOrchestrator":
         ArtifactGenerateStage,
     )
 
-    return PipelineOrchestrator(
-        stages=[
-            GitHubFetchStage(),
-            ASTParseStage(),
-            VibeDetectStage(),
-            GraphBuildStage(),
-            ArtifactGenerateStage(),
-        ]
-    )
+    return PipelineOrchestrator(stages=[
+        GitHubFetchStage(),
+        ASTParseStage(),
+        VibeDetectStage(),
+        GraphBuildStage(),
+        ArtifactGenerateStage(),
+    ])

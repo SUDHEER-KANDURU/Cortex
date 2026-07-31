@@ -17,7 +17,7 @@ def test_vibe_detect_stage_adds_report_to_context() -> None:
             repo_url=job.repo_url,
             artifact_type=job.artifact_type,
         )
-        context._parsed_files = [
+        context.parsed_files = [
             ParsedFile(
                 path="example.py",
                 language=Language.PYTHON,
@@ -37,5 +37,5 @@ def test_vibe_detect_stage_adds_report_to_context() -> None:
 
     updated_context = asyncio.run(run())
 
-    assert getattr(updated_context, "_vibe_report", None) is not None
-    assert updated_context._vibe_report.repo_url == "https://github.com/example/repo"
+    assert updated_context.vibe_report is not None
+    assert updated_context.vibe_report.repo_url == "https://github.com/example/repo"

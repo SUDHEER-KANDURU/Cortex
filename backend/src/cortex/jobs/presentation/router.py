@@ -66,10 +66,9 @@ async def create_job(
             context = await pipeline.run(job)
 
             if context.artifact_content:
-                content_type = getattr(
-                    context,
-                    "_artifact_content_type",
-                    ArtifactContentType.MARKDOWN,
+                content_type = (
+                    context.artifact_content_type
+                    or ArtifactContentType.MARKDOWN
                 )
                 await _get_artifact_service().create(
                     job_id=job.id,

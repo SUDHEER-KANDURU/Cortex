@@ -72,13 +72,13 @@ def test_graph_build_stage_execute_handles_debug_summary() -> None:
         repo_url=job.repo_url,
         artifact_type=job.artifact_type,
     )
-    context._parsed_files = [
+    context.parsed_files = [
         ParsedFile(
             path="backend/src/cortex/pipeline/infrastructure/graph_builder.py",
             language=Language.PYTHON,
             line_count=10,
         )
-    ]  # type: ignore[attr-defined]
+    ]
 
     result_context = asyncio.run(stage.execute(context))
 
