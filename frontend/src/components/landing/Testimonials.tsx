@@ -16,6 +16,7 @@ function ArchitectureOutput({ active }: { active: boolean }) {
     if (!active) { setStep(0); return }
     let s = 0
     const t = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
       s += 1
       setStep(s)
       if (s >= 8) clearInterval(t)
@@ -42,7 +43,7 @@ function ArchitectureOutput({ active }: { active: boolean }) {
         {edges.map(([a, b], i) => (
           <line key={i}
             x1={cx(a)} y1={cy(a)} x2={cx(b)} y2={cy(b)}
-            stroke={step > i + boxes.length ? "#333" : "rgba(0,0,0,0.06)"}
+            stroke={step > i + boxes.length ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.06)"}
             strokeWidth="1.5"
             strokeDasharray={i > 3 ? "4 3" : "none"}
             style={{ transition: "stroke 0.3s ease" }} />
@@ -50,17 +51,17 @@ function ArchitectureOutput({ active }: { active: boolean }) {
         {boxes.map((box, i) => (
           <g key={i} style={{ opacity: step > i ? 1 : 0, transition: "opacity 0.25s ease" }}>
             <rect x={box.x} y={box.y} width={84} height={26} rx={6}
-              fill={step > i ? box.fill : "#f0f0f0"}
+              fill={step > i ? box.fill : "rgba(255,255,255,0.04)"}
               style={{ transition: "fill 0.3s ease" }} />
             <text x={box.x + 42} y={box.y + 17} textAnchor="middle"
-              fontSize="8.5" fontWeight="600" fill={step > i ? "#fff" : "#ccc"}
-              style={{ fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
+              fontSize="8.5" fontWeight="600" fill="#fff"
+              style={{ fontFamily: "var(--font-mono,'Geist Mono',monospace)" }}>
               {box.label}
             </text>
           </g>
         ))}
       </svg>
-      <p style={{ fontSize: "9px", color: "rgba(0,0,0,0.35)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textAlign: "center" }}>
+      <p style={{ fontSize: "9px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textAlign: "center" }}>
         5 modules · 7 relationships · auto-generated
       </p>
     </div>
@@ -75,6 +76,7 @@ function LearningPathOutput({ active }: { active: boolean }) {
     if (!active) { setRevealed(0); return }
     let r = 0
     const t = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
       r += 1
       setRevealed(r)
       if (r >= 6) clearInterval(t)
@@ -100,22 +102,22 @@ function LearningPathOutput({ active }: { active: boolean }) {
           opacity: i < revealed ? 1 : 0,
           transform: i < revealed ? "none" : "translateX(-8px)",
           transition: `opacity 0.3s ease ${i * 30}ms, transform 0.3s ease ${i * 30}ms`,
-          background: node.done ? "rgba(0,0,0,0.04)" : "transparent",
-          border: `1px solid ${node.done ? "rgba(0,0,0,0.1)" : "rgba(0,0,0,0.05)"}`,
+          background: node.done ? "rgba(255,255,255,0.06)" : "transparent",
+          border: `1px solid ${node.done ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)"}`,
         }}>
           <span style={{
             width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
-            background: node.done ? "#111" : "rgba(0,0,0,0.08)",
+            background: node.done ? "var(--primary)" : "rgba(255,255,255,0.06)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "8px", color: node.done ? "#fff" : "rgba(0,0,0,0.25)",
+            fontSize: "8px", color: node.done ? "#07090d" : "var(--text-muted)",
             fontFamily: "var(--font-mono)",
           }}>
             {node.done ? "✓" : (i + 1)}
           </span>
-          <span style={{ fontSize: "10px", color: node.done ? "#111" : "rgba(0,0,0,0.45)", fontWeight: node.done ? 600 : 400, flex: 1, fontFamily: "var(--font-mono)" }}>
+          <span style={{ fontSize: "10px", color: node.done ? "var(--text)" : "var(--text-muted)", fontWeight: node.done ? 600 : 400, flex: 1, fontFamily: "var(--font-mono)" }}>
             {node.label}
           </span>
-          <span style={{ fontSize: "8px", color: "rgba(0,0,0,0.25)", fontFamily: "var(--font-mono)" }}>
+          <span style={{ fontSize: "8px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
             {node.week}
           </span>
         </div>
@@ -136,7 +138,10 @@ function InterviewOutput({ active }: { active: boolean }) {
 
   useEffect(() => {
     if (!active) { setCurrent(0); return }
-    const t = setInterval(() => setCurrent(c => (c + 1) % questions.length), 2800)
+    const t = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      setCurrent(c => (c + 1) % questions.length)
+    }, 2800)
     return () => clearInterval(t)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
@@ -147,21 +152,21 @@ function InterviewOutput({ active }: { active: boolean }) {
     <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: "10px" }}>
       <div style={{
         padding: "10px 12px", borderRadius: "10px",
-        border: "1px solid rgba(0,0,0,0.12)",
-        background: "rgba(0,0,0,0.03)",
+        border: "1px solid var(--border)",
+        background: "rgba(255,255,255,0.04)",
         transition: "all 0.4s ease",
       }}>
-        <p style={{ fontSize: "10px", fontWeight: 600, color: "#111", lineHeight: 1.5, fontFamily: "var(--font-mono)" }}>
+        <p style={{ fontSize: "10px", fontWeight: 600, color: "var(--text)", lineHeight: 1.5, fontFamily: "var(--font-mono)" }}>
           Q{current + 1}: {q.q}
         </p>
       </div>
       <div style={{
         padding: "10px 12px", borderRadius: "10px",
-        border: "1px solid rgba(40,200,64,0.2)",
-        background: "rgba(40,200,64,0.04)",
+        border: "1px solid rgba(0,229,168,0.2)",
+        background: "rgba(0,229,168,0.05)",
         transition: "all 0.4s ease 0.15s",
       }}>
-        <p style={{ fontSize: "9.5px", color: "rgba(0,0,0,0.55)", lineHeight: 1.6, fontFamily: "var(--font-mono)" }}>
+        <p style={{ fontSize: "9.5px", color: "var(--text-secondary)", lineHeight: 1.6, fontFamily: "var(--font-mono)" }}>
           → {q.a}
         </p>
       </div>
@@ -169,7 +174,7 @@ function InterviewOutput({ active }: { active: boolean }) {
         {questions.map((_, i) => (
           <span key={i} style={{
             width: i === current ? 16 : 5, height: 5, borderRadius: "3px",
-            background: i === current ? "#111" : "rgba(0,0,0,0.12)",
+            background: i === current ? "var(--primary)" : "var(--border)",
             transition: "all 0.35s ease",
           }} />
         ))}
@@ -193,6 +198,7 @@ function SelfAnalysisOutput({ active }: { active: boolean }) {
     if (!active) { setCount(0); return }
     let c = 0
     const t = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
       c += 1
       setCount(c)
       if (c >= metrics.length) clearInterval(t)
@@ -210,15 +216,15 @@ function SelfAnalysisOutput({ active }: { active: boolean }) {
           transition: `opacity 0.3s ease ${i * 60}ms, transform 0.3s ease ${i * 60}ms`,
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-            <span style={{ fontSize: "9.5px", color: "rgba(0,0,0,0.5)", fontFamily: "var(--font-mono)" }}>{m.label}</span>
-            <span style={{ fontSize: "10px", fontWeight: 700, color: "#111", fontFamily: "var(--font-mono)" }}>
-              {m.value} <span style={{ fontWeight: 400, color: "rgba(0,0,0,0.3)" }}>{m.unit}</span>
+            <span style={{ fontSize: "9.5px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{m.label}</span>
+            <span style={{ fontSize: "10px", fontWeight: 700, color: "var(--text)", fontFamily: "var(--font-mono)" }}>
+              {m.value} <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>{m.unit}</span>
             </span>
           </div>
-          <div style={{ height: "3px", borderRadius: "2px", background: "rgba(0,0,0,0.07)", overflow: "hidden" }}>
+          <div style={{ height: "3px", borderRadius: "2px", background: "var(--border)", overflow: "hidden" }}>
             <div style={{
               height: "100%", borderRadius: "2px",
-              background: "#111",
+              background: "var(--primary)",
               width: i < count ? `${m.bar * 100}%` : "0%",
               transition: `width 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 80}ms`,
             }} />
@@ -249,6 +255,7 @@ function APISpecOutput({ active }: { active: boolean }) {
     if (!active) { setLines(0); return }
     let l = 0
     const t = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
       l += 1
       setLines(l)
       if (l >= spec.length) clearInterval(t)
@@ -259,16 +266,16 @@ function APISpecOutput({ active }: { active: boolean }) {
 
   const lineColor = (type: string) => {
     switch (type) {
-      case "key":    return "#333"
-      case "val":    return "rgba(0,0,0,0.45)"
-      case "route":  return "#111"
-      case "method": return "rgba(0,0,0,0.4)"
-      default:       return "rgba(0,0,0,0.3)"
+      case "key":    return "var(--text)"
+      case "val":    return "var(--text-muted)"
+      case "route":  return "var(--primary)"
+      case "method": return "var(--text-secondary)"
+      default:       return "var(--text-muted)"
     }
   }
 
   return (
-    <div style={{ padding: "14px 18px", fontFamily: "var(--font-mono,'Fira Code',monospace)", fontSize: "10.5px", lineHeight: "1.9" }}>
+    <div style={{ padding: "14px 18px", fontFamily: "var(--font-mono,'Geist Mono',monospace)", fontSize: "10.5px", lineHeight: "1.9" }}>
       {spec.map((line, i) => (
         <div key={i} style={{
           color: lineColor(line.t),
@@ -282,8 +289,8 @@ function APISpecOutput({ active }: { active: boolean }) {
       {lines >= spec.length && (
         <span style={{
           display: "inline-block", width: 7, height: 13,
-          background: "rgba(0,0,0,0.3)", verticalAlign: "middle",
-          animation: "caret-blink 0.9s step-end infinite",
+          background: "var(--primary)", verticalAlign: "middle",
+          animation: "blink 1s step-end infinite",
         }} />
       )}
     </div>
@@ -362,59 +369,31 @@ function OutputCard({ output, index }: { output: OutputDef; index: number }) {
     <div
       ref={ref}
       data-spotlight
+      className="cx-card"
       style={{
-        borderRadius: "20px",
-        overflow: "hidden",
-        background: "rgba(255,255,255,0.68)",
+        borderRadius: "20px", overflow: "hidden",
         backdropFilter: "blur(12px) saturate(180%)",
         WebkitBackdropFilter: "blur(12px) saturate(180%)",
-        border: "1px solid rgba(255,255,255,0.9)",
-        boxShadow: "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)",
-        transition: "box-shadow 0.4s ease, transform 0.4s cubic-bezier(0.16,1,0.3,1)",
+        transition: "box-shadow 0.4s ease, transform 0.4s cubic-bezier(0.16,1,0.3,1), opacity 0.5s ease",
         opacity: active ? 1 : 0,
         transform: active ? "none" : "translateY(20px)",
       }}
     >
-      {/* Visual preview area */}
-      <div style={{
-        borderBottom: "1px solid rgba(0,0,0,0.06)",
-        minHeight: "160px",
-        display: "flex",
-        alignItems: "center",
-        background: "rgba(255,255,255,0.4)",
-      }}>
+      <div className="cx-visual-bg" style={{ borderBottom: "1px solid var(--cx-card-border)", minHeight: "160px", display: "flex", alignItems: "center" }}>
         <div style={{ width: "100%" }}>
           <output.Visual active={active} />
         </div>
       </div>
-
-      {/* Label + description */}
       <div style={{ padding: "16px 18px" }}>
-        <div style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "6px",
-          padding: "2px 10px",
-          borderRadius: "100px",
-          background: "rgba(0,0,0,0.06)",
-          marginBottom: "8px",
-        }}>
-          <span style={{
-            fontSize: "8px", fontWeight: 700, letterSpacing: "0.12em",
-            textTransform: "uppercase", color: "rgba(0,0,0,0.45)",
-            fontFamily: "var(--font-mono,'Fira Code',monospace)",
-          }}>
+        <div className="cx-pill" style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "2px 10px", borderRadius: "100px", marginBottom: "8px" }}>
+          <span className="cx-text-mono" style={{ fontSize: "8px", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
             {output.label}
           </span>
         </div>
-        <h3 style={{
-          fontFamily: "var(--font-display,'Syne',sans-serif)",
-          fontSize: "14px", fontWeight: 600, color: "#111",
-          lineHeight: 1.3, margin: "0 0 5px",
-        }}>
+        <h3 className="cx-text" style={{ fontFamily: "var(--font-display,'Syne',sans-serif)", fontSize: "14px", fontWeight: 600, lineHeight: 1.3, margin: "0 0 5px" }}>
           {output.headline}
         </h3>
-        <p style={{ fontSize: "11px", color: "rgba(0,0,0,0.45)", lineHeight: 1.6, margin: 0 }}>
+        <p className="cx-text-muted" style={{ fontSize: "11px", lineHeight: 1.6, margin: 0 }}>
           {output.description}
         </p>
       </div>
@@ -425,41 +404,16 @@ function OutputCard({ output, index }: { output: OutputDef; index: number }) {
 // ── Section ───────────────────────────────────────────────────────────────────
 export function PortfolioTestimonials() {
   return (
-    <section
-      id="testimonials"
-      className="py-20 md:py-32"
-      style={{
-        borderTop: "1px solid rgba(255,255,255,0.65)",
-        background: "rgba(255,255,255,0.52)",
-        backdropFilter: "blur(8px) saturate(160%)",
-        WebkitBackdropFilter: "blur(8px) saturate(160%)",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.9)",
-      }}
-    >
+    <section id="testimonials" className="py-20 md:py-32"
+      style={{ borderTop: "1px solid var(--cx-card-border)", background: "var(--cx-section-bg)", backdropFilter: "blur(20px) saturate(200%)", WebkitBackdropFilter: "blur(20px) saturate(200%)" }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
-        {/* Section header */}
         <div className="mb-12 md:mb-16" data-reveal="up">
-          <p style={{
-            fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em",
-            textTransform: "uppercase", color: "rgba(0,0,0,0.35)",
-            fontFamily: "var(--font-mono,'Fira Code',monospace)",
-            marginBottom: "10px",
-          }}>
-            Artifacts
-          </p>
-          <SectionTitle className="text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight">
-            What Cortex generates
-          </SectionTitle>
-          <p className="mt-4 text-base max-w-xl" style={{ color: "rgba(0,0,0,0.45)", lineHeight: 1.7 }}>
-            Every artifact is derived from your repository&apos;s knowledge graph — not templates, not guesswork.
-          </p>
+          <p className="cx-eyebrow" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: "var(--font-mono,'Fira Code',monospace)", marginBottom: "10px" }}>Artifacts</p>
+          <SectionTitle className="text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight">What Cortex generates</SectionTitle>
+          <p className="cx-text-muted mt-4 text-base max-w-xl" style={{ lineHeight: 1.7 }}>Every artifact is derived from your repository&apos;s knowledge graph — not templates, not guesswork.</p>
         </div>
-
-        {/* Grid — 3 cols on lg, 2 on md, 1 on mobile */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
-          {OUTPUTS.map((output, i) => (
-            <OutputCard key={output.id} output={output} index={i} />
-          ))}
+          {OUTPUTS.map((output, i) => (<OutputCard key={output.id} output={output} index={i} />))}
         </div>
       </div>
     </section>

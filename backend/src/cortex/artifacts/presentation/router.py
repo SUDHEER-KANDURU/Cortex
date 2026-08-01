@@ -1,9 +1,8 @@
-"""Artifacts API router — complete and production-ready."""
+"""Artifacts API router."""
 
 from fastapi import APIRouter, HTTPException, Depends
 from cortex.artifacts.application.use_cases import ArtifactService
-from cortex.artifacts.infrastructure.pg_repository import PostgresArtifactRepository
-from cortex.config import get_settings
+from cortex.artifacts.infrastructure.dependencies import artifact_repository
 from cortex.artifacts.presentation.models import (
     ArtifactCreateRequest,
     ArtifactResponse,
@@ -13,16 +12,10 @@ from shared.exceptions import NotFoundError, ValidationError
 
 router = APIRouter(prefix="/artifacts", tags=["artifacts"])
 
-# Shared instance — same store used by jobs router
-_repository = PostgresArtifactRepository(get_settings().database_url)
-
-
-def get_shared_artifact_repository() -> PostgresArtifactRepository:
-    return _repository
-
 
 def get_artifact_service() -> ArtifactService:
-    return ArtifactService(_repository)
+    """Returns an ArtifactService backed by the shared repository singleton."""
+    return ArtifactService(artifact_repository)
 
 
 @router.post(

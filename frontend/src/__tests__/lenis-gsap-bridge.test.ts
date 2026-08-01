@@ -111,7 +111,7 @@ function useLenis() {
       if (hash) {
         const el = document.querySelector(hash) as HTMLElement | null;
         if (el) {
-          (lenis as unknown as Record<string, unknown>).scrollTo?.(el, { offset: -80 });
+          (lenis as unknown as { scrollTo: (el: HTMLElement, opts: { offset: number }) => void }).scrollTo(el, { offset: -80 });
         }
       }
     }, 100);

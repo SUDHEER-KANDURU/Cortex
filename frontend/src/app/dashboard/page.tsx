@@ -1,6 +1,7 @@
 // =============================================================================
-// Dashboard Page — Premium redesign
-// Progressive loading: shell renders immediately, content loads progressively.
+// Dashboard Page — Premium redesign, full theme-aware
+// Every surface, border, and text color uses CSS vars or isDark-conditional
+// values. No hardcoded rgba(255,255,255,*) leaking into light mode.
 // =============================================================================
 
 'use client';
@@ -11,289 +12,335 @@ import { useJobPolling } from '@/features/jobs/hooks/useJobPolling';
 import { useArtifact } from '@/features/artifacts/hooks/useArtifact';
 import { useSubmitJob } from '@/features/jobs/hooks/useSubmitJob';
 import StatusBadge from '@/components/shared/StatusBadge';
-import Navbar from '@/components/layout/Navbar';
 import { listJobs } from '@/lib/api/jobs.api';
 import { ARTIFACT_TYPE_LABELS } from '@/features/jobs/jobs.types';
-import { Github, ChevronDown, Sparkles, Code2 } from 'lucide-react';
+import { InlineLoader } from '@/components/shared/BrandedLoader';
+import {
+  Github, ChevronDown, Sparkles, Code2, LayoutDashboard,
+  GitBranch, ExternalLink, Clock, AlertCircle, CheckCircle2,
+  Loader2, XCircle, ArrowLeft, Sun, Moon,
+  Cpu, Database, FileCode, Check,
+} from 'lucide-react';
+import * as Select from '@radix-ui/react-select';
+import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
-// Lazy-load the heavy ArtifactViewer — it may include Mermaid/ReactFlow
 const ArtifactViewer = dynamic(
   () => import('@/features/artifacts/components/ArtifactViewer'),
   {
     ssr: false,
-    loading: () => (
-      <div className="space-y-3">
-        <div className="h-4 w-3/4 animate-pulse rounded bg-slate-800" />
-        <div className="h-4 w-1/2 animate-pulse rounded bg-slate-800" />
-        <div className="mt-4 h-48 animate-pulse rounded-lg bg-slate-800/50" />
-      </div>
-    ),
+    loading: () => <InlineLoader stage="generating_artifact" message="Loading Artifact…" size={28} />,
   }
 );
 
-// ── Skeleton components for progressive loading ───────────────────────────────
-
-function JobRowSkeleton() {
-  return (
-    <div className="rounded-lg px-3 py-2.5 animate-pulse">
-      <div className="flex items-center justify-between">
-        <div className="flex-1 pr-4 space-y-1.5">
-          <div className="h-3 w-2/3 rounded bg-slate-800" />
-          <div className="h-2.5 w-1/2 rounded bg-slate-800/70" />
-        </div>
-        <div className="h-5 w-14 rounded-full bg-slate-800/60" />
-      </div>
-    </div>
-  );
-}
-
-function SidebarJobsSkeleton() {
-  return (
-    <div className="flex flex-col gap-1">
-      {[1, 2, 3].map(i => <JobRowSkeleton key={i} />)}
-    </div>
-  );
-}
-
+// ── Constants ─────────────────────────────────────────────────────────────────
 const ARTIFACT_TYPES: ArtifactType[] = [
-  'folder_structure',
-  'module_breakdown',
-  'architecture_diagram',
-  'database_schema',
-  'api_spec',
-  'learning_path',
-  'interview_questions',
+  'folder_structure', 'module_breakdown', 'architecture_diagram',
+  'database_schema', 'api_spec', 'learning_path', 'interview_questions',
 ];
+const GITHUB_URL_RE = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/?$/;
 
-const GITHUB_URL_RE = /^https:\/\/github\.com\/[\w-]+\/[\w-]+\/?$/;
-
-function extractRepoName(url: string): string {
-  const parts = url.replace(/\/$/, '').split('/');
-  return parts[parts.length - 1] ?? url;
+function extractRepoName(url: string) {
+  return url.replace(/\/$/, '').split('/').slice(-2).join('/');
+}
+function extractShortName(url: string) {
+  return url.replace(/\/$/, '').split('/').pop() ?? url;
 }
 
-// ── Sidebar form ──────────────────────────────────────────────────────────────
-
-interface SidebarFormProps {
-  onJobSubmitted: (job: Job) => void;
+// ── Theme boot ────────────────────────────────────────────────────────────────
+function getInitialTheme(): boolean {
+  if (typeof window === 'undefined') return true;
+  try { const s = localStorage.getItem('cortex-theme'); return s ? s === 'dark' : true; }
+  catch { return true; }
 }
 
-function SidebarForm({ onJobSubmitted }: SidebarFormProps) {
+// ── Theme-aware surface helpers ───────────────────────────────────────────────
+// Returns a thin surface tint that reads correctly in both themes.
+// Dark = white veil  /  Light = black veil
+function tint(d: boolean, s: 'xs' | 'sm' | 'md' = 'sm'): string {
+  const dk = { xs: 'rgba(255,255,255,0.025)', sm: 'rgba(255,255,255,0.05)', md: 'rgba(255,255,255,0.09)' };
+  const lt = { xs: 'rgba(0,0,0,0.025)',       sm: 'rgba(0,0,0,0.04)',       md: 'rgba(0,0,0,0.07)'      };
+  return d ? dk[s] : lt[s];
+}
+function tintBorder(d: boolean) { return d ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)'; }
+function hoverBg(d: boolean)    { return d ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'; }
+function selectedBg(d: boolean) { return d ? 'rgba(0,229,168,0.08)'   : 'rgba(0,179,122,0.10)'; }
+function rowHoverBg(d: boolean) { return d ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'; }
+function logBg(d: boolean)      { return d ? 'rgba(0,0,0,0.35)'       : 'rgba(0,0,0,0.04)'; }
+function logDimLine(d: boolean) { return d ? 'rgba(255,255,255,0.32)' : 'rgba(0,0,0,0.35)'; }
+
+// ── Dashboard background ──────────────────────────────────────────────────────
+function DashboardBackground({ isDark }: { isDark: boolean }) {
+  return (
+    <div aria-hidden="true" style={{
+      position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
+      background: isDark
+        ? `radial-gradient(ellipse 70% 45% at 75% -5%, rgba(108,124,255,0.10) 0%, transparent 55%),
+           radial-gradient(ellipse 55% 40% at 5% 100%, rgba(0,229,168,0.06) 0%, transparent 50%),
+           var(--bg)`
+        : `radial-gradient(ellipse 70% 45% at 75% -5%, rgba(93,107,255,0.05) 0%, transparent 55%),
+           radial-gradient(ellipse 55% 40% at 5% 100%, rgba(0,179,122,0.04) 0%, transparent 50%),
+           var(--bg)`,
+    }} />
+  );
+}
+
+// ── Navbar ────────────────────────────────────────────────────────────────────
+interface NavbarProps { isDark: boolean; onToggleTheme: () => void }
+
+function DashboardNavbar({ isDark, onToggleTheme }: NavbarProps) {
+  const hov = hoverBg(isDark);
+  const bdr = tintBorder(isDark);
+  return (
+    <header style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200,
+      display: 'flex', justifyContent: 'center', padding: '14px 24px', pointerEvents: 'none',
+    }}>
+      <nav aria-label="Dashboard navigation" style={{
+        pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 4,
+        padding: '7px 10px', borderRadius: 24, width: '100%', maxWidth: 960,
+        background: 'var(--glass)',
+        backdropFilter: 'blur(40px) saturate(220%)', WebkitBackdropFilter: 'blur(40px) saturate(220%)',
+        border: `1px solid ${bdr}`,
+        boxShadow: isDark
+          ? 'var(--shadow-xl), inset 0 1px 0 rgba(255,255,255,0.07)'
+          : 'var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.80)',
+        transition: 'background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
+      }}>
+        {/* Logo */}
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', borderRadius: 16, textDecoration: 'none', flexShrink: 0, transition: 'background 0.2s ease' }}
+          onMouseEnter={e => (e.currentTarget.style.background = hov)}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+          <span style={{ width: 24, height: 24, borderRadius: 7, flexShrink: 0, background: 'var(--primary-dim)', border: '1px solid rgba(0,229,168,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <LayoutDashboard style={{ width: 12, height: 12, color: 'var(--primary)' }} />
+          </span>
+          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--text)', fontFamily: 'var(--font-sans)' }}>Cortex</span>
+        </Link>
+        {/* Center pill */}
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', background: tint(isDark, 'xs'), border: `1px solid ${bdr}`, borderRadius: 100, padding: '4px 14px' }}>Dashboard</span>
+        </div>
+        {/* Right */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          <Link href="/" style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', padding: '6px 14px', borderRadius: 14, textDecoration: 'none', transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', gap: 6 }}
+            onMouseEnter={e => { e.currentTarget.style.background = hov; e.currentTarget.style.color = 'var(--text)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
+            <ArrowLeft style={{ width: 13, height: 13 }} /> Home
+          </Link>
+          <a href="https://github.com/SUDHEER-KANDURU/cortex" target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', padding: '6px 14px', borderRadius: 14, textDecoration: 'none', transition: 'all 0.2s ease' }}
+            onMouseEnter={e => { e.currentTarget.style.background = hov; e.currentTarget.style.color = 'var(--text)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
+            GitHub
+          </a>
+          <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+          <button onClick={onToggleTheme} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            style={{ width: 36, height: 36, borderRadius: 12, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', transition: 'all 0.2s ease' }}
+            onMouseEnter={e => { e.currentTarget.style.background = hov; e.currentTarget.style.color = 'var(--primary)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
+            {isDark ? <Sun style={{ width: 16, height: 16 }} /> : <Moon style={{ width: 16, height: 16 }} />}
+          </button>
+        </div>
+      </nav>
+    </header>
+  );
+}
+
+// ── Sidebar submit form ───────────────────────────────────────────────────────
+interface SidebarFormProps { isDark: boolean; onJobSubmitted: (job: Job) => void }
+
+function SidebarForm({ isDark, onJobSubmitted }: SidebarFormProps) {
   const [repoUrl, setRepoUrl] = useState('');
   const [artifactType, setArtifactType] = useState<ArtifactType>('architecture_diagram');
   const [urlError, setUrlError] = useState<string | null>(null);
   const { isSubmitting, error: apiError, submitJob, submittedJob } = useSubmitJob();
 
   React.useEffect(() => {
-    if (submittedJob) {
-      onJobSubmitted(submittedJob);
-      setRepoUrl('');
-      setArtifactType('architecture_diagram');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (submittedJob) { onJobSubmitted(submittedJob); setRepoUrl(''); setArtifactType('architecture_diagram'); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submittedJob]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setUrlError(null);
-    const trimmed = repoUrl.trim();
-    if (!trimmed) { setUrlError('Enter a GitHub URL'); return; }
-    if (!GITHUB_URL_RE.test(trimmed)) { setUrlError('Must be https://github.com/owner/repo'); return; }
-    await submitJob({ repo_url: trimmed, artifact_type: artifactType });
+    e.preventDefault(); setUrlError(null);
+    const t = repoUrl.trim();
+    if (!t) { setUrlError('Enter a GitHub URL'); return; }
+    if (!GITHUB_URL_RE.test(t)) { setUrlError('Must be https://github.com/owner/repo'); return; }
+    await submitJob({ repo_url: t, artifact_type: artifactType });
+  };
+
+  const bdr = tintBorder(isDark);
+  const inputStyle: React.CSSProperties = {
+    width: '100%', borderRadius: 14, padding: '10px 12px', fontSize: 13,
+    background: tint(isDark, 'xs'), color: 'var(--text)',
+    border: `1px solid ${bdr}`, outline: 'none',
+    transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.3s ease',
+    fontFamily: 'var(--font-sans)', boxSizing: 'border-box' as const,
   };
 
   return (
-    <form onSubmit={handleSubmit} noValidate aria-label="Submit a new Cortex job">
-      <p className="mb-3 text-[10px] font-medium uppercase tracking-[0.15em] text-slate-500">
-        Analyze Repository
-      </p>
+    <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 4, fontFamily: 'var(--font-mono)' }}>Analyze Repository</p>
 
       {/* URL input */}
-      <div className="relative mb-2">
-        <Github className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 pointer-events-none" aria-hidden="true" />
-        <input
-          type="url"
-          value={repoUrl}
+      <div style={{ position: 'relative' }}>
+        <Github style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--text-muted)', pointerEvents: 'none' }} />
+        <input type="url" value={repoUrl}
           onChange={e => { setRepoUrl(e.target.value); setUrlError(null); }}
-          placeholder="https://github.com/owner/repo"
-          disabled={isSubmitting}
-          aria-label="GitHub repository URL"
-          aria-invalid={!!urlError}
-          className="w-full rounded-lg border border-[#1A2340] bg-[#0F1629] py-2.5 pl-9 pr-3 text-sm text-slate-200 placeholder-slate-600 outline-none transition-all duration-200 hover:border-[#2A3A60] focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 disabled:opacity-50"
+          placeholder="https://github.com/owner/repo" disabled={isSubmitting}
+          aria-label="GitHub repository URL" aria-invalid={urlError ? 'true' : undefined}
+          aria-describedby={urlError ? 'url-error' : undefined}
+          style={{ ...inputStyle, paddingLeft: 34 }}
+          onFocus={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--primary-dim)'; }}
+          onBlur={e => { e.currentTarget.style.borderColor = bdr; e.currentTarget.style.boxShadow = 'none'; }}
         />
       </div>
-      {urlError && (
-        <p className="mb-2 text-[11px] text-red-400">{urlError}</p>
-      )}
-      {apiError && (
-        <p className="mb-2 text-[11px] text-red-400">{apiError}</p>
+      {(urlError || apiError) && (
+        <p id="url-error" role="alert" style={{ fontSize: 11, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <AlertCircle style={{ width: 11, height: 11, flexShrink: 0 }} /> {urlError ?? apiError}
+        </p>
       )}
 
       {/* Artifact type select */}
-      <div className="relative mb-3">
-        <select
-          value={artifactType}
-          onChange={e => setArtifactType(e.target.value as ArtifactType)}
-          disabled={isSubmitting}
-          aria-label="Artifact type"
-          className="w-full appearance-none rounded-lg border border-[#1A2340] bg-[#0F1629] px-3 py-2.5 text-sm text-slate-200 outline-none transition-all duration-200 hover:border-[#2A3A60] focus:border-violet-500/50 disabled:opacity-50 cursor-pointer"
-        >
-          {ARTIFACT_TYPES.map(t => (
-            <option key={t} value={t}>{ARTIFACT_TYPE_LABELS[t]}</option>
-          ))}
-        </select>
-        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
-      </div>
+      <Select.Root value={artifactType} onValueChange={v => setArtifactType(v as ArtifactType)} disabled={isSubmitting}>
+        <Select.Trigger aria-label="Artifact type"
+          style={{ ...inputStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
+          onFocus={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--primary-dim)'; }}
+          onBlur={e => { e.currentTarget.style.borderColor = bdr; e.currentTarget.style.boxShadow = 'none'; }}>
+          <Select.Value />
+          <Select.Icon asChild><ChevronDown style={{ width: 14, height: 14, color: 'var(--text-muted)', flexShrink: 0 }} /></Select.Icon>
+        </Select.Trigger>
+        <Select.Portal>
+          <Select.Content position="popper" sideOffset={6} style={{
+            width: 'var(--radix-select-trigger-width)', background: 'var(--surface)',
+            border: `1px solid ${bdr}`, borderRadius: 14,
+            boxShadow: isDark ? 'var(--shadow-lg)' : '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',
+            backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+            padding: 4, zIndex: 9999, overflow: 'hidden',
+            animation: 'dash-select-in 0.15s cubic-bezier(0.16,1,0.3,1)',
+          }}>
+            <Select.Viewport>
+              {ARTIFACT_TYPES.map(t => (
+                <Select.Item key={t} value={t} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '9px 12px', borderRadius: 10, fontSize: 13, fontWeight: 500,
+                  color: 'var(--text-secondary)', cursor: 'pointer', outline: 'none',
+                  transition: 'background 0.15s ease, color 0.15s ease',
+                  fontFamily: 'var(--font-sans)', userSelect: 'none',
+                }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = hoverBg(isDark); (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
+                  onFocus={e => { (e.currentTarget as HTMLElement).style.background = hoverBg(isDark); (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
+                  onBlur={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
+                >
+                  <Select.ItemText>{ARTIFACT_TYPE_LABELS[t]}</Select.ItemText>
+                  <Select.ItemIndicator><Check style={{ width: 13, height: 13, color: 'var(--primary)', flexShrink: 0 }} /></Select.ItemIndicator>
+                </Select.Item>
+              ))}
+            </Select.Viewport>
+          </Select.Content>
+        </Select.Portal>
+      </Select.Root>
 
-      {/* Submit — Liquid Glass dark button */}
-      <button
-        type="submit"
-        disabled={isSubmitting || !repoUrl.trim()}
-        aria-busy={isSubmitting}
-        className="flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
-        style={{
-          background: isSubmitting
-            ? 'rgba(124,58,237,0.7)'
-            : 'rgba(124,58,237,0.92)',
-          // Liquid Glass: top sheen + depth shadow + rim
-          boxShadow: [
-            '0 2px 12px rgba(124,58,237,0.30)',
-            '0 1px 3px rgba(0,0,0,0.24)',
-            '0 0 0 1px rgba(255,255,255,0.06)',
-            'inset 0 1px 0 rgba(255,255,255,0.14)',
-            'inset 0 -1px 0 rgba(0,0,0,0.18)',
-          ].join(', '),
-          transition: 'background 0.2s ease, box-shadow 0.2s ease',
-        }}
-        onMouseEnter={e => {
-          if (!isSubmitting) {
-            const el = e.currentTarget
-            el.style.background = 'rgba(124,58,237,1)'
-            el.style.boxShadow = [
-              '0 4px 20px rgba(124,58,237,0.40)',
-              '0 1px 3px rgba(0,0,0,0.24)',
-              '0 0 0 1px rgba(255,255,255,0.08)',
-              'inset 0 1px 0 rgba(255,255,255,0.16)',
-              'inset 0 -1px 0 rgba(0,0,0,0.18)',
-            ].join(', ')
-          }
-        }}
-        onMouseLeave={e => {
-          if (!isSubmitting) {
-            const el = e.currentTarget
-            el.style.background = 'rgba(124,58,237,0.92)'
-            el.style.boxShadow = [
-              '0 2px 12px rgba(124,58,237,0.30)',
-              '0 1px 3px rgba(0,0,0,0.24)',
-              '0 0 0 1px rgba(255,255,255,0.06)',
-              'inset 0 1px 0 rgba(255,255,255,0.14)',
-              'inset 0 -1px 0 rgba(0,0,0,0.18)',
-            ].join(', ')
-          }
-        }}
-      >
-        {isSubmitting ? (
-          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-        ) : (
-          <Sparkles size={14} aria-hidden="true" />
-        )}
-        {isSubmitting ? 'Analyzing…' : 'Analyze Repository'}
+      {/* Submit */}
+      <button type="submit" disabled={isSubmitting || !repoUrl.trim()} style={{
+        width: '100%', borderRadius: 14, padding: '11px 16px', fontSize: 13, fontWeight: 600,
+        cursor: isSubmitting || !repoUrl.trim() ? 'not-allowed' : 'pointer',
+        opacity: isSubmitting || !repoUrl.trim() ? 0.5 : 1,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+        background: 'linear-gradient(135deg, var(--primary) 0%, #00c9a7 100%)',
+        color: '#07090d', border: 'none',
+        boxShadow: '0 4px 16px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.22)',
+        transition: 'filter 0.2s ease, opacity 0.2s ease', fontFamily: 'var(--font-sans)',
+      }}
+        onMouseEnter={e => { if (!isSubmitting && repoUrl.trim()) e.currentTarget.style.filter = 'brightness(1.08)'; }}
+        onMouseLeave={e => { e.currentTarget.style.filter = ''; }}>
+        {isSubmitting
+          ? <><Loader2 style={{ width: 13, height: 13, animation: 'spin 1s linear infinite' }} />Analyzing…</>
+          : <><Sparkles style={{ width: 13, height: 13 }} />Analyze Repository</>}
       </button>
     </form>
   );
 }
 
 // ── Job row ───────────────────────────────────────────────────────────────────
+interface JobRowProps { job: Job; isSelected: boolean; isDark: boolean; onClick: () => void }
 
-interface JobRowProps {
-  job: Job;
-  isSelected: boolean;
-  onClick: () => void;
-}
-
-function JobRow({ job, isSelected, onClick }: JobRowProps) {
+const JobRow = React.memo(function JobRow({ job, isSelected, isDark, onClick }: JobRowProps) {
+  const short = extractShortName(job.repo_url);
+  const owner = extractRepoName(job.repo_url).split('/')[0] ?? '';
+  const isRunning = job.status === 'running';
+  const dot: Record<string, string> = {
+    completed: 'var(--success)', running: 'var(--primary)',
+    failed: 'var(--danger)', pending: 'var(--text-muted)', cancelled: 'var(--text-muted)',
+  };
+  const dotColor = dot[job.status] ?? 'var(--text-muted)';
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`relative w-full cursor-pointer rounded-lg px-3 py-2.5 text-left transition-all duration-150 ${
-        isSelected
-          ? 'border-l-2 border-violet-500 bg-[#0F1629] pl-[10px]'
-          : 'hover:bg-[#0F1629]'
-      }`}
-      aria-pressed={isSelected}
-    >
-      <div className="flex items-center justify-between">
-        <div className="min-w-0 pr-2">
-          <p className="truncate text-sm font-medium text-slate-200">
-            {extractRepoName(job.repo_url)}
-          </p>
-          <p className="mt-0.5 text-xs text-slate-500">
-            {ARTIFACT_TYPE_LABELS[job.artifact_type]}
+    <button type="button" onClick={onClick} aria-pressed={isSelected}
+      aria-label={`Job: ${short}, status: ${job.status}`}
+      style={{
+        width: '100%', textAlign: 'left', cursor: 'pointer', borderRadius: 14, padding: '10px 12px',
+        border: 'none', background: isSelected ? selectedBg(isDark) : 'transparent',
+        borderLeft: `2px solid ${isSelected ? 'var(--primary)' : 'transparent'}`,
+        transition: 'background 0.2s ease, border-color 0.2s ease', boxSizing: 'border-box',
+      }}
+      onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = rowHoverBg(isDark); }}
+      onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{
+              width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0,
+              boxShadow: isRunning ? `0 0 6px ${dotColor}` : 'none',
+              animation: isRunning ? 'pulse-dot 1.8s ease-in-out infinite' : 'none',
+            }} aria-hidden="true" />
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{short}</span>
+          </div>
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
+            {owner} · {ARTIFACT_TYPE_LABELS[job.artifact_type]}
           </p>
         </div>
         <StatusBadge status={job.status} />
       </div>
     </button>
   );
-}
+});
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-
 interface SidebarProps {
-  jobs: Job[];
-  jobsLoading: boolean;
-  jobsError: string | null;
-  selectedJobId: string | null;
-  onJobSelected: (job: Job) => void;
-  onJobSubmitted: (job: Job) => void;
+  isDark: boolean; jobs: Job[]; jobsLoading: boolean; jobsError: string | null;
+  selectedJobId: string | null; onJobSelected: (job: Job) => void; onJobSubmitted: (job: Job) => void;
 }
 
-function Sidebar({ jobs, jobsLoading, jobsError, selectedJobId, onJobSelected, onJobSubmitted }: SidebarProps) {
+function Sidebar({ isDark, jobs, jobsLoading, jobsError, selectedJobId, onJobSelected, onJobSubmitted }: SidebarProps) {
+  const bdr = tintBorder(isDark);
   return (
-    <aside
-      className="flex shrink-0 flex-col overflow-y-auto border-r border-[#1A2340]"
-      style={{ width: 360, background: '#0A0F1A' }}
-      aria-label="Sidebar"
-    >
-      {/* Form section — glass panel header */}
-      <div className="p-5"
-        style={{
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
-          boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.18)',
-        }}>
-        <SidebarForm onJobSubmitted={onJobSubmitted} />
+    <aside aria-label="Repository sidebar" style={{
+      background: 'var(--glass)', backdropFilter: 'blur(24px) saturate(180%)', WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+      border: `1px solid ${bdr}`,
+      boxShadow: isDark ? 'var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.06)' : 'var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.80)',
+      width: 300, minWidth: 300, maxWidth: 300,
+      display: 'flex', flexDirection: 'column', borderRadius: 20, overflow: 'hidden', flexShrink: 0,
+      transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+    }}>
+      <div style={{ padding: '20px 18px', borderBottom: `1px solid ${bdr}` }}>
+        <SidebarForm isDark={isDark} onJobSubmitted={onJobSubmitted} />
       </div>
-
-      {/* Jobs list section */}
-      <div className="flex flex-1 flex-col p-5">
-        <p className="mb-3 text-[10px] font-medium uppercase tracking-[0.15em] text-slate-500">
-          Recent Jobs
-        </p>
-
-        {jobsLoading && <SidebarJobsSkeleton />}
-        {jobsError && (
-          <p className="px-1 py-2 text-xs text-red-400">Could not load jobs</p>
-        )}
-        {!jobsLoading && jobs.length === 0 && (
-          <div className="py-8 text-center">
-            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/50">
-              <Code2 className="h-4 w-4 text-slate-600" />
+      <div className="dash-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 10px 12px' }}>
+        <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10, paddingLeft: 4, fontFamily: 'var(--font-mono)' }}>Recent Jobs</p>
+        {jobsLoading && <InlineLoader stage="loading" message="Loading Jobs…" size={24} />}
+        {jobsError && <p style={{ fontSize: 12, color: 'var(--danger)', padding: '8px 4px' }}>Could not load jobs</p>}
+        {!jobsLoading && jobs.length === 0 && !jobsError && (
+          <div style={{ textAlign: 'center', padding: '32px 16px' }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: tint(isDark, 'xs'), border: `1px solid ${bdr}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+              <Code2 style={{ width: 16, height: 16, color: 'var(--text-muted)' }} />
             </div>
-            <p className="text-xs text-slate-600">No jobs yet</p>
-            <p className="mt-1 text-[11px] text-slate-700">Submit a URL above to start</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>No jobs yet</p>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, opacity: 0.65 }}>Submit a URL above</p>
           </div>
         )}
-
-        <div className="flex flex-col gap-0.5">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {jobs.map(job => (
-            <JobRow
-              key={job.id}
-              job={job}
-              isSelected={job.id === selectedJobId}
-              onClick={() => onJobSelected(job)}
-            />
+            <JobRow key={job.id} job={job} isDark={isDark} isSelected={job.id === selectedJobId} onClick={() => onJobSelected(job)} />
           ))}
         </div>
       </div>
@@ -301,128 +348,247 @@ function Sidebar({ jobs, jobsLoading, jobsError, selectedJobId, onJobSelected, o
   );
 }
 
-// ── Right panel ───────────────────────────────────────────────────────────────
+// ── Animated pipeline (running state) ────────────────────────────────────────
+const PIPELINE_STEPS = [
+  { icon: GitBranch, label: 'Clone Repo', key: 'clone'    },
+  { icon: Cpu,       label: 'Parse AST',  key: 'parse'    },
+  { icon: Database,  label: 'Build Graph',key: 'graph'    },
+  { icon: FileCode,  label: 'Generate',   key: 'generate' },
+];
+const LOG_LINES = ['Cloning repository…', 'Parsing AST nodes…', 'Writing graph nodes…', 'Generating artifact…'];
 
-interface RightPanelProps {
-  activeJob: Job | null;
-  artifacts: ReturnType<typeof useArtifact>['artifacts'];
-  artifactsLoading: boolean;
-  artifactsError: string | null;
+function AnimatedPipeline({ jobId, isDark }: { jobId: string; isDark: boolean }) {
+  const [activeStep, setActiveStep] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const startRef = useRef(Date.now());
+
+  useEffect(() => {
+    startRef.current = Date.now();
+    const st = setInterval(() => { if (document.visibilityState !== 'hidden') setActiveStep(s => (s + 1) % PIPELINE_STEPS.length); }, 3000);
+    const et = setInterval(() => { if (document.visibilityState !== 'hidden') setElapsed(Math.floor((Date.now() - startRef.current) / 1000)); }, 1000);
+    return () => { clearInterval(st); clearInterval(et); };
+  }, [jobId]);
+
+  const bdr = tintBorder(isDark);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 28, padding: '32px 24px', alignItems: 'center' }}>
+      {/* Status pill */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px', borderRadius: 100, background: 'var(--primary-dim)', border: '1px solid rgba(0,229,168,0.28)' }}>
+        <Loader2 style={{ width: 14, height: 14, color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
+        <span style={{ fontSize: 13, color: 'var(--primary)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+          Analyzing repository · {elapsed}s elapsed
+        </span>
+      </div>
+
+      {/* Steps */}
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', gap: 0 }}>
+        {PIPELINE_STEPS.map((step, i) => {
+          const Icon = step.icon;
+          const isDone = i < activeStep, isCurrent = i === activeStep;
+          return (
+            <React.Fragment key={step.key}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, transition: 'all 0.35s cubic-bezier(0.16,1,0.3,1)' }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: (isDone || isCurrent) ? 'var(--primary-dim)' : tint(isDark, 'xs'),
+                  border: `1px solid ${(isDone || isCurrent) ? 'rgba(0,229,168,0.35)' : bdr}`,
+                  boxShadow: isCurrent ? '0 0 16px var(--primary-glow)' : 'none',
+                  transform: isCurrent ? 'scale(1.12)' : 'scale(1)',
+                  transition: 'all 0.35s cubic-bezier(0.16,1,0.3,1)',
+                }}>
+                  {isDone
+                    ? <CheckCircle2 style={{ width: 18, height: 18, color: 'var(--primary)' }} />
+                    : <Icon style={{ width: 18, height: 18, color: isCurrent ? 'var(--primary)' : 'var(--text-muted)', animation: isCurrent ? 'pulse-dot 1.8s ease-in-out infinite' : 'none' }} />}
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap', color: (isDone || isCurrent) ? 'var(--text)' : 'var(--text-muted)', fontFamily: 'var(--font-mono)', transition: 'color 0.3s ease' }}>
+                  {step.label}
+                </span>
+              </div>
+              {i < PIPELINE_STEPS.length - 1 && (
+                <div style={{ width: 40, height: 2, margin: '0 4px', marginBottom: 20, borderRadius: 1, background: i < activeStep ? 'linear-gradient(90deg, var(--primary), rgba(0,229,168,0.3))' : bdr, transition: 'background 0.5s ease' }} aria-hidden="true" />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+
+      {/* Terminal log — fully theme-aware */}
+      <div style={{
+        width: '100%', maxWidth: 480,
+        background: logBg(isDark), border: `1px solid ${bdr}`,
+        borderRadius: 'var(--radius-md)', padding: '14px 18px',
+        fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: 2, color: 'var(--text-muted)',
+        transition: 'background 0.3s ease, border-color 0.3s ease',
+      }}>
+        {LOG_LINES.slice(0, activeStep + 1).map((line, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: i < activeStep ? 'var(--success)' : 'var(--primary)', fontSize: 10 }}>{i < activeStep ? '✓' : '›'}</span>
+            <span style={{ color: i < activeStep ? logDimLine(isDark) : 'var(--text-secondary)' }}>{line}</span>
+          </div>
+        ))}
+        <span style={{ display: 'inline-block', width: 7, height: 13, background: 'var(--primary)', verticalAlign: 'middle', animation: 'blink 1s step-end infinite', marginLeft: 4 }} aria-hidden="true" />
+      </div>
+
+      <p style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', margin: 0 }}>
+        This usually takes 30–60 seconds
+      </p>
+    </div>
+  );
 }
 
-function RightPanel({ activeJob, artifacts, artifactsLoading, artifactsError }: RightPanelProps) {
-  if (!activeJob) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900">
-          <Code2 className="h-7 w-7 text-slate-600" aria-hidden="true" />
-        </div>
-        <div>
-          <p className="text-sm font-medium text-slate-400">No repository selected</p>
-          <p className="mt-1 text-xs text-slate-600 max-w-[200px]">Paste a GitHub URL in the sidebar and click Analyze</p>
-        </div>
+// ── Empty state ───────────────────────────────────────────────────────────────
+function EmptyState({ isDark }: { isDark: boolean }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24, padding: 48 }}>
+      <div style={{
+        width: 80, height: 80, borderRadius: '50%', flexShrink: 0,
+        background: isDark
+          ? 'radial-gradient(circle at 35% 35%, var(--primary-dim) 0%, rgba(108,124,255,0.06) 60%, transparent 100%)'
+          : 'radial-gradient(circle at 35% 35%, rgba(0,179,122,0.12) 0%, rgba(93,107,255,0.06) 60%, transparent 100%)',
+        border: '1px solid rgba(0,229,168,0.18)', boxShadow: '0 0 40px var(--primary-glow)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <GitBranch style={{ width: 28, height: 28, color: 'var(--primary)' }} />
       </div>
-    );
-  }
+      <div style={{ textAlign: 'center', maxWidth: 280 }}>
+        <p style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', margin: 0 }}>Select a repository</p>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8, lineHeight: 1.7 }}>
+          Paste a GitHub URL in the sidebar and click Analyze to get started
+        </p>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+        {['Architecture Diagram', 'Learning Path', 'Interview Prep', 'Knowledge Graph'].map(label => (
+          <span key={label} style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', padding: '5px 14px', borderRadius: 100, background: tint(isDark, 'xs'), border: `1px solid ${tintBorder(isDark)}`, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{label}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-  const repoName = extractRepoName(activeJob.repo_url);
+// ── Panel header ──────────────────────────────────────────────────────────────
+function PanelHeader({ activeJob, isDark }: { activeJob: Job; isDark: boolean }) {
+  const repoName = extractShortName(activeJob.repo_url);
+  const repoFull = extractRepoName(activeJob.repo_url);
+  const bdr = tintBorder(isDark);
+  const statusIcon = {
+    completed: <CheckCircle2 style={{ width: 14, height: 14, color: 'var(--success)' }} />,
+    running:   <Loader2 style={{ width: 14, height: 14, color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />,
+    failed:    <XCircle style={{ width: 14, height: 14, color: 'var(--danger)' }} />,
+    pending:   <Clock style={{ width: 14, height: 14, color: 'var(--text-muted)' }} />,
+    cancelled: <XCircle style={{ width: 14, height: 14, color: 'var(--text-muted)' }} />,
+  }[activeJob.status] ?? null;
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
-      {/* Top bar — Liquid Glass panel header */}
-      <div className="flex items-center justify-between px-6 py-4"
-        style={{
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
-          background: 'rgba(15,22,41,0.85)',
-          backdropFilter: 'blur(12px) saturate(150%)',
-          WebkitBackdropFilter: 'blur(12px) saturate(150%)',
-          // Dual-tone: top highlight + bottom separator
-          boxShadow: [
-            'inset 0 1px 0 rgba(255,255,255,0.07)',
-            'inset 0 -1px 0 rgba(0,0,0,0.20)',
-          ].join(', '),
-        }}>
-        <div className="flex items-baseline gap-2 min-w-0">
-          <span className="truncate text-base font-medium text-white">{repoName}</span>
-          <span className="shrink-0 text-sm text-slate-500">
-            {ARTIFACT_TYPE_LABELS[activeJob.artifact_type]}
-          </span>
+    <div style={{ padding: '16px 24px', borderBottom: `1px solid ${bdr}`, background: tint(isDark, 'xs'), display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexShrink: 0, transition: 'background 0.3s ease, border-color 0.3s ease' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+        <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'var(--primary-dim)', border: '1px solid rgba(0,229,168,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <GitBranch style={{ width: 15, height: 15, color: 'var(--primary)' }} />
         </div>
-        <div className="flex shrink-0 items-center gap-3">
-          <StatusBadge status={activeJob.status} />
-          {activeJob.status === 'running' && (
-            <span className="animate-pulse text-xs text-violet-400">Analyzing…</span>
-          )}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{repoName}</span>
+            <a href={activeJob.repo_url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${repoName} on GitHub`}
+              style={{ color: 'var(--text-muted)', flexShrink: 0, transition: 'color 0.2s' }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}>
+              <ExternalLink style={{ width: 12, height: 12 }} />
+            </a>
+          </div>
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {repoFull} · {ARTIFACT_TYPE_LABELS[activeJob.artifact_type]}
+          </p>
         </div>
       </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        {statusIcon}
+        <StatusBadge status={activeJob.status} />
+      </div>
+    </div>
+  );
+}
 
-      {/* Artifacts area */}
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+// ── Right panel ───────────────────────────────────────────────────────────────
+interface RightPanelProps {
+  isDark: boolean; activeJob: Job | null;
+  artifacts: ReturnType<typeof useArtifact>['artifacts'];
+  artifactsLoading: boolean; artifactsError: string | null;
+}
+
+function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsError }: RightPanelProps) {
+  if (!activeJob) return <EmptyState isDark={isDark} />;
+  const bdr = tintBorder(isDark);
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+      <PanelHeader activeJob={activeJob} isDark={isDark} />
+      <div className="dash-scroll" style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
 
         {/* Pending */}
         {activeJob.status === 'pending' && (
-          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-800 border-t-slate-500" />
-            <p className="text-sm text-slate-500">Queued — waiting for a worker</p>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
+            <InlineLoader stage="connecting" message="Queued — Waiting for Worker…" size={36} />
           </div>
         )}
 
-        {/* Running skeleton — progressive staggered bars */}
+        {/* Running */}
         {activeJob.status === 'running' && artifacts.length === 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-xs text-violet-400">
-              <span className="h-3 w-3 animate-spin rounded-full border-2 border-violet-800 border-t-violet-400" />
-              Building knowledge graph…
-            </div>
-            <div className="space-y-2.5">
-              {[75, 55, 85, 45, 65].map((w, i) => (
-                <div key={i} className="animate-pulse rounded bg-slate-800"
-                  style={{ height: i === 2 ? 80 : 12, width: `${w}%`, animationDelay: `${i * 150}ms` }} />
-              ))}
-            </div>
-          </div>
+          <AnimatedPipeline jobId={activeJob.id} isDark={isDark} />
         )}
 
         {/* Failed */}
         {activeJob.status === 'failed' && (
-          <div className="flex flex-col items-center gap-3 py-12 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-red-900/40 bg-red-950/30">
-              <span className="text-lg">✕</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '48px 0', textAlign: 'center' }}>
+            <div style={{ width: 52, height: 52, borderRadius: 16, background: 'var(--danger-dim)', border: '1px solid rgba(239,83,80,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <XCircle style={{ width: 22, height: 22, color: 'var(--danger)' }} />
             </div>
-            <p className="text-sm font-medium text-red-400">Analysis failed</p>
-            <p className="text-xs text-slate-600">Check backend logs for details</p>
+            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--danger)', margin: 0 }}>Analysis failed</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Check backend logs for details</p>
           </div>
         )}
 
         {/* Cancelled */}
         {activeJob.status === 'cancelled' && (
-          <p className="py-8 text-center text-sm text-slate-500">Job was cancelled.</p>
+          <p style={{ textAlign: 'center', padding: '48px 0', fontSize: 13, color: 'var(--text-muted)' }}>Job was cancelled.</p>
         )}
 
-        {/* Artifacts loading skeleton */}
+        {/* Artifacts loading */}
         {artifactsLoading && (
-          <div className="space-y-4">
-            <div className="h-3.5 w-2/3 animate-pulse rounded bg-slate-800" />
-            <div className="h-56 animate-pulse rounded-lg bg-slate-800/50" />
+          <InlineLoader stage="generating_artifact" message="Loading Artifacts…" size={32} />
+        )}
+
+        {/* Error */}
+        {artifactsError && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', borderRadius: 'var(--radius-sm)', background: 'var(--danger-dim)', border: '1px solid rgba(239,83,80,0.22)' }}>
+            <AlertCircle style={{ width: 14, height: 14, color: 'var(--danger)', flexShrink: 0 }} />
+            <p style={{ fontSize: 12, color: 'var(--danger)', margin: 0 }}>{artifactsError}</p>
           </div>
         )}
 
-        {artifactsError && (
-          <p className="py-4 text-xs text-red-400">{artifactsError}</p>
-        )}
-
         {!artifactsLoading && activeJob.status === 'completed' && artifacts.length === 0 && (
-          <p className="py-8 text-center text-sm text-slate-500">No artifacts generated yet.</p>
+          <p style={{ textAlign: 'center', padding: '48px 0', fontSize: 13, color: 'var(--text-muted)' }}>No artifacts generated yet.</p>
         )}
 
-        <div className="space-y-6">
+        {/* Artifact cards */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {artifacts.map(artifact => (
-            <div key={artifact.id}>
-              <p className="mb-3 inline-flex items-center rounded border border-cyan-400/20 bg-cyan-400/5 px-2 py-0.5 text-[10px] uppercase tracking-widest text-cyan-400">
-                {artifact.content_type}
-              </p>
-              <ArtifactViewer artifact={artifact} />
-              <div className="mt-6 border-t border-[#1A2340]" />
+            <div key={artifact.id} style={{
+              borderRadius: 'var(--radius-lg)', overflow: 'hidden',
+              background: tint(isDark, 'xs'), border: `1px solid ${bdr}`,
+              boxShadow: isDark ? 'var(--shadow-md)' : '0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)',
+              transition: 'background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
+            }}>
+              <div style={{ padding: '12px 18px', borderBottom: `1px solid ${bdr}`, background: tint(isDark, 'xs'), display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--primary)', padding: '3px 10px', borderRadius: 100, background: 'var(--primary-dim)', border: '1px solid rgba(0,229,168,0.22)', fontFamily: 'var(--font-mono)' }}>
+                  {artifact.content_type}
+                </span>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {artifact.id}
+                </span>
+              </div>
+              <div style={{ padding: '16px 18px' }}>
+                <ArtifactViewer artifact={artifact} />
+              </div>
             </div>
           ))}
         </div>
@@ -432,12 +598,20 @@ function RightPanel({ activeJob, artifacts, artifactsLoading, artifactsError }: 
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
-
 export default function DashboardPage() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jobsLoading, setJobsLoading] = useState(true);
   const [jobsError, setJobsError] = useState<string | null>(null);
+  const [isDark, setIsDark] = useState(getInitialTheme);
+
+  // Sync theme to DOM — runs synchronously on first render via getInitialTheme to avoid flash
+  React.useEffect(() => {
+    const theme = isDark ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.classList.toggle('dark', isDark);
+    try { localStorage.setItem('cortex-theme', theme); } catch {}
+  }, [isDark]);
 
   // Initial jobs fetch
   React.useEffect(() => {
@@ -450,29 +624,20 @@ export default function DashboardPage() {
     return () => { active = false; };
   }, []);
 
-  // Poll selected job
   const { job: polledJob } = useJobPolling(selectedJob?.id ?? null);
   const activeJob = polledJob ?? selectedJob;
 
-  // Artifacts for selected job
   const { artifacts, isLoading: artifactsLoading, error: artifactsError, refetch } = useArtifact(
-    selectedJob?.id ?? null
+    activeJob?.status === 'completed' ? (selectedJob?.id ?? null) : null
   );
 
   const completedJobRef = useRef<string | null>(null);
-
-  // Auto-refetch artifacts exactly once when the selected job reaches a completed state.
   useEffect(() => {
-    if (!polledJob || polledJob.status !== 'completed') {
-      return;
-    }
-
-    if (completedJobRef.current === polledJob.id) {
-      return;
-    }
-
+    if (!polledJob || polledJob.status !== 'completed') return;
+    if (completedJobRef.current === polledJob.id) return;
     completedJobRef.current = polledJob.id;
     refetch();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [polledJob?.id, polledJob?.status, refetch]);
 
   const handleJobSubmitted = useCallback((job: Job) => {
@@ -480,32 +645,54 @@ export default function DashboardPage() {
     setSelectedJob(job);
   }, []);
 
-  const handleJobSelected = useCallback((job: Job) => {
-    setSelectedJob(job);
-  }, []);
+  const handleJobSelected = useCallback((job: Job) => { setSelectedJob(job); }, []);
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ background: '#020408' }}>
-      <Navbar />
-      <div
-        className="flex flex-1 overflow-hidden"
-        style={{ height: 'calc(100vh - 48px)' }}
-      >
-        <Sidebar
-        jobs={jobs}
-        jobsLoading={jobsLoading}
-        jobsError={jobsError}
-        selectedJobId={selectedJob?.id ?? null}
-        onJobSelected={handleJobSelected}
-        onJobSubmitted={handleJobSubmitted}
-      />
-      <RightPanel
-        activeJob={activeJob}
-        artifacts={artifacts}
-        artifactsLoading={artifactsLoading}
-        artifactsError={artifactsError}
-      />
+    <>
+      <style>{`
+        @keyframes spin      { to { transform: rotate(360deg); } }
+        @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(.85)} }
+        @keyframes blink     { 0%,100%{opacity:1} 50%{opacity:0} }
+        @keyframes dash-select-in { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+
+        .dash-scroll::-webkit-scrollbar       { width: 4px; }
+        .dash-scroll::-webkit-scrollbar-track { background: transparent; }
+        .dash-scroll::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.18); border-radius: 4px; }
+        .dash-scroll::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.30); }
+
+        /* pre/code in artifact viewer */
+        .dash-content pre { border-color: var(--border) !important; color: var(--text-secondary) !important; }
+        [data-theme="dark"]  .dash-content pre { background: rgba(0,0,0,0.38) !important; }
+        [data-theme="light"] .dash-content pre { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.09) !important; }
+        .react-flow__attribution { display: none; }
+      `}</style>
+
+      <DashboardBackground isDark={isDark} />
+
+      <div style={{ position: 'fixed', inset: 0, zIndex: 1, display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-sans)' }}>
+        <DashboardNavbar isDark={isDark} onToggleTheme={() => setIsDark(d => !d)} />
+
+        <div style={{ flex: 1, display: 'flex', paddingTop: 80, paddingBottom: 20, paddingLeft: 20, paddingRight: 20, gap: 16, overflow: 'hidden', boxSizing: 'border-box' }}>
+          {/* Sidebar */}
+          <div className="dash-scroll" style={{ display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'auto', height: '100%' }}>
+            <Sidebar isDark={isDark} jobs={jobs} jobsLoading={jobsLoading} jobsError={jobsError}
+              selectedJobId={selectedJob?.id ?? null}
+              onJobSelected={handleJobSelected} onJobSubmitted={handleJobSubmitted} />
+          </div>
+
+          {/* Main glass panel */}
+          <main className="dash-content" style={{
+            background: 'var(--glass)', backdropFilter: 'blur(24px) saturate(180%)', WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+            border: `1px solid ${tintBorder(isDark)}`,
+            boxShadow: isDark ? 'var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.06)' : 'var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.80)',
+            flex: 1, borderRadius: 20, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0,
+            transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+          }}>
+            <RightPanel isDark={isDark} activeJob={activeJob}
+              artifacts={artifacts} artifactsLoading={artifactsLoading} artifactsError={artifactsError} />
+          </main>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

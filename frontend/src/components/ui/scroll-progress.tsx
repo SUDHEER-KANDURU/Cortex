@@ -38,17 +38,18 @@ export function ScrollProgress() {
       {/* Track */}
       <div style={{
         position: "absolute", inset: 0,
-        background: "rgba(0,0,0,0.06)",
+        background: "rgba(255,255,255,0.04)",
       }} />
-      {/* Fill — liquid glass shimmer */}
+      {/* Fill — primary brand color with glow */}
       <div
         ref={barRef}
         style={{
           position: "absolute", inset: 0,
-          background: "linear-gradient(90deg, #0a0a0a 0%, #555 50%, #0a0a0a 100%)",
+          background: "linear-gradient(90deg, var(--primary) 0%, #67e8f9 60%, var(--primary) 100%)",
           transformOrigin: "left center",
           transform: "scaleX(0)",
           transition: "transform 0.1s linear",
+          boxShadow: "0 0 8px var(--primary-glow)",
         }}
       />
     </div>

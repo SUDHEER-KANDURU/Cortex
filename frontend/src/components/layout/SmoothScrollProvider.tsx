@@ -7,7 +7,6 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 export function SmoothScrollProvider({ children }: { children: React.ReactNode }) {
   useLayoutEffect(() => {
-    // Initialize Lenis
     const lenis = new Lenis({
       duration: 1.2,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
@@ -19,20 +18,19 @@ export function SmoothScrollProvider({ children }: { children: React.ReactNode }
       infinite: false,
     });
 
-    // Synchronize Lenis with GSAP ScrollTrigger
+    // Keep ScrollTrigger in sync with Lenis scroll position
     lenis.on('scroll', ScrollTrigger.update);
 
-    gsap.ticker.add((time) => {
-      lenis.raf(time * 1000);
-    });
-
+    // Drive Lenis via GSAP ticker — same tick as all GSAP animations
+    // Store the callback in a variable so cleanup removes the exact same reference
+    const tickerCallback = (time: number) => lenis.raf(time * 1000);
+    gsap.ticker.add(tickerCallback);
     gsap.ticker.lagSmoothing(0);
 
     return () => {
+      // Remove the exact same callback reference — no leak
+      gsap.ticker.remove(tickerCallback);
       lenis.destroy();
-      gsap.ticker.remove((time) => {
-        lenis.raf(time * 1000);
-      });
     };
   }, []);
 

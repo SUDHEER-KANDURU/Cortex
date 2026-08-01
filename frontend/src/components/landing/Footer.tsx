@@ -22,84 +22,49 @@ const VERSION = "v0.1.0"
 export function PortfolioFooter() {
   return (
     <footer style={{
-      borderTop: "1px solid rgba(0,0,0,0.06)",
-      background: "rgba(255,255,255,0.72)",
-      backdropFilter: "saturate(180%) blur(20px)",
-      WebkitBackdropFilter: "saturate(180%) blur(20px)",
+      borderTop: "1px solid var(--cx-card-border)",
+      background: "rgba(255,255,255,0.06)",
+      backdropFilter: "saturate(200%) blur(24px)",
+      WebkitBackdropFilter: "saturate(200%) blur(24px)",
     }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12 py-16 md:py-24">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8">
 
           {/* Brand */}
           <div className="md:col-span-2" data-reveal="up">
-            <div
-              className="logo-cube"
-              style={{ width: 20, height: 20, background: '#111', borderRadius: 4,
-                animation: 'logo-cube-rotate 120s linear infinite',
-                marginBottom: 8 }}
-            />
-            <Link href="/"
-              style={{
-                fontFamily: "var(--font-display,'Syne',sans-serif)",
-                fontSize: "22px", fontWeight: 700,
-                letterSpacing: "-0.03em", color: "#0a0a0a",
-                textDecoration: "none",
-              }}>
+            <div style={{ width: 20, height: 20, background: 'var(--cx-text)', borderRadius: 4, animation: 'logo-cube-rotate 120s linear infinite', marginBottom: 8 }} />
+            <Link href="/" className="cx-text" style={{ fontFamily: "var(--font-sans)", fontSize: "22px", fontWeight: 700, letterSpacing: "-0.03em", textDecoration: "none" }}>
               Cortex
             </Link>
-            <p className="mt-4 text-sm leading-relaxed"
-              style={{ color: "rgba(0,0,0,0.45)", maxWidth: "280px", lineHeight: 1.7 }}>
+            <p className="cx-text-muted mt-4 text-sm leading-relaxed" style={{ maxWidth: "280px", lineHeight: 1.7 }}>
               Engineering Reasoning Engine — understand any codebase, generate architecture diagrams, learning paths, and interview prep. Fully offline.
             </p>
 
-            {/* Social links — glass pills */}
             <div className="flex items-center gap-3 mt-6">
               {socialLinks.map((s) => (
-                <Link key={s.label} href={s.href}
-                  target="_blank" rel="noopener noreferrer"
-                  className="p-2.5 rounded-full transition-all duration-250"
-                  style={{
-                    background: "rgba(255,255,255,0.7)",
-                    backdropFilter: "blur(12px) saturate(180%)",
-                    WebkitBackdropFilter: "blur(12px) saturate(180%)",
-                    border: "1px solid rgba(255,255,255,0.9)",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)",
-                  }}
+                <Link key={s.label} href={s.href} target="_blank" rel="noopener noreferrer"
+                  className="cx-stat-card p-2.5 rounded-full transition-all duration-200"
+                  style={{ backdropFilter: "blur(12px) saturate(180%)", WebkitBackdropFilter: "blur(12px) saturate(180%)" }}
                   onMouseEnter={e => {
                     const el = e.currentTarget as HTMLElement
-                    el.style.background = "#0a0a0a"
-                    el.style.borderColor = "#0a0a0a"
-                    el.style.transform = "translateY(-2px)"
-                    el.style.boxShadow = "0 6px 20px rgba(0,0,0,0.15)"
-                    const icon = el.querySelector("svg")
-                    if (icon) (icon as SVGElement).style.color = "#fff"
+                    el.style.background = "var(--cx-text)"
+                    const icon = el.querySelector("svg"); if (icon) (icon as SVGElement).style.color = "#fff"
                   }}
                   onMouseLeave={e => {
                     const el = e.currentTarget as HTMLElement
-                    el.style.background = "rgba(255,255,255,0.7)"
-                    el.style.borderColor = "rgba(255,255,255,0.9)"
-                    el.style.transform = "none"
-                    el.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)"
-                    const icon = el.querySelector("svg")
-                    if (icon) (icon as SVGElement).style.color = "#555"
+                    el.style.background = ""
+                    const icon = el.querySelector("svg"); if (icon) (icon as SVGElement).style.color = ""
                   }}
                   aria-label={s.label}>
-                  <s.icon className="w-4 h-4" style={{ color: "#555", transition: "color 0.2s ease" }} />
+                  <s.icon className="cx-text-muted w-4 h-4 transition-colors duration-200" />
                 </Link>
               ))}
             </div>
 
             <div className="mt-5">
-              <Link href="https://github.com/SUDHEER-KANDURU/cortex"
-                target="_blank" rel="noopener noreferrer"
-                className="footer-link"
-                style={{
-                  fontSize: "12px", color: "rgba(0,0,0,0.4)",
-                  fontFamily: "var(--font-mono,'Fira Code',monospace)",
-                  textDecoration: "none", transition: "color 0.2s ease",
-                }}
-                onMouseEnter={e => (e.currentTarget.style.color = "#111")}
-                onMouseLeave={e => (e.currentTarget.style.color = "rgba(0,0,0,0.4)")}>
+              <Link href="https://github.com/SUDHEER-KANDURU/cortex" target="_blank" rel="noopener noreferrer"
+                className="cx-text-faint footer-link"
+                style={{ fontSize: "12px", fontFamily: "var(--font-mono)", textDecoration: "none", transition: "color 0.2s ease" }}>
                 github.com/SUDHEER-KANDURU/cortex
               </Link>
             </div>
@@ -107,7 +72,7 @@ export function PortfolioFooter() {
 
           {/* Links */}
           <div data-reveal="up" style={{ transitionDelay: "80ms" }}>
-            <h4 style={{ fontSize: "12px", fontWeight: 700, color: "#111", marginBottom: "18px", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
+            <h4 className="cx-text" style={{ fontSize: "12px", fontWeight: 700, marginBottom: "18px", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "var(--font-mono)" }}>
               Links
             </h4>
             <ul className="space-y-3">
@@ -115,10 +80,8 @@ export function PortfolioFooter() {
                 <li key={link.label}>
                   <Link href={link.href}
                     {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                    className="footer-link"
-                    style={{ fontSize: "14px", color: "rgba(0,0,0,0.45)", textDecoration: "none", transition: "color 0.2s ease" }}
-                    onMouseEnter={e => (e.currentTarget.style.color = "#111")}
-                    onMouseLeave={e => (e.currentTarget.style.color = "rgba(0,0,0,0.45)")}>
+                    className="cx-text-muted footer-link"
+                    style={{ fontSize: "14px", textDecoration: "none", transition: "color 0.2s ease" }}>
                     {link.label}
                   </Link>
                 </li>
@@ -128,52 +91,36 @@ export function PortfolioFooter() {
 
           {/* Star CTA */}
           <div data-reveal="up" style={{ transitionDelay: "160ms" }}>
-            <h4 style={{ fontSize: "12px", fontWeight: 700, color: "#111", marginBottom: "18px", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
+            <h4 className="cx-text" style={{ fontSize: "12px", fontWeight: 700, marginBottom: "18px", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "var(--font-mono)" }}>
               Stay Updated
             </h4>
-            <p style={{ fontSize: "14px", color: "rgba(0,0,0,0.45)", marginBottom: "18px", lineHeight: 1.6 }}>
+            <p className="cx-text-muted" style={{ fontSize: "14px", marginBottom: "18px", lineHeight: 1.6 }}>
               Star the repo to follow Cortex development.
             </p>
-            <Link href="https://github.com/SUDHEER-KANDURU/cortex"
-              target="_blank" rel="noopener noreferrer"
-              data-magnetic
-              data-magnetic-dark
-              className="cta-shimmer inline-flex items-center justify-center w-full px-4 py-3 text-sm font-semibold text-white rounded-xl transition-all duration-300"
+            <Link href="https://github.com/SUDHEER-KANDURU/cortex" target="_blank" rel="noopener noreferrer"
+              className="cta-shimmer inline-flex items-center justify-center w-full px-4 py-3 text-sm font-semibold rounded-xl transition-all duration-300"
               style={{
-                background: "#0a0a0a",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
+                background: "linear-gradient(135deg, var(--primary) 0%, #00c9a7 100%)",
+                color: "#07090d",
+                boxShadow: "0 4px 16px var(--primary-glow)",
                 textDecoration: "none",
               }}
-              onMouseEnter={e => {
-                const el = e.currentTarget as HTMLElement
-                el.style.background = "#000"
-                el.style.boxShadow = "0 8px 28px rgba(0,0,0,0.3)"
-              }}
-              onMouseLeave={e => {
-                const el = e.currentTarget as HTMLElement
-                el.style.background = "#0a0a0a"
-                el.style.boxShadow = "0 4px 16px rgba(0,0,0,0.2)"
-              }}>
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.filter = "brightness(1.1)" }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.filter = "" }}>
               ★&nbsp; Star on GitHub
             </Link>
           </div>
         </div>
 
         {/* Bottom bar */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-16 pt-8"
-          style={{ borderTop: "1px solid rgba(0,0,0,0.07)" }}>
-          <p style={{ fontSize: "12px", color: "rgba(0,0,0,0.3)", fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-16 pt-8 cx-divider" style={{ borderTop: "1px solid var(--cx-divider)" }}>
+          <p className="cx-text-faint" style={{ fontSize: "12px", fontFamily: "var(--font-mono)" }}>
             © {new Date().getFullYear()} Cortex — Built by Sudheer Kanduru
           </p>
-          <span style={{ fontSize: "12px", color: "rgba(0,0,0,0.3)", fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
-            {VERSION}
-          </span>
-          <Link href="https://github.com/SUDHEER-KANDURU/cortex"
-            target="_blank" rel="noopener noreferrer"
-            className="footer-link"
-            style={{ fontSize: "12px", color: "rgba(0,0,0,0.3)", textDecoration: "none", fontFamily: "var(--font-mono,'Fira Code',monospace)", transition: "color 0.2s ease" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "#111")}
-            onMouseLeave={e => (e.currentTarget.style.color = "rgba(0,0,0,0.3)")}>
+          <span className="cx-text-faint" style={{ fontSize: "12px", fontFamily: "var(--font-mono)" }}>{VERSION}</span>
+          <Link href="https://github.com/SUDHEER-KANDURU/cortex" target="_blank" rel="noopener noreferrer"
+            className="cx-text-faint footer-link"
+            style={{ fontSize: "12px", textDecoration: "none", fontFamily: "var(--font-mono)", transition: "color 0.2s ease" }}>
             MIT License
           </Link>
         </div>

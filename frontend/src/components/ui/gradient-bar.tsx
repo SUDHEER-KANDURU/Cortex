@@ -6,16 +6,16 @@ export function GradientBar() {
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
-    const handleScroll = () => {
-      const section = document.querySelector("#works")
-      if (section) {
-        const rect = section.getBoundingClientRect()
-        setIsVisible(rect.top < window.innerHeight && rect.bottom > 0)
-      }
-    }
-    handleScroll()
-    window.addEventListener("scroll", handleScroll)
-    return () => window.removeEventListener("scroll", handleScroll)
+    const section = document.querySelector("#works")
+    if (!section) return
+
+    // IntersectionObserver is far cheaper than a scroll listener querying the DOM
+    const obs = new IntersectionObserver(
+      ([entry]) => setIsVisible(entry.isIntersecting),
+      { threshold: 0, rootMargin: "0px 0px 0px 0px" },
+    )
+    obs.observe(section)
+    return () => obs.disconnect()
   }, [])
 
   return (

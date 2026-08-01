@@ -2,10 +2,12 @@
 Replaces InMemoryGraphRepository with real storage.
 Uses the same SQLAlchemy async engine as jobs and artifacts."""
 
-from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import select, delete
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    create_async_engine,
+    async_sessionmaker,
+)
+from sqlalchemy import select, delete, func
 from cortex.graph.domain.entities import (
     GraphNode,
     GraphEdge,
@@ -109,7 +111,7 @@ class SQLiteGraphRepository(AbstractGraphRepository):
             echo=False,
             connect_args=connect_args,
         )
-        self._session_factory = sessionmaker(
+        self._session_factory = async_sessionmaker(
             self._engine,
             class_=AsyncSession,
             expire_on_commit=False,
@@ -303,16 +305,16 @@ class SQLiteGraphRepository(AbstractGraphRepository):
     async def count_by_job(self, job_id: str) -> dict[str, int]:
         async with self._session_factory() as session:
             node_result = await session.execute(
-                select(GraphNodeModel).where(
-                    GraphNodeModel.job_id == job_id
-                )
+                select(func.count())
+                .select_from(GraphNodeModel)
+                .where(GraphNodeModel.job_id == job_id)
             )
             edge_result = await session.execute(
-                select(GraphEdgeModel).where(
-                    GraphEdgeModel.job_id == job_id
-                )
+                select(func.count())
+                .select_from(GraphEdgeModel)
+                .where(GraphEdgeModel.job_id == job_id)
             )
             return {
-                "nodes": len(node_result.scalars().all()),
-                "edges": len(edge_result.scalars().all()),
+                "nodes": node_result.scalar_one(),
+                "edges": edge_result.scalar_one(),
             }

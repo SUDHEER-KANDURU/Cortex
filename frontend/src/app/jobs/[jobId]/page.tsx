@@ -1,6 +1,6 @@
 // =============================================================================
 // Job Detail Page — /jobs/[jobId]
-// Premium redesign — logic unchanged, visual overhaul.
+// Fully theme-aware: uses CSS variables throughout, no hardcoded dark colors.
 // =============================================================================
 
 'use client';
@@ -19,6 +19,7 @@ import Navbar from '@/components/layout/Navbar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { formatDate } from '@/lib/utils/formatDate';
 import { ARTIFACT_TYPE_LABELS } from '@/features/jobs/jobs.types';
+import { InlineLoader } from '@/components/shared/BrandedLoader';
 
 const GRAPH_ARTIFACT_TYPES = new Set([
   'module_breakdown',
@@ -47,12 +48,12 @@ export default function JobDetailPage() {
 
   if (!jobId) {
     return (
-      <div className="min-h-screen" style={{ background: '#020408' }}>
+      <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
         <Navbar />
         <div className="px-8 py-6">
-          <p className="text-sm text-red-400">Invalid job ID in URL.</p>
-          <Link href="/dashboard" className="mt-4 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-300 transition-colors">
-            <ArrowLeft className="h-4 w-4" /> Back to Dashboard
+          <p style={{ fontSize: 13, color: 'var(--danger)' }}>Invalid job ID in URL.</p>
+          <Link href="/dashboard" style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none' }}>
+            <ArrowLeft style={{ width: 14, height: 14 }} /> Back to Dashboard
           </Link>
         </div>
       </div>
@@ -62,108 +63,121 @@ export default function JobDetailPage() {
   const repoName = job ? extractRepoName(job.repo_url) : null;
 
   return (
-    <div className="min-h-screen" style={{ background: '#020408' }}>
+    <div className="min-h-screen" style={{ background: 'var(--bg)', transition: 'background 0.3s ease' }}>
       <Navbar />
+
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 px-8 pb-4 pt-6 text-sm text-slate-500" aria-label="Breadcrumb">
-        <Link href="/dashboard" className="flex items-center gap-1.5 transition-colors hover:text-slate-300">
-          <ArrowLeft className="h-4 w-4" />
-          Dashboard
+      <nav className="flex items-center gap-2 px-8 pb-4 pt-6" style={{ fontSize: 13, color: 'var(--text-muted)' }} aria-label="Breadcrumb">
+        <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', textDecoration: 'none', transition: 'color 0.2s' }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}>
+          <ArrowLeft style={{ width: 14, height: 14 }} /> Dashboard
         </Link>
         {repoName && (
           <>
-            <span className="text-slate-700">/</span>
-            <span className="text-slate-400">{repoName}</span>
+            <span style={{ color: 'var(--border)' }}>/</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{repoName}</span>
           </>
         )}
         {job && (
           <>
-            <span className="text-slate-700">/</span>
-            <span className="text-slate-500">{ARTIFACT_TYPE_LABELS[job.artifact_type]}</span>
+            <span style={{ color: 'var(--border)' }}>/</span>
+            <span style={{ color: 'var(--text-muted)' }}>{ARTIFACT_TYPE_LABELS[job.artifact_type]}</span>
           </>
         )}
       </nav>
 
-      {/* Loading state */}
+      {/* Loading */}
       {jobLoading && !job && (
-        <div className="space-y-3 px-8">
-          <div className="h-4 w-1/2 animate-pulse rounded bg-slate-800" />
-          <div className="h-32 animate-pulse rounded-xl bg-slate-800/50" />
+        <div className="px-8 flex justify-center py-12">
+          <InlineLoader stage="loading" message="Loading Job…" />
         </div>
       )}
 
-      {/* Error state */}
+      {/* Error */}
       {jobError && (
         <div className="px-8">
-          <p className="text-sm text-red-400">{jobError}</p>
-          <Link href="/dashboard" className="mt-3 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-300 transition-colors">
-            <ArrowLeft className="h-4 w-4" /> Back to Dashboard
+          <p style={{ fontSize: 13, color: 'var(--danger)' }}>{jobError}</p>
+          <Link href="/dashboard" style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none' }}>
+            <ArrowLeft style={{ width: 14, height: 14 }} /> Back to Dashboard
           </Link>
         </div>
       )}
 
       {job && (
         <div className="px-8 pb-12">
+
           {/* Metadata card */}
-          <div
-            className="mb-6 rounded-xl border border-[#1A2340] p-6"
-            style={{ background: '#0A0F1A' }}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-baseline gap-3 min-w-0">
-                <h1 className="truncate text-lg font-medium text-white">{repoName}</h1>
-                <a
-                  href={job.repo_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 text-slate-600 hover:text-slate-400 transition-colors"
+          <div style={{
+            marginBottom: 24, borderRadius: 'var(--radius-lg)', padding: 24,
+            background: 'var(--card)',
+            border: '1px solid var(--border)',
+            boxShadow: 'var(--shadow-md)',
+            transition: 'background 0.3s ease, border-color 0.3s ease',
+          }}>
+            <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}>
+                <h1 style={{ fontSize: 17, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
+                  {repoName}
+                </h1>
+                <a href={job.repo_url} target="_blank" rel="noopener noreferrer"
+                  style={{ color: 'var(--text-muted)', flexShrink: 0, transition: 'color 0.2s' }}
                   aria-label="Open repository"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
+                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
+                  onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}>
+                  <ExternalLink style={{ width: 13, height: 13 }} />
                 </a>
               </div>
               <StatusBadge status={job.status} />
             </div>
 
-            <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-4">
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-slate-600">Type</p>
-                <p className="mt-1 text-sm text-slate-300">{ARTIFACT_TYPE_LABELS[job.artifact_type]}</p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-slate-600">Created</p>
-                <p className="mt-1 text-sm text-slate-300">{formatDate(job.created_at)}</p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-slate-600">Updated</p>
-                <p className="mt-1 text-sm text-slate-300">{formatDate(job.updated_at)}</p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-slate-600">Job ID</p>
-                <p className="mt-1 truncate font-mono text-xs text-slate-500">{job.id}</p>
-              </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px 32px' }} className="sm:grid-cols-4">
+              {[
+                { label: 'Type',    value: ARTIFACT_TYPE_LABELS[job.artifact_type] },
+                { label: 'Created', value: formatDate(job.created_at) },
+                { label: 'Updated', value: formatDate(job.updated_at) },
+                { label: 'Job ID',  value: job.id, mono: true, truncate: true },
+              ].map(({ label, value, mono, truncate }) => (
+                <div key={label}>
+                  <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.10em', color: 'var(--text-muted)', margin: '0 0 4px', fontFamily: 'var(--font-mono)' }}>{label}</p>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, fontFamily: mono ? 'var(--font-mono)' : undefined, overflow: truncate ? 'hidden' : undefined, textOverflow: truncate ? 'ellipsis' : undefined, whiteSpace: truncate ? 'nowrap' : undefined }}>
+                    {value}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Running indicator */}
+          {/* Running */}
           {job.status === 'running' && (
-            <p className="mb-4 animate-pulse text-xs text-violet-400">Analyzing repository…</p>
+            <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'center' }}>
+              <InlineLoader stage="building_graph" message="Analyzing Repository…" />
+            </div>
           )}
 
           {/* Tabs */}
           {job.status === 'completed' && (
             <Tabs defaultValue="artifacts">
-              <TabsList className="mb-6 border border-[#1A2340] bg-[#0A0F1A] p-1">
+              <TabsList style={{
+                marginBottom: 24,
+                background: 'var(--card)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
+                padding: 4,
+                transition: 'background 0.3s ease, border-color 0.3s ease',
+              }}>
                 <TabsTrigger
                   value="artifacts"
-                  className="rounded-md px-4 py-1.5 text-sm text-slate-400 transition-all data-[state=active]:bg-[#0F1629] data-[state=active]:text-white"
+                  style={{ borderRadius: 'var(--radius-sm)', padding: '6px 16px', fontSize: 13, color: 'var(--text-muted)', transition: 'all 0.2s' }}
+                  className="data-[state=active]:bg-[var(--surface)] data-[state=active]:text-[var(--text)] data-[state=active]:shadow-sm"
                 >
                   Artifacts
                 </TabsTrigger>
                 {GRAPH_ARTIFACT_TYPES.has(job.artifact_type) && (
                   <TabsTrigger
                     value="graph"
-                    className="rounded-md px-4 py-1.5 text-sm text-slate-400 transition-all data-[state=active]:bg-[#0F1629] data-[state=active]:text-white"
+                    style={{ borderRadius: 'var(--radius-sm)', padding: '6px 16px', fontSize: 13, color: 'var(--text-muted)', transition: 'all 0.2s' }}
+                    className="data-[state=active]:bg-[var(--surface)] data-[state=active]:text-[var(--text)] data-[state=active]:shadow-sm"
                   >
                     Knowledge Graph
                   </TabsTrigger>
@@ -171,22 +185,23 @@ export default function JobDetailPage() {
               </TabsList>
 
               <TabsContent value="artifacts">
-                {artifactsLoading && (
-                  <div className="space-y-3">
-                    <div className="h-4 w-3/4 animate-pulse rounded bg-slate-800" />
-                    <div className="h-32 animate-pulse rounded-lg bg-slate-800/50" />
-                  </div>
-                )}
-                {artifactsError && (
-                  <p className="text-sm text-red-400">{artifactsError}</p>
-                )}
+                {artifactsLoading && <InlineLoader stage="generating_artifact" message="Loading Artifacts…" />}
+                {artifactsError && <p style={{ fontSize: 13, color: 'var(--danger)' }}>{artifactsError}</p>}
                 {!artifactsLoading && artifacts.length === 0 && (
-                  <p className="text-sm text-slate-500">No artifacts found for this job.</p>
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No artifacts found for this job.</p>
                 )}
-                <div className="space-y-8">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
                   {artifacts.map(artifact => (
                     <div key={artifact.id}>
-                      <p className="mb-3 inline-flex items-center rounded border border-cyan-400/20 bg-cyan-400/5 px-2 py-0.5 text-[10px] uppercase tracking-widest text-cyan-400">
+                      {/* Content-type label */}
+                      <p style={{
+                        display: 'inline-flex', alignItems: 'center', marginBottom: 12,
+                        borderRadius: 'var(--radius-full)', border: '1px solid rgba(0,229,168,0.22)',
+                        background: 'var(--primary-dim)', padding: '3px 12px',
+                        fontSize: 10, fontWeight: 700, letterSpacing: '0.10em',
+                        textTransform: 'uppercase', color: 'var(--primary)',
+                        fontFamily: 'var(--font-mono)',
+                      }}>
                         {artifact.content_type}
                       </p>
                       <ArtifactViewer artifact={artifact} />
@@ -197,28 +212,22 @@ export default function JobDetailPage() {
 
               {GRAPH_ARTIFACT_TYPES.has(job.artifact_type) && (
                 <TabsContent value="graph">
-                  {graphLoading && (
-                    <div className="h-32 animate-pulse rounded-lg bg-slate-800/50" />
-                  )}
-                  {graphError && (
-                    <p className="text-sm text-red-400">{graphError}</p>
-                  )}
-                  {!graphLoading && (
-                    <GraphCanvas nodes={nodes} edges={edges} />
-                  )}
+                  {graphLoading && <InlineLoader stage="building_graph" message="Loading Knowledge Graph…" />}
+                  {graphError && <p style={{ fontSize: 13, color: 'var(--danger)' }}>{graphError}</p>}
+                  {!graphLoading && <GraphCanvas nodes={nodes} edges={edges} />}
                 </TabsContent>
               )}
             </Tabs>
           )}
 
-          {/* Non-completed terminal states */}
+          {/* Terminal states */}
           {(job.status === 'failed' || job.status === 'cancelled') && (
-            <p className="text-sm text-slate-500">
+            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
               Job {job.status}. No artifacts are available.
             </p>
           )}
           {job.status === 'pending' && (
-            <p className="text-sm text-slate-500">Job is queued and waiting to start.</p>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Job is queued and waiting to start.</p>
           )}
         </div>
       )}

@@ -16,8 +16,8 @@ import { PortfolioInsights }      from "@/components/landing/Insights"
 import { PortfolioFinalCTA }      from "@/components/landing/FinalCTA"
 import { PortfolioFooter }        from "@/components/landing/Footer"
 import { GradientBar }            from "@/components/ui/gradient-bar"
-import { MagneticCursor }         from "@/components/ui/magnetic-cursor"
 import { ScrollProgress }         from "@/components/ui/scroll-progress"
+import { InlineLoader }           from "@/components/shared/BrandedLoader"
 
 const PortfolioHowItWorks = dynamic(
   () => import("@/components/landing/HowItWorks").then(m => ({ default: m.PortfolioHowItWorks })),
@@ -28,30 +28,16 @@ const PortfolioHowItWorks = dynamic(
         id="how-it-works"
         style={{
           height: "100vh",
-          background: "rgba(255,255,255,0.72)",
+          background: "var(--cx-section-bg, rgba(15,17,23,0.60))",
           backdropFilter: "saturate(180%) blur(20px)",
           WebkitBackdropFilter: "saturate(180%) blur(20px)",
-          borderTop: "1px solid rgba(255,255,255,0.9)",
+          borderTop: "1px solid var(--cx-card-border, rgba(255,255,255,0.09))",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        {/* Lightweight skeleton — shows immediately while HowItWorks JS loads */}
-        <div style={{ textAlign: "center" }}>
-          <div style={{
-            width: 180, height: 14, borderRadius: 7,
-            background: "rgba(0,0,0,0.07)",
-            animation: "pulse-skeleton 1.4s ease infinite",
-            marginBottom: 12, marginLeft: "auto", marginRight: "auto",
-          }} />
-          <div style={{
-            width: 120, height: 10, borderRadius: 5,
-            background: "rgba(0,0,0,0.04)",
-            animation: "pulse-skeleton 1.4s ease infinite 200ms",
-            marginLeft: "auto", marginRight: "auto",
-          }} />
-        </div>
+        <InlineLoader stage="loading" message="Loading…" size={32} />
       </div>
     ),
   },
@@ -77,7 +63,9 @@ function useLenis() {
     })
 
     // Req 16.3 — keep ScrollTrigger in sync with Lenis scroll position
-    lenis.on('scroll', () => ScrollTrigger.update())
+    // Store the callback reference so it can be cleanly removed on unmount
+    const scrollCallback = () => ScrollTrigger.update()
+    lenis.on('scroll', scrollCallback)
 
     // Req 16.2 — drive Lenis via GSAP ticker instead of a raw RAF loop
     const tickerCallback = (time: number) => lenis.raf(time * 1000)
@@ -103,6 +91,7 @@ function useLenis() {
     // Req 16.4 — remove ticker callback and destroy Lenis on unmount
     return () => {
       clearTimeout(hashTimer)
+      lenis.off('scroll', scrollCallback)
       gsap.ticker.remove(tickerCallback)
       lenis.destroy()
     }
@@ -110,22 +99,43 @@ function useLenis() {
 }
 
 // ── Scroll-reveal (IntersectionObserver) ─────────────────────────────────────
+// Deferred so all child components are in the DOM before we query for
+// [data-reveal] and [data-stagger] attributes.
 function useScrollReveal() {
   useEffect(() => {
-    const els = document.querySelectorAll('[data-reveal], [data-stagger]')
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('revealed')
-            io.unobserve(entry.target)
-          }
-        })
-      },
-      { threshold: 0.08, rootMargin: '0px 0px -32px 0px' },
-    )
-    els.forEach((el) => io.observe(el))
-    return () => io.disconnect()
+    let idleId: number | undefined
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+    const setup = () => {
+      const els = document.querySelectorAll('[data-reveal], [data-stagger]')
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('revealed')
+              io.unobserve(entry.target)
+            }
+          })
+        },
+        { threshold: 0.08, rootMargin: '0px 0px -32px 0px' },
+      )
+      els.forEach((el) => io.observe(el))
+      return () => io.disconnect()
+    }
+
+    let teardown: (() => void) | undefined
+
+    if (typeof requestIdleCallback !== 'undefined') {
+      idleId = requestIdleCallback(() => { teardown = setup() }, { timeout: 2000 })
+    } else {
+      timeoutId = setTimeout(() => { teardown = setup() }, 300)
+    }
+
+    return () => {
+      if (idleId !== undefined) cancelIdleCallback(idleId)
+      if (timeoutId !== undefined) clearTimeout(timeoutId)
+      teardown?.()
+    }
   }, [])
 }
 
@@ -199,191 +209,209 @@ function useMouseSpotlight() {
 
 // ── Card tilt — physical 3D response to cursor, no glow ─────────────────────
 // [data-spotlight] cards respond with subtle tilt (±1.5°) and a shadow lift.
-// The white glow overlay is intentionally removed — shadow creates depth
-// without visual noise.
+// Deferred via requestIdleCallback so it runs after hydration completes and
+// all [data-spotlight] elements are in the DOM.
 function useSpotlight() {
   useEffect(() => {
     if (!window.matchMedia('(pointer: fine)').matches) return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
-    const cards   = document.querySelectorAll<HTMLElement>('[data-spotlight]')
-    const cleanup: Array<() => void> = []
+    // Defer until idle so we don't run querySelectorAll before child components mount
+    let idleId: number | undefined
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
 
-    cards.forEach((card) => {
-      // Remove any previously injected glow overlays from old code
-      card.querySelector('.spotlight-glow')?.remove()
+    const setup = () => {
+      const cards   = document.querySelectorAll<HTMLElement>('[data-spotlight]')
+      const cleanup: Array<() => void> = []
 
-      let pending = false
-      let mx = 0, my = 0
+      cards.forEach((card) => {
+        card.querySelector('.spotlight-glow')?.remove()
 
-      const applyFrame = () => {
-        pending = false
-        const rect = card.getBoundingClientRect()
-        const x  = mx - rect.left
-        const y  = my - rect.top
-        const cx = rect.width  / 2
-        const cy = rect.height / 2
-        const dx = (x - cx) / cx   // -1 … 1
-        const dy = (y - cy) / cy   // -1 … 1
+        let pending = false
+        let mx = 0, my = 0
 
-        // Tilt only — ±1.5° max, very restrained
-        gsap.set(card, {
-          rotateX: -dy * 1.5,
-          rotateY:  dx * 1.5,
-          transformPerspective: 1200,
+        const applyFrame = () => {
+          pending = false
+          const rect = card.getBoundingClientRect()
+          const x  = mx - rect.left
+          const y  = my - rect.top
+          const cx = rect.width  / 2
+          const cy = rect.height / 2
+          const dx = (x - cx) / cx
+          const dy = (y - cy) / cy
+          gsap.set(card, {
+            rotateX: -dy * 1.5,
+            rotateY:  dx * 1.5,
+            transformPerspective: 1200,
+          })
+        }
+
+        const onEnter = () => {
+          gsap.to(card, {
+            y: -5,
+            boxShadow: '0 16px 48px rgba(0,0,0,0.11), 0 4px 12px rgba(0,0,0,0.06)',
+            duration: 0.18,
+            ease: 'power2.out',
+            overwrite: 'auto',
+          })
+        }
+
+        const onMove = (e: MouseEvent) => {
+          mx = e.clientX; my = e.clientY
+          if (!pending) { pending = true; requestAnimationFrame(applyFrame) }
+        }
+
+        const onLeave = () => {
+          gsap.to(card, {
+            y: 0,
+            rotateX: 0,
+            rotateY: 0,
+            boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
+            duration: 0.6,
+            ease: 'power3.out',
+            overwrite: 'auto',
+          })
+        }
+
+        card.addEventListener('mouseenter', onEnter, { passive: true })
+        card.addEventListener('mousemove',  onMove,  { passive: true })
+        card.addEventListener('mouseleave', onLeave, { passive: true })
+
+        cleanup.push(() => {
+          card.removeEventListener('mouseenter', onEnter)
+          card.removeEventListener('mousemove',  onMove)
+          card.removeEventListener('mouseleave', onLeave)
+          gsap.set(card, { clearProps: 'y,rotateX,rotateY,transformPerspective,boxShadow' })
         })
-      }
-
-      const onEnter = () => {
-        // Lift with shadow — physical, no glow
-        gsap.to(card, {
-          y: -5,
-          boxShadow: '0 16px 48px rgba(0,0,0,0.11), 0 4px 12px rgba(0,0,0,0.06)',
-          duration: 0.18,
-          ease: 'power2.out',
-          overwrite: 'auto',
-        })
-      }
-
-      const onMove = (e: MouseEvent) => {
-        mx = e.clientX; my = e.clientY
-        if (!pending) { pending = true; requestAnimationFrame(applyFrame) }
-      }
-
-      const onLeave = () => {
-        // Spring back — tilt, lift, shadow all return to rest
-        gsap.to(card, {
-          y: 0,
-          rotateX: 0,
-          rotateY: 0,
-          boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
-          duration: 0.6,
-          ease: 'power3.out',
-          overwrite: 'auto',
-        })
-      }
-
-      card.addEventListener('mouseenter', onEnter, { passive: true })
-      card.addEventListener('mousemove',  onMove,  { passive: true })
-      card.addEventListener('mouseleave', onLeave, { passive: true })
-
-      cleanup.push(() => {
-        card.removeEventListener('mouseenter', onEnter)
-        card.removeEventListener('mousemove',  onMove)
-        card.removeEventListener('mouseleave', onLeave)
-        gsap.set(card, { clearProps: 'y,rotateX,rotateY,transformPerspective,boxShadow' })
       })
-    })
 
-    return () => cleanup.forEach(fn => fn())
+      return cleanup
+    }
+
+    let cleanupFns: Array<() => void> = []
+
+    if (typeof requestIdleCallback !== 'undefined') {
+      idleId = requestIdleCallback(() => { cleanupFns = setup() }, { timeout: 1500 })
+    } else {
+      timeoutId = setTimeout(() => { cleanupFns = setup() }, 400)
+    }
+
+    return () => {
+      if (idleId !== undefined) cancelIdleCallback(idleId)
+      if (timeoutId !== undefined) clearTimeout(timeoutId)
+      cleanupFns.forEach(fn => fn())
+    }
   }, [])
 }
 
 // ── Magnetic pull — physical cursor response, no glow ────────────────────────
-// [data-magnetic] elements translate toward the cursor (max ±6px/4px) and
-// scale very slightly. No color effects — movement and shadow only.
-// Spring-back uses elastic ease for a physical, controlled feel.
+// Deferred via requestIdleCallback so [data-magnetic] elements are in the DOM.
 function useMagneticPull() {
   useEffect(() => {
     if (!window.matchMedia('(pointer: fine)').matches) return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
-    const targets = document.querySelectorAll<HTMLElement>('[data-magnetic]')
-    const cleanup: Array<() => void> = []
+    let idleId: number | undefined
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
 
-    targets.forEach((el) => {
-      // Remove any legacy glow overlays injected by previous code
-      el.querySelectorAll('[style*="radial-gradient"]').forEach(g => {
-        if ((g as HTMLElement).style.pointerEvents === 'none') g.remove()
-      })
+    const setup = () => {
+      const targets = document.querySelectorAll<HTMLElement>('[data-magnetic]')
+      const cleanup: Array<() => void> = []
 
-      let rafId = 0
+      targets.forEach((el) => {
+        el.querySelectorAll('[style*="radial-gradient"]').forEach(g => {
+          if ((g as HTMLElement).style.pointerEvents === 'none') g.remove()
+        })
 
-      const onMove = (e: MouseEvent) => {
-        cancelAnimationFrame(rafId)
-        rafId = requestAnimationFrame(() => {
-          const rect = el.getBoundingClientRect()
-          const cx = rect.left + rect.width  / 2
-          const cy = rect.top  + rect.height / 2
-          const dx = (e.clientX - cx) / (rect.width  / 2)  // -1 … 1
-          const dy = (e.clientY - cy) / (rect.height / 2)  // -1 … 1
+        let rafId = 0
 
-          // Restrained pull: 6px horizontal, 4px vertical max
+        const onMove = (e: MouseEvent) => {
+          cancelAnimationFrame(rafId)
+          rafId = requestAnimationFrame(() => {
+            const rect = el.getBoundingClientRect()
+            const cx = rect.left + rect.width  / 2
+            const cy = rect.top  + rect.height / 2
+            const dx = (e.clientX - cx) / (rect.width  / 2)
+            const dy = (e.clientY - cy) / (rect.height / 2)
+            gsap.to(el, {
+              x: dx * 6,
+              y: dy * 4,
+              scale: 1.03,
+              duration: 0.22,
+              ease: 'power2.out',
+              overwrite: 'auto',
+            })
+          })
+        }
+
+        const onLeave = () => {
+          cancelAnimationFrame(rafId)
           gsap.to(el, {
-            x: dx * 6,
-            y: dy * 4,
-            scale: 1.03,
-            duration: 0.22,
-            ease: 'power2.out',
+            x: 0,
+            y: 0,
+            scale: 1,
+            duration: 0.6,
+            ease: 'elastic.out(1, 0.45)',
             overwrite: 'auto',
           })
+        }
+
+        el.addEventListener('mousemove',  onMove,  { passive: true })
+        el.addEventListener('mouseleave', onLeave, { passive: true })
+
+        cleanup.push(() => {
+          cancelAnimationFrame(rafId)
+          el.removeEventListener('mousemove',  onMove)
+          el.removeEventListener('mouseleave', onLeave)
+          gsap.set(el, { clearProps: 'x,y,scale' })
         })
-      }
-
-      const onLeave = () => {
-        cancelAnimationFrame(rafId)
-        // Elastic spring-back — physical, not snappy
-        gsap.to(el, {
-          x: 0,
-          y: 0,
-          scale: 1,
-          duration: 0.6,
-          ease: 'elastic.out(1, 0.45)',
-          overwrite: 'auto',
-        })
-      }
-
-      el.addEventListener('mousemove',  onMove,  { passive: true })
-      el.addEventListener('mouseleave', onLeave, { passive: true })
-
-      cleanup.push(() => {
-        cancelAnimationFrame(rafId)
-        el.removeEventListener('mousemove',  onMove)
-        el.removeEventListener('mouseleave', onLeave)
-        gsap.set(el, { clearProps: 'x,y,scale' })
       })
-    })
 
-    return () => cleanup.forEach(fn => fn())
+      return cleanup
+    }
+
+    let cleanupFns: Array<() => void> = []
+
+    if (typeof requestIdleCallback !== 'undefined') {
+      idleId = requestIdleCallback(() => { cleanupFns = setup() }, { timeout: 1500 })
+    } else {
+      timeoutId = setTimeout(() => { cleanupFns = setup() }, 400)
+    }
+
+    return () => {
+      if (idleId !== undefined) cancelIdleCallback(idleId)
+      if (timeoutId !== undefined) clearTimeout(timeoutId)
+      cleanupFns.forEach(fn => fn())
+    }
   }, [])
 }
 
 // ── Hero parallax — hero visualization responds gently to mouse movement ──────
-// The dark panel in the hero shifts by ±8px as the cursor moves across the
-// viewport. Extremely subtle — creates depth without distraction.
+// Targets the element with [data-hero-panel] — added to the RepoTree container
+// in Hero.tsx. Extremely subtle ±8px shift that creates depth.
 function useHeroParallax() {
   useEffect(() => {
     if (!window.matchMedia('(pointer: fine)').matches) return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
-    // Target the hero dark panel — the RepoTree container
-    // It's the first dark-background div inside the hero section
-    const heroPanel = document.querySelector<HTMLElement>(
-      '.portfolio-page main > div > div > div > div:last-child > div'
-    )
+    // Use a stable data attribute — much safer than a deep CSS selector
+    const heroPanel = document.querySelector<HTMLElement>('[data-hero-panel]')
     if (!heroPanel) return
 
     let rafId = 0
     let tx = 0, ty = 0, cx = 0, cy = 0
 
     const onMove = (e: MouseEvent) => {
-      // Normalise to -1 … 1 across the viewport
       const nx = (e.clientX / window.innerWidth  - 0.5) * 2
       const ny = (e.clientY / window.innerHeight - 0.5) * 2
-      // Target: max ±8px translate
       tx = nx * 8
       ty = ny * 5
     }
 
     const tick = () => {
-      cx += (tx - cx) * 0.06  // slow lerp — lazy, dreamy
+      cx += (tx - cx) * 0.06
       cy += (ty - cy) * 0.06
-      gsap.set(heroPanel, {
-        x: cx,
-        y: cy,
-        transformPerspective: 1200,
-        overwrite: 'auto',
-      })
+      gsap.set(heroPanel, { x: cx, y: cy, transformPerspective: 1200, overwrite: 'auto' })
       rafId = requestAnimationFrame(tick)
     }
 
@@ -411,8 +439,14 @@ export default function HomePage() {
       className="portfolio-page"
       style={{ fontFamily: "var(--font-sans,'DM Sans',system-ui,sans-serif)" }}
     >
+      {/* ── Cyber-Aurora liquid blob background ── */}
+      <div className="liquid-bg-mesh" aria-hidden="true">
+        <div className="liquid-blob liquid-blob-1" />
+        <div className="liquid-blob liquid-blob-2" />
+        <div className="liquid-blob liquid-blob-3" />
+      </div>
+
       <ScrollProgress />
-      <MagneticCursor />
       <PortfolioHeader />
       <main>
         <PortfolioHero />

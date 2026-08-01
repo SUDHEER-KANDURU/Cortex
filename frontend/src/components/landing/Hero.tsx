@@ -103,7 +103,10 @@ export function PortfolioHero() {
 
     handleScroll()
     window.addEventListener("scroll", handleScroll, { passive: true })
-    const interval = setInterval(() => setActiveStep(s => (s + 1) % PIPELINE_STEPS.length), 1800)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      setActiveStep(s => (s + 1) % PIPELINE_STEPS.length)
+    }, 1800)
 
     return () => {
       window.removeEventListener("resize", check)
@@ -118,9 +121,7 @@ export function PortfolioHero() {
         <div style={{
           position: "sticky", top: 0, height: "100vh",
           overflow: "hidden", paddingTop: "80px",
-          background: "rgba(255,255,255,0.72)",
-          backdropFilter: "blur(10px) saturate(180%)",
-          WebkitBackdropFilter: "blur(10px) saturate(180%)",
+          background: "transparent",
         }}>
           <div className="max-w-[1280px] mx-auto px-6 md:px-12 h-full grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
 
@@ -129,28 +130,29 @@ export function PortfolioHero() {
               {/* Eyebrow badge — liquid glass */}
               <div className="hero-eyebrow inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full"
                 style={{
-                  background: "rgba(255,255,255,0.65)",
+                  background: "var(--cx-pill-bg)",
                   backdropFilter: "blur(8px) saturate(200%)",
                   WebkitBackdropFilter: "blur(8px) saturate(200%)",
-                  border: "1px solid rgba(255,255,255,0.88)",
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)",
+                  border: "1px solid var(--cx-pill-border)",
+                  boxShadow: "0 2px 12px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.08)",
                 }}>
                 <span style={{
                   width: 6, height: 6, borderRadius: "50%",
-                  background: "#111", display: "inline-block",
+                  background: "var(--primary)", display: "inline-block",
                   animation: "pulse-dot 2s ease-in-out infinite",
+                  boxShadow: "0 0 6px var(--primary)",
                 }} />
                 <span style={{
                   fontSize: "11px", fontWeight: 600, letterSpacing: "0.1em",
-                  textTransform: "uppercase", color: "rgba(0,0,0,0.65)",
-                  fontFamily: "var(--font-mono,'Fira Code',monospace)",
+                  textTransform: "uppercase", color: "var(--cx-pill-text)",
+                  fontFamily: "var(--font-mono,'Geist Mono',monospace)",
                 }}>
                   Engineering Reasoning Engine
                 </span>
               </div>
 
               <h1 className="text-[42px] sm:text-[54px] lg:text-[68px] font-semibold tracking-tight leading-[1.04] text-balance"
-                style={{ fontFamily: "var(--font-display,'Syne',system-ui,sans-serif)", letterSpacing: "-0.045em" }}>
+                style={{ fontFamily: "var(--font-sans,'Geist',system-ui,sans-serif)", letterSpacing: "-0.045em", color: "var(--text)" }}>
                 {words.map((word, index) => (
                   <span
                     key={index}
@@ -159,6 +161,7 @@ export function PortfolioHero() {
                       display: "inline-block",
                       animationDelay: `${index * 0.08}s`,
                       marginRight: index < words.length - 1 ? "0.22em" : "0",
+                      color: "var(--text)",
                     }}
                   >
                     {word}
@@ -166,83 +169,51 @@ export function PortfolioHero() {
                 ))}
               </h1>
 
-              <p className="mt-5 max-w-[400px] leading-[1.65] text-[15px]" style={{ color: "rgba(0,0,0,0.42)" }}>
+              <p className="mt-5 max-w-[400px] leading-[1.65] text-[15px]" style={{ color: "var(--text-secondary)" }}>
                 Paste any GitHub URL. Cortex parses your repository at the AST level, constructs a Neo4j knowledge graph, and generates architecture diagrams, learning paths, and interview prep — fully offline, zero API keys.
               </p>
 
               {/* CTAs */}
               <div className="flex flex-row flex-wrap items-center gap-3 mt-8">
-                {/* Primary — Liquid Glass dark: same treatment as FinalCTA */}
+                {/* Primary — brand gradient */}
                 <Link href="/dashboard"
                   data-magnetic
-                  className="hero-cta-primary cta-shimmer inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold text-white rounded-full"
+                  className="hero-cta-primary cta-shimmer inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold rounded-full"
                   style={{
-                    background: "#111",
-                    boxShadow: [
-                      "0 4px 20px rgba(0,0,0,0.20)",
-                      "0 1px 4px rgba(0,0,0,0.14)",
-                      "0 0 0 1px rgba(255,255,255,0.06)",
-                      "inset 0 1px 0 rgba(255,255,255,0.10)",
-                      "inset 0 -1px 0 rgba(0,0,0,0.22)",
-                    ].join(", "),
-                    transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s ease",
+                    background: "linear-gradient(135deg, var(--primary) 0%, #00c9a7 100%)",
+                    color: "#07090d",
+                    boxShadow: "0 4px 20px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.22)",
+                    transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s ease, filter 0.2s ease",
                   }}
                   onMouseEnter={e => {
-                    e.currentTarget.style.transform = "translateY(-2px)"
-                    e.currentTarget.style.boxShadow = [
-                      "0 8px 28px rgba(0,0,0,0.28)",
-                      "0 2px 6px rgba(0,0,0,0.16)",
-                      "0 0 0 1px rgba(255,255,255,0.08)",
-                      "inset 0 1px 0 rgba(255,255,255,0.12)",
-                      "inset 0 -1px 0 rgba(0,0,0,0.22)",
-                    ].join(", ")
+                    e.currentTarget.style.filter = "brightness(1.1)"
                   }}
                   onMouseLeave={e => {
-                    e.currentTarget.style.transform = ""
-                    e.currentTarget.style.boxShadow = [
-                      "0 4px 20px rgba(0,0,0,0.20)",
-                      "0 1px 4px rgba(0,0,0,0.14)",
-                      "0 0 0 1px rgba(255,255,255,0.06)",
-                      "inset 0 1px 0 rgba(255,255,255,0.10)",
-                      "inset 0 -1px 0 rgba(0,0,0,0.22)",
-                    ].join(", ")
+                    e.currentTarget.style.filter = ""
                   }}>
                   Analyze a Repository
                 </Link>
 
-                {/* Secondary — Liquid Glass light: dual-tone border */}
+                {/* Secondary — glass */}
                 <Link href="#works"
                   data-magnetic
                   className="inline-flex items-center gap-2 px-5 py-3 text-sm font-medium rounded-full"
                   style={{
-                    color: "rgba(0,0,0,0.58)",
-                    background: "rgba(255,255,255,0.62)",
+                    color: "var(--text-secondary)",
+                    background: "var(--cx-pill-bg)",
                     backdropFilter: "blur(12px) saturate(180%)",
                     WebkitBackdropFilter: "blur(12px) saturate(180%)",
-                    border: "1px solid rgba(255,255,255,0.90)",
-                    borderBottom: "1px solid rgba(0,0,0,0.06)",
-                    boxShadow: [
-                      "0 2px 10px rgba(0,0,0,0.05)",
-                      "inset 0 1px 0 rgba(255,255,255,1)",
-                      "inset 0 -1px 0 rgba(0,0,0,0.04)",
-                    ].join(", "),
-                    transition: "background 0.2s ease, box-shadow 0.2s ease, gap 0.25s ease",
+                    border: "1px solid var(--cx-pill-border)",
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+                    transition: "background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease",
                   }}
                   onMouseEnter={e => {
-                    e.currentTarget.style.background = "rgba(255,255,255,0.80)"
-                    e.currentTarget.style.boxShadow = [
-                      "0 4px 16px rgba(0,0,0,0.08)",
-                      "inset 0 1px 0 rgba(255,255,255,1)",
-                      "inset 0 -1px 0 rgba(0,0,0,0.04)",
-                    ].join(", ")
+                    e.currentTarget.style.background = "var(--cx-arrow-bg)"
+                    e.currentTarget.style.color = "var(--text)"
                   }}
                   onMouseLeave={e => {
-                    e.currentTarget.style.background = "rgba(255,255,255,0.62)"
-                    e.currentTarget.style.boxShadow = [
-                      "0 2px 10px rgba(0,0,0,0.05)",
-                      "inset 0 1px 0 rgba(255,255,255,1)",
-                      "inset 0 -1px 0 rgba(0,0,0,0.04)",
-                    ].join(", ")
+                    e.currentTarget.style.background = "var(--cx-pill-bg)"
+                    e.currentTarget.style.color = "var(--text-secondary)"
                   }}>
                   See Capabilities
                   <ArrowDown className="w-3.5 h-3.5" />
@@ -260,38 +231,34 @@ export function PortfolioHero() {
                         style={{ transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)" }}>
                         <div className="flex items-center justify-center w-9 h-9 rounded-full"
                           style={{
-                            background: isActive
-                              ? "rgba(10,10,10,0.88)"
-                              : "rgba(255,255,255,0.65)",
-                            backdropFilter: isActive ? "none" : "blur(12px) saturate(180%)",
-                            WebkitBackdropFilter: isActive ? "none" : "blur(12px) saturate(180%)",
+                            background: isActive ? "var(--primary-dim)" : "var(--cx-pill-bg)",
+                            backdropFilter: "blur(8px) saturate(160%)",
+                            WebkitBackdropFilter: "blur(8px) saturate(160%)",
                             border: isActive
-                              ? "1px solid rgba(0,0,0,0.2)"
-                              : "1px solid rgba(255,255,255,0.9)",
-                            boxShadow: isActive
-                              ? "0 4px 16px rgba(0,0,0,0.2)"
-                              : "0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)",
+                              ? "1px solid rgba(0,229,168,0.35)"
+                              : "1px solid var(--cx-pill-border)",
+                            boxShadow: isActive ? "0 0 14px var(--primary-glow)" : "none",
                             transform: isActive ? "scale(1.12)" : "scale(1)",
                             transition: "all 0.35s cubic-bezier(0.16,1,0.3,1)",
                           }}>
                           <Icon className="w-3.5 h-3.5"
-                            style={{ color: isActive ? "#fff" : "rgba(0,0,0,0.35)", transition: "color 0.3s" }} />
+                            style={{ color: isActive ? "var(--primary)" : "var(--text-muted)", transition: "color 0.3s" }} />
                         </div>
                         <span style={{
                           fontSize: "9px", fontWeight: 600, letterSpacing: "0.08em",
                           textTransform: "uppercase", whiteSpace: "nowrap",
-                          color: isActive ? "#111" : "rgba(0,0,0,0.28)",
+                          color: isActive ? "var(--text)" : "var(--text-muted)",
                           transition: "color 0.3s",
-                          fontFamily: "var(--font-mono,'Fira Code',monospace)",
+                          fontFamily: "var(--font-mono,'Geist Mono',monospace)",
                         }}>{step.label}</span>
                       </div>
                       {i < PIPELINE_STEPS.length - 1 && (
-                        <div style={{
+                        <div aria-hidden="true" style={{
                           width: "28px", height: "1.5px",
                           margin: "0 2px", marginBottom: "14px",
                           background: i < activeStep
-                            ? "linear-gradient(90deg, rgba(10,10,10,0.6), rgba(10,10,10,0.3))"
-                            : "rgba(0,0,0,0.1)",
+                            ? "linear-gradient(90deg, var(--primary), rgba(0,229,168,0.3))"
+                            : "var(--border)",
                           borderRadius: "1px",
                           transition: "background 0.5s ease",
                         }} />
@@ -301,13 +268,15 @@ export function PortfolioHero() {
                 })}
               </div>
 
-              <p className="mt-6 text-xs tracking-widest uppercase" style={{ color: "rgba(0,0,0,0.2)" }}>
+              <p className="mt-6 text-xs tracking-widest uppercase" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
                 Scroll to grow the repository tree ↓
               </p>
             </div>
 
             {/* ── Right: 3D repository tree (dark panel) ── */}
-            <div style={{
+            <div
+              data-hero-panel
+              style={{
               height: "100%", position: "relative",
               opacity: isDesktop ? 1 : 0,
               pointerEvents: isDesktop ? "auto" : "none",

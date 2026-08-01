@@ -1,29 +1,30 @@
 // =============================================================================
-// MermaidDiagram — Renders a Mermaid diagram definition using react-mermaid2
-// Handles loading state and invalid definition errors gracefully.
+// MermaidDiagram — Renders a Mermaid diagram, fully theme-aware
+// Reads data-theme from <html> to pick dark or neutral mermaid theme.
 // =============================================================================
 
 'use client';
 
 import React from 'react';
 import Mermaid from 'react-mermaid2';
-import { Skeleton } from '@/components/ui/skeleton';
+import { InlineLoader } from '@/components/shared/BrandedLoader';
 import ErrorAlert from '@/components/shared/ErrorAlert';
 
 export interface MermaidDiagramProps {
-  /** Raw Mermaid diagram definition string */
   definition: string;
 }
 
-// Dark theme configuration passed to Mermaid
-const MERMAID_CONFIG = {
-  theme: 'dark',
-  themeVariables: {
-    background: 'transparent',
-  },
-};
+function getMermaidConfig() {
+  const isDark =
+    typeof document !== 'undefined'
+      ? document.documentElement.getAttribute('data-theme') !== 'light'
+      : true;
+  return {
+    theme: isDark ? 'dark' : 'neutral',
+    themeVariables: { background: 'transparent' },
+  };
+}
 
-/** Minimal error boundary to catch react-mermaid2 rendering errors */
 class MermaidErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean; errorMessage: string }
@@ -32,19 +33,12 @@ class MermaidErrorBoundary extends React.Component<
     super(props);
     this.state = { hasError: false, errorMessage: '' };
   }
-
   static getDerivedStateFromError(error: Error) {
     return { hasError: true, errorMessage: error.message };
   }
-
   render() {
     if (this.state.hasError) {
-      return (
-        <ErrorAlert
-          title="Unable to render diagram"
-          message={this.state.errorMessage}
-        />
-      );
+      return <ErrorAlert title="Unable to render diagram" message={this.state.errorMessage} />;
     }
     return this.props.children;
   }
@@ -52,25 +46,28 @@ class MermaidErrorBoundary extends React.Component<
 
 export default function MermaidDiagram({ definition }: MermaidDiagramProps) {
   const [isLoading, setIsLoading] = React.useState(true);
+  const config = getMermaidConfig();
 
-  // react-mermaid2 v0.1.x renders synchronously after mount
   React.useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 300);
     return () => clearTimeout(timer);
   }, [definition]);
 
   return (
-    <div className="relative w-full overflow-auto rounded-lg border border-gray-700 bg-gray-900 p-4">
+    <div style={{
+      position: 'relative', width: '100%', overflow: 'auto',
+      borderRadius: 12,
+      border: '1px solid var(--border)',
+      background: 'var(--surface)',
+      padding: '16px',
+      transition: 'background 0.3s ease, border-color 0.3s ease',
+    }}>
       {isLoading && (
-        <div className="space-y-2 py-4">
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-32 w-full" />
-        </div>
+        <InlineLoader stage="rendering_diagram" message="Rendering Diagram…" size={28} />
       )}
       <div className={isLoading ? 'invisible h-0 overflow-hidden' : 'block'}>
         <MermaidErrorBoundary>
-          <Mermaid chart={definition} config={MERMAID_CONFIG} />
+          <Mermaid chart={definition} config={config} />
         </MermaidErrorBoundary>
       </div>
     </div>

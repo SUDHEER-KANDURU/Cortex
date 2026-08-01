@@ -316,7 +316,7 @@ export default function RepoTree({ progress }: { progress: React.MutableRefObjec
         camera={{ position: [0, 0, 11], fov: 55 }}
         style={{ background: 'transparent' }}
         gl={{ antialias: true, alpha: true }}
-        dpr={[1, 2]}
+        dpr={[1, 1.5]}
       >
         <TreeScene progress={progress} />
       </Canvas>

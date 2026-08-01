@@ -1,71 +1,80 @@
 // =============================================================================
 // ArtifactViewer — Renders a Cortex artifact based on its content_type
-// Supports: mermaid, text/markdown, application/json, text/plain
+// Fully theme-aware — uses CSS variables only, no hardcoded dark values.
 // =============================================================================
 
 import React from 'react';
-import { FileText, Calendar } from 'lucide-react';
 import type { Artifact } from '@/types';
-import { formatDate } from '@/lib/utils/formatDate';
 import MermaidDiagram from './MermaidDiagram';
 
 export interface ArtifactViewerProps {
-  /** The artifact to render */
   artifact: Artifact;
 }
 
-/** Format JSON string with indentation, returning null on parse failure */
 function tryFormatJson(raw: string): string | null {
-  try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
-  } catch {
-    return null;
-  }
+  try { return JSON.stringify(JSON.parse(raw), null, 2); }
+  catch { return null; }
 }
 
-export default function ArtifactViewer({ artifact }: ArtifactViewerProps) {
-  const content = artifact.content_inline ?? '';
+// Base styles for pre/code blocks — background adapts via CSS variable
+const preBase: React.CSSProperties = {
+  overflow: 'auto',
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+  borderRadius: 'var(--radius-md)',
+  border: '1px solid var(--border)',
+  // Use a CSS-variable-driven background so both themes work correctly.
+  // Dark:  surface (~#151922) + a little extra depth
+  // Light: white with a very subtle tint
+  background: 'var(--surface)',
+  padding: '16px 18px',
+  fontSize: 13,
+  lineHeight: 1.75,
+  margin: 0,
+  fontFamily: 'var(--font-mono)',
+};
+
+export default React.memo(function ArtifactViewer({ artifact }: ArtifactViewerProps) {
+  const content     = artifact.content_inline ?? '';
   const contentType = artifact.content_type;
 
   const renderContent = (): React.ReactNode => {
     if (!content) {
       return (
-        <p className="py-4 text-center text-sm text-gray-500">
+        <p style={{ padding: '16px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
           No inline content available.{' '}
           {artifact.storage_path && (
-            <span className="font-mono text-xs">{artifact.storage_path}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+              {artifact.storage_path}
+            </span>
           )}
         </p>
       );
     }
 
-    // Mermaid diagram
     if (contentType === 'mermaid') {
       return <MermaidDiagram definition={content} />;
     }
 
-    // Markdown — render in a styled pre block (no external markdown library required)
     if (contentType === 'text/markdown') {
       return (
-        <pre className="whitespace-pre-wrap rounded-lg border border-gray-700 bg-gray-900 p-4 text-sm text-gray-200 font-sans leading-relaxed overflow-auto">
+        <pre style={{ ...preBase, color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)' }}>
           {content}
         </pre>
       );
     }
 
-    // JSON — formatted with syntax highlighting via Tailwind classes
     if (contentType === 'application/json') {
       const formatted = tryFormatJson(content);
       return (
-        <pre className="overflow-auto rounded-lg border border-gray-700 bg-gray-900 p-4 text-xs text-green-300 font-mono leading-relaxed">
+        <pre style={{ ...preBase, color: 'var(--success)' }}>
           {formatted ?? content}
         </pre>
       );
     }
 
-    // Plain text / fallback
     return (
-      <pre className="overflow-auto whitespace-pre-wrap rounded-lg border border-gray-700 bg-gray-900 p-4 text-sm text-gray-300 font-mono leading-relaxed">
+      <pre style={{ ...preBase, color: 'var(--text-secondary)' }}>
         {content}
       </pre>
     );
@@ -73,23 +82,7 @@ export default function ArtifactViewer({ artifact }: ArtifactViewerProps) {
 
   return (
     <article className="flex flex-col gap-3" aria-label={`Artifact ${artifact.id}`}>
-      {/* Artifact header */}
-      <header className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-700/50 bg-gray-800/50 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4 text-gray-500" aria-hidden="true" />
-          <span className="text-xs font-mono text-gray-400">{artifact.id}</span>
-        </div>
-        <div className="flex items-center gap-1 text-xs text-gray-500">
-          <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
-          {formatDate(artifact.created_at)}
-        </div>
-        <span className="rounded-full border border-gray-600 bg-gray-700 px-2 py-0.5 text-xs text-gray-300">
-          {contentType}
-        </span>
-      </header>
-
-      {/* Content */}
       {renderContent()}
     </article>
   );
-}
+});

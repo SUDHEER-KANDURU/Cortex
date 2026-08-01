@@ -5,7 +5,6 @@ import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 import { SectionTitle } from "@/components/ui/section-title"
 import { useEffect, useRef, useState } from "react"
-import gsap from "gsap"
 
 // ── Visuals — ink palette only, zero blue/purple ──────────────────────────────
 
@@ -20,18 +19,18 @@ function ArchitectureDemoVisual({ onStart }: { onStart?: (startFn: () => void) =
       let s = 0
       // First animate nodes in
       const nodeTimer = setInterval(() => {
+        if (document.visibilityState === 'hidden') return
         s += 1
         setStep(s)
         if (s >= 4) {
           clearInterval(nodeTimer)
-          // Then animate edges
           let e = 0
           const edgeTimer = setInterval(() => {
+            if (document.visibilityState === 'hidden') return
             e += 1
             setEdgeStep(e)
             if (e >= 6) {
               clearInterval(edgeTimer)
-              // Then start pulse
               setPulsing(1)
             }
           }, 200)
@@ -46,6 +45,7 @@ function ArchitectureDemoVisual({ onStart }: { onStart?: (startFn: () => void) =
     if (!pulsing) return
     let p = 0
     const t = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
       p = (p + 1) % 6
       setPulsing(p + 1)
     }, 600)
@@ -71,7 +71,7 @@ function ArchitectureDemoVisual({ onStart }: { onStart?: (startFn: () => void) =
   ]
 
   return (
-    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "16px", background: "rgba(255,255,255,0.55)", backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)" }}>
+    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "16px", background: "var(--cx-visual-bg)", backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)" }}>
       <svg viewBox="0 0 255 128" style={{ width: "100%", maxWidth: 255, overflow: "hidden" }}>
         {edges.map((e, i) => {
           const isActive = pulsing > 0 && ((pulsing - 1) % 6) === i
@@ -80,8 +80,8 @@ function ArchitectureDemoVisual({ onStart }: { onStart?: (startFn: () => void) =
               x1={cx(e.a)} y1={cy(e.a)}
               x2={cx(e.b)} y2={cy(e.b)}
               stroke={edgeStep > i
-                ? (isActive ? "#111" : (e.dash ? "#bbb" : "#444"))
-                : "rgba(0,0,0,0.06)"}
+                ? (isActive ? "var(--text)" : (e.dash ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.45)"))
+                : "rgba(255,255,255,0.06)"}
               strokeWidth={isActive ? 2 : (e.dash ? 1 : 1.5)}
               strokeDasharray={e.dash ? "4 3" : "none"}
               style={{ transition: "stroke 0.3s ease, stroke-width 0.3s ease" }} />
@@ -94,12 +94,12 @@ function ArchitectureDemoVisual({ onStart }: { onStart?: (startFn: () => void) =
             transition: `opacity 0.35s ease ${i * 40}ms, transform 0.35s ease ${i * 40}ms`,
           }}>
             <rect x={box.x} y={box.y} width={80} height={26} rx={6}
-              fill={step > i ? box.fill : "rgba(0,0,0,0.05)"}
+              fill={step > i ? box.fill : "rgba(255,255,255,0.04)"}
               style={{ transition: "fill 0.35s ease" }} />
             <text x={box.x + 40} y={box.y + 17} textAnchor="middle"
               fontSize="9" fontWeight="600"
-              fill={step > i ? "#fff" : "#ccc"}
-              style={{ fontFamily: "var(--font-mono,'Fira Code',monospace)", transition: "fill 0.35s ease" }}>
+              fill={step > i ? "#fff" : "rgba(255,255,255,0.2)"}
+              style={{ fontFamily: "var(--font-mono,'Geist Mono',monospace)", transition: "fill 0.35s ease" }}>
               {box.label}
             </text>
           </g>
@@ -119,16 +119,16 @@ function LearningPathVisual() {
     { label: "Graph Queries", x: 150, done: false },
   ]
   const yPos = [30, 70, 70, 110, 110, 145]
-  const fills = ["#111","#333","#555","rgba(0,0,0,0.06)","rgba(0,0,0,0.06)","rgba(0,0,0,0.06)"]
+  const fills = ["rgba(255,255,255,0.85)","rgba(255,255,255,0.60)","rgba(255,255,255,0.40)","rgba(255,255,255,0.06)","rgba(255,255,255,0.06)","rgba(255,255,255,0.06)"]
 
   return (
-    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", background: "rgba(255,255,255,0.55)", backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)" }}>
+    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", background: "var(--cx-visual-bg)", backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)" }}>
       <svg viewBox="0 0 300 175" style={{ width: "100%", maxWidth: 300, overflow: "visible" }}>
         {[[0,1],[0,2],[1,3],[2,4],[3,5],[4,5]].map(([a, b], i) => (
           <line key={i}
             x1={nodes[a].x} y1={yPos[a] + 10}
             x2={nodes[b].x} y2={yPos[b]}
-            stroke={nodes[a].done ? "#333" : "rgba(0,0,0,0.1)"}
+            stroke={nodes[a].done ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.08)"}
             strokeWidth="1.5" strokeDasharray={nodes[a].done ? "none" : "4 3"} />
         ))}
         {nodes.map((n, i) => (
@@ -136,8 +136,8 @@ function LearningPathVisual() {
             <rect x={n.x - 38} y={yPos[i]} width={76} height={20} rx={10} fill={fills[i]} />
             <text x={n.x} y={yPos[i] + 13} textAnchor="middle"
               fontSize="7" fontWeight="600"
-              fill={n.done ? "#fff" : "#aaa"}
-              style={{ fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
+              fill={n.done ? "#07090d" : "rgba(255,255,255,0.3)"}
+              style={{ fontFamily: "var(--font-mono,'Geist Mono',monospace)" }}>
               {n.label}
             </text>
           </g>
@@ -162,6 +162,7 @@ function InterviewPrepVisual({ onStart }: { onStart?: (startFn: () => void) => v
       // Cycle through questions with a delay
       let i = 0
       const t = setInterval(() => {
+        if (document.visibilityState === 'hidden') return
         i = (i + 1) % questions.length
         setIdx(i)
       }, 1800)
@@ -171,29 +172,30 @@ function InterviewPrepVisual({ onStart }: { onStart?: (startFn: () => void) => v
   }, [])
 
   return (
-    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", background: "rgba(255,255,255,0.55)", backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)" }}>
+    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", background: "var(--cx-visual-bg)", backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)" }}>
       <div style={{ width: "100%", maxWidth: 300 }}>
         {questions.map((q, i) => (
           <div key={i} style={{
             padding: "8px 12px", marginBottom: "6px", borderRadius: "10px",
             fontSize: "10px", fontWeight: 500,
-            fontFamily: "var(--font-mono,'Fira Code',monospace)",
-            border: `1px solid ${i === idx ? "rgba(0,0,0,0.25)" : "rgba(0,0,0,0.08)"}`,
-            background: i === idx ? "rgba(0,0,0,0.05)" : "rgba(0,0,0,0.02)",
-            color: i === idx ? "#111" : "#999",
+            fontFamily: "var(--font-mono,'Geist Mono',monospace)",
+            border: `1px solid ${i === idx ? "var(--border-hover)" : "var(--border)"}`,
+            background: i === idx ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.02)",
+            color: i === idx ? "var(--text)" : "var(--text-muted)",
             opacity: revealed ? 1 : 0,
             transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
             transform: i === idx ? "translateX(4px)" : "none",
             display: "flex", alignItems: "center", gap: "8px",
           }}>
-            <span style={{ fontSize: "8px", opacity: 0.45 }}>Q{i + 1}</span>
+            <span style={{ fontSize: "8px", opacity: 0.45, color: "var(--text-muted)" }}>Q{i + 1}</span>
             {q}
           </div>
         ))}
         <div style={{
           marginTop: "8px", padding: "8px 12px", borderRadius: "10px",
-          fontSize: "9px", fontFamily: "var(--font-mono,'Fira Code',monospace)",
-          background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.1)", color: "#555",
+          fontSize: "9px", fontFamily: "var(--font-mono,'Geist Mono',monospace)",
+          background: "rgba(0,229,168,0.06)", border: "1px solid rgba(0,229,168,0.18)",
+          color: "var(--primary)",
           opacity: revealed ? 1 : 0,
           transition: "opacity 0.5s ease 0.3s",
         }}>
@@ -214,6 +216,7 @@ function VibeCodeVisual({ onStart }: { onStart?: (startFn: () => void) => void }
       // Pulse through each issue in sequence
       let i = 0
       const t = setInterval(() => {
+        if (document.visibilityState === 'hidden') return
         setHighlight(i % 3)
         i++
       }, 1200)
@@ -229,9 +232,9 @@ function VibeCodeVisual({ onStart }: { onStart?: (startFn: () => void) => void }
   ]
 
   return (
-    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", background: "rgba(255,255,255,0.55)", backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)" }}>
-      <div style={{ width: "100%", maxWidth: 300, fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
-        <div style={{ marginBottom: "8px", fontSize: "9px", color: "#999", letterSpacing: "0.1em", textTransform: "uppercase",
+    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", background: "var(--cx-visual-bg)", backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)" }}>
+      <div style={{ width: "100%", maxWidth: 300, fontFamily: "var(--font-mono,'Geist Mono',monospace)" }}>
+        <div style={{ marginBottom: "8px", fontSize: "9px", color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase",
           opacity: revealed ? 1 : 0, transition: "opacity 0.4s ease" }}>
           repository.py — 3 issues found
         </div>
@@ -239,21 +242,21 @@ function VibeCodeVisual({ onStart }: { onStart?: (startFn: () => void) => void }
           <div key={i} style={{
             display: "flex", alignItems: "center", gap: "8px",
             padding: "7px 10px", marginBottom: "5px", borderRadius: "8px",
-            border: `1px solid ${issue.color}30`,
-            background: highlight === i ? `${issue.color}12` : `${issue.color}06`,
+            border: `1px solid ${issue.color}40`,
+            background: highlight === i ? `${issue.color}14` : `${issue.color}07`,
             opacity: revealed ? 1 : 0,
             transform: revealed ? "none" : "translateX(-8px)",
             transition: `opacity 0.4s ease ${i * 80}ms, transform 0.4s ease ${i * 80}ms, background 0.35s ease`,
             boxShadow: highlight === i ? `0 0 0 1px ${issue.color}40` : "none",
           }}>
             <span style={{ fontSize: "8px", color: issue.color, fontWeight: 700, minWidth: 24 }}>L{issue.line}</span>
-            <span style={{ fontSize: "9px", color: "#444", flex: 1 }}>{issue.text}</span>
+            <span style={{ fontSize: "9px", color: "var(--text-secondary)", flex: 1 }}>{issue.text}</span>
             <span style={{ fontSize: "7px", fontWeight: 700, textTransform: "uppercase", color: issue.color, letterSpacing: "0.06em" }}>{issue.severity}</span>
           </div>
         ))}
-        <div style={{ marginTop: "8px", display: "flex", alignItems: "center", gap: "6px", fontSize: "9px", color: "#555",
+        <div style={{ marginTop: "8px", display: "flex", alignItems: "center", gap: "6px", fontSize: "9px", color: "var(--text-muted)",
           opacity: revealed ? 1 : 0, transition: "opacity 0.5s ease 0.4s" }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#28c840", display: "inline-block" }} />
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--success)", display: "inline-block" }} />
           LLM-free — static analysis only
         </div>
       </div>
@@ -263,7 +266,7 @@ function VibeCodeVisual({ onStart }: { onStart?: (startFn: () => void) => void }
 
 interface Work {
   id: number; title: string; category: string; description: string
-  Visual: React.FC<{ onStart?: (startFn: () => void) => void; active?: boolean }>
+  Visual: React.FC<{ onStart?: (startFn: (() => (() => void) | void)) => void; active?: boolean }>
   tags: string[]; accent: string
 }
 
@@ -271,11 +274,12 @@ function WorkCard({ work, index }: { work: Work; index: number }) {
   const cardRef = useRef<HTMLDivElement>(null)
   const articleRef = useRef<HTMLElement>(null)
   const hasPlayed = useRef(false)
-  const startAnimationRef = useRef<(() => void) | null>(null)
+  const startAnimationRef = useRef<(() => (() => void) | void) | null>(null)
+  const cleanupRef = useRef<(() => void) | null>(null)
   const [inView, setInView] = useState(false)
 
   // Register the startAnimation callback provided by the Visual component
-  const handleRegisterStart = (startFn: () => void) => {
+  const handleRegisterStart = (startFn: (() => (() => void) | void)) => {
     startAnimationRef.current = startFn
   }
 
@@ -287,16 +291,20 @@ function WorkCard({ work, index }: { work: Work; index: number }) {
       if (entry.isIntersecting && !hasPlayed.current) {
         hasPlayed.current = true
         setInView(true)
-        // Call the visual's startAnimation if registered
         if (startAnimationRef.current) {
-          startAnimationRef.current()
+          const cleanup = startAnimationRef.current()
+          if (typeof cleanup === 'function') cleanupRef.current = cleanup
         }
         obs.disconnect()
       }
     }, { threshold: 0.15 })
 
     obs.observe(cardEl)
-    return () => obs.disconnect()
+    return () => {
+      obs.disconnect()
+      // Clean up any intervals started by the Visual
+      if (cleanupRef.current) { cleanupRef.current(); cleanupRef.current = null }
+    }
   }, [])
   return (
     <div ref={cardRef} className="sticky" style={{ top: `${72 + index * 8}px`, zIndex: index + 1 }}>
@@ -304,40 +312,23 @@ function WorkCard({ work, index }: { work: Work; index: number }) {
         <article
           ref={articleRef as React.RefObject<HTMLElement>}
           data-spotlight
-          className="overflow-hidden rounded-2xl md:rounded-3xl transition-all duration-500 tilt-card"
+          className="cx-card overflow-hidden rounded-2xl md:rounded-3xl transition-all duration-500 tilt-card"
           style={{
-            background: "rgba(255,255,255,0.72)",
-            backdropFilter: "blur(8px) saturate(180%) brightness(1.02)",
-            WebkitBackdropFilter: "blur(8px) saturate(180%) brightness(1.02)",
-            border: "1px solid rgba(255,255,255,0.88)",
-            boxShadow: "0 4px 32px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(0,0,0,0.03)",
+            backdropFilter: "blur(24px) saturate(200%)",
+            WebkitBackdropFilter: "blur(24px) saturate(200%)",
           }}
-          onMouseEnter={e => {
-            const el = e.currentTarget as HTMLElement
-            el.style.boxShadow = "0 20px 60px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,1)"
-            el.style.borderColor = "rgba(255,255,255,1)"
-            gsap.to(articleRef.current, { y: -6, duration: 0.1, ease: 'power2.out' })
-          }}
-          onMouseLeave={e => {
-            const el = e.currentTarget as HTMLElement
-            el.style.boxShadow = "0 4px 32px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(0,0,0,0.03)"
-            el.style.borderColor = "rgba(255,255,255,0.88)"
-            gsap.to(articleRef.current, { y: 0, duration: 0.55, ease: 'cubic.out' })
-          }}>
+          onMouseEnter={_e => { /* hover handled by CSS cx-card */ }}
+          onMouseLeave={_e => { /* hover handled by CSS cx-card */ }}>
 
-          <div className="relative overflow-hidden"
-            style={{ height: "200px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+          <div className="cx-visual-bg relative overflow-hidden"
+            style={{ height: "200px", borderBottom: "1px solid var(--cx-card-border)", backdropFilter: "blur(8px)" }}>
             <work.Visual onStart={handleRegisterStart} active={inView} />
-            <div style={{
+            <div className="cx-pill" style={{
               position: "absolute", top: "12px", left: "12px",
               padding: "3px 10px", borderRadius: "100px",
               fontSize: "9px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
-              background: "rgba(255,255,255,0.7)",
               backdropFilter: "blur(12px) saturate(180%)",
               WebkitBackdropFilter: "blur(12px) saturate(180%)",
-              border: "1px solid rgba(255,255,255,0.9)",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)",
-              color: "#333",
               fontFamily: "var(--font-mono,'Fira Code',monospace)",
             }}>
               {work.category}
@@ -347,21 +338,16 @@ function WorkCard({ work, index }: { work: Work; index: number }) {
           <div className="p-5 md:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-lg md:text-xl font-semibold">{work.title}</h3>
-                <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{work.description}</p>
+                <h3 className="cx-text text-lg md:text-xl font-semibold">{work.title}</h3>
+                <p className="cx-text-muted text-sm mt-1.5 leading-relaxed">{work.description}</p>
               </div>
-              <div className="flex-shrink-0 mt-0.5 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-black"
-                style={{ background: "rgba(0,0,0,0.07)", border: "1px solid rgba(0,0,0,0.12)" }}>
-                <ArrowUpRight className="w-4 h-4 transition-all duration-300 group-hover:text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                  style={{ color: "#555" }} />
+              <div className="cx-arrow-circle flex-shrink-0 mt-0.5 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:!bg-black group-hover:!border-black">
+                <ArrowUpRight className="cx-arrow-color w-4 h-4 transition-all duration-300 group-hover:!text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </div>
             </div>
             <div className="flex flex-wrap gap-2 mt-4">
               {work.tags.map(tag => (
-                <span key={tag} className="px-3 py-1 text-xs font-medium rounded-full"
-                  style={{ background: "rgba(0,0,0,0.05)", color: "rgba(0,0,0,0.55)", border: "1px solid rgba(0,0,0,0.08)" }}
-                  onMouseEnter={e => gsap.to(e.currentTarget, { y: -2, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', duration: 0.2, ease: 'power2.out' })}
-                  onMouseLeave={e => gsap.to(e.currentTarget, { y: 0, boxShadow: 'none', duration: 0.2, ease: 'power2.out' })}>
+                <span key={tag} className="cx-tag px-3 py-1 text-xs font-medium rounded-full">
                   {tag}
                 </span>
               ))}
@@ -392,17 +378,17 @@ export function PortfolioSelectedWorks() {
   return (
     <section id="works" className="py-20 md:py-10 md:pt-32 pb-4"
       style={{
-        borderTop: "1px solid rgba(255,255,255,0.9)",
-        background: "rgba(255,255,255,0.72)",
-        backdropFilter: "saturate(180%) blur(20px)",
-        WebkitBackdropFilter: "saturate(180%) blur(20px)",
+        borderTop: "1px solid var(--cx-card-border)",
+        background: "var(--cx-section-bg)",
+        backdropFilter: "saturate(200%) blur(24px)",
+        WebkitBackdropFilter: "saturate(200%) blur(24px)",
       }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
         <div className="flex items-center justify-between mb-12 md:mb-16">
           <div>
-            <p style={{
+            <p className="cx-eyebrow" style={{
               fontSize: "10px", fontWeight: 700, letterSpacing: "0.16em",
-              textTransform: "uppercase", color: "rgba(0,0,0,0.35)",
+              textTransform: "uppercase",
               fontFamily: "var(--font-mono,'Fira Code',monospace)", marginBottom: "8px",
             }}>
               Outputs
@@ -412,8 +398,7 @@ export function PortfolioSelectedWorks() {
             </SectionTitle>
           </div>
           <Link href="/dashboard"
-            className="hidden md:inline-flex items-center gap-2 text-sm font-medium transition-all duration-200 hover:gap-3"
-            style={{ color: "#111" }}>
+            className="cx-link hidden md:inline-flex items-center gap-2 text-sm font-medium transition-all duration-200 hover:gap-3">
             Launch App
             <ArrowUpRight className="w-4 h-4" />
           </Link>
@@ -423,8 +408,7 @@ export function PortfolioSelectedWorks() {
         </div>
         <div className="md:hidden mt-8 text-center">
           <Link href="/dashboard"
-            className="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium border rounded-full transition-colors"
-            style={{ color: "#111", borderColor: "rgba(0,0,0,0.2)" }}>
+            className="cx-link cx-row inline-flex items-center gap-2 px-6 py-3 text-sm font-medium rounded-full transition-colors">
             Launch App <ArrowUpRight className="w-4 h-4" />
           </Link>
         </div>
@@ -432,3 +416,4 @@ export function PortfolioSelectedWorks() {
     </section>
   )
 }
+

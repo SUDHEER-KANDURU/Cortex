@@ -1,16 +1,13 @@
 // =============================================================================
-// LoadingSpinner — Accessible animated loading indicator
+// LoadingSpinner — Accessible animated loading indicator using design tokens
 // =============================================================================
 
 import React from 'react';
 import { cn } from '@/lib/utils/cn';
 
 export interface LoadingSpinnerProps {
-  /** Visual size of the spinner */
   size?: 'sm' | 'md' | 'lg';
-  /** Optional label shown next to the spinner */
   label?: string;
-  /** Optional extra class names */
   className?: string;
 }
 
@@ -33,12 +30,13 @@ export default function LoadingSpinner({
     >
       <span
         className={cn(
-          'animate-spin rounded-full border-gray-600 border-t-blue-500',
+          'animate-spin rounded-full',
+          'border-[var(--border)] border-t-[var(--primary)]',
           SIZE_CLASSES[size]
         )}
       />
       {label && (
-        <span className="text-sm text-gray-400">{label}</span>
+        <span className="text-sm text-[var(--text-muted)]">{label}</span>
       )}
       <span className="sr-only">{label ?? 'Loading…'}</span>
     </div>

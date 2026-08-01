@@ -1,8 +1,15 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Syne, DM_Sans, Fira_Code } from 'next/font/google';
 import './globals.css';
 
-// Display / headings — geometric, precise, used by serious engineering products
+// =============================================================================
+// Fonts — all available in next/font/google for Next.js 14.2.x
+//
+// --font-display : Syne     — geometric, precise, used for headings
+// --font-sans    : DM Sans  — clean body font
+// --font-mono    : Fira Code — ligature mono for code/terminals
+// =============================================================================
+
 const syne = Syne({
   subsets: ['latin'],
   variable: '--font-display',
@@ -10,7 +17,6 @@ const syne = Syne({
   display: 'swap',
 });
 
-// Body — clean, slightly wider than Inter, not the default everywhere
 const dmSans = DM_Sans({
   subsets: ['latin'],
   variable: '--font-sans',
@@ -18,13 +24,16 @@ const dmSans = DM_Sans({
   display: 'swap',
 });
 
-// Monospace — ligature support, warmer than JetBrains Mono
 const firaCode = Fira_Code({
   subsets: ['latin'],
   variable: '--font-mono',
   weight: ['400', '500', '600'],
   display: 'swap',
 });
+
+export const viewport: Viewport = {
+  themeColor: '#07090d',
+};
 
 export const metadata: Metadata = {
   title: 'Cortex — Engineering Reasoning Engine',
@@ -36,10 +45,32 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
+      data-theme="dark"
       className={`${syne.variable} ${dmSans.variable} ${firaCode.variable} dark`}
       suppressHydrationWarning
     >
-      <body className="min-h-screen antialiased" style={{ background: '#000', color: '#fff' }}>
+      {/*
+        Inline theme script — runs before first paint.
+        Reads localStorage and sets data-theme immediately so the browser
+        doesn't render a flash before React hydrates.
+      */}
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var t = localStorage.getItem('cortex-theme') || 'dark';
+                document.documentElement.setAttribute('data-theme', t);
+                document.documentElement.classList.toggle('dark', t === 'dark');
+              } catch(e) {}
+            `,
+          }}
+        />
+      </head>
+      <body
+        className="min-h-screen antialiased"
+        style={{ background: 'var(--bg, #07090d)', color: 'var(--text, #FFFFFF)' }}
+      >
         {children}
       </body>
     </html>

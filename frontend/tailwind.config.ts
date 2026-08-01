@@ -1,5 +1,5 @@
 // =============================================================================
-// Tailwind CSS Configuration
+// Tailwind CSS Configuration — Cortex Premium Design System
 // =============================================================================
 
 import type { Config } from 'tailwindcss';
@@ -11,78 +11,93 @@ const config: Config = {
     './src/features/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
-  darkMode: 'class',
+  darkMode: ['class', '[data-theme="dark"]'],
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        display: ['var(--font-display)', 'var(--font-sans)', 'ui-sans-serif', 'sans-serif'],
-        mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+        sans:    ['var(--font-sans)', 'DM Sans', 'system-ui', 'sans-serif'],
+        mono:    ['var(--font-mono)', 'Fira Code', 'ui-monospace', 'monospace'],
+        display: ['var(--font-display)', 'Syne', 'system-ui', 'sans-serif'],
       },
       colors: {
-        // shadcn/ui CSS variable colours
-        border: 'hsl(var(--border))',
-        input: 'hsl(var(--input))',
-        ring: 'hsl(var(--ring))',
-        background: 'hsl(var(--background))',
-        foreground: 'hsl(var(--foreground))',
+        // CSS variable colors — pick up dark/light automatically
+        bg:              'var(--bg)',
+        surface:         'var(--surface)',
+        card:            'var(--card)',
+        border:          'hsl(var(--border-hsl))',
+        input:           'hsl(var(--input))',
+        ring:            'hsl(var(--ring))',
+        background:      'hsl(var(--background))',
+        foreground:      'hsl(var(--foreground))',
         primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))',
+          DEFAULT:        'hsl(var(--primary-hsl))',
+          foreground:     'hsl(var(--primary-foreground))',
         },
         secondary: {
-          DEFAULT: 'hsl(var(--secondary))',
-          foreground: 'hsl(var(--secondary-foreground))',
+          DEFAULT:        'hsl(var(--secondary))',
+          foreground:     'hsl(var(--secondary-foreground))',
         },
         destructive: {
-          DEFAULT: 'hsl(var(--destructive))',
-          foreground: 'hsl(var(--destructive-foreground))',
+          DEFAULT:        'hsl(var(--destructive))',
+          foreground:     'hsl(var(--destructive-foreground))',
         },
         muted: {
-          DEFAULT: 'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))',
+          DEFAULT:        'hsl(var(--muted))',
+          foreground:     'hsl(var(--muted-foreground))',
         },
         accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))',
+          DEFAULT:        'hsl(var(--accent-hsl))',
+          foreground:     'hsl(var(--accent-foreground))',
         },
         popover: {
-          DEFAULT: 'hsl(var(--popover))',
-          foreground: 'hsl(var(--popover-foreground))',
+          DEFAULT:        'hsl(var(--popover))',
+          foreground:     'hsl(var(--popover-foreground))',
         },
-        card: {
-          DEFAULT: 'hsl(var(--card))',
-          foreground: 'hsl(var(--card-foreground))',
-        },
-        // Cortex brand accent
-        cortex: {
-          50:  '#f5f3ff',
-          100: '#ede9fe',
-          200: '#ddd6fe',
-          300: '#c4b5fd',
-          400: '#a78bfa',
-          500: '#8b5cf6',
-          600: '#7c3aed',
-          700: '#6d28d9',
-          800: '#5b21b6',
-          900: '#4c1d95',
-          950: '#2e1065',
-        },
-        // Cortex Identity Colors
-        onyx: 'var(--onyx)',
-        graphite: 'var(--graphite)',
-        'electric-blue': 'var(--electric-blue)',
-        'midnight-violet': 'var(--midnight-violet)',
-        'carnallite-violet': 'var(--carnallite-violet)',
-        'ink-black': 'var(--ink-black)',
+        // Raw brand tokens
+        'cortex-green':  'var(--primary)',
+        'cortex-accent': 'var(--accent)',
+        'cortex-text':   'var(--text)',
+        'cortex-muted':  'var(--text-muted)',
+        'cortex-success':'var(--success)',
+        'cortex-warning':'var(--warning)',
+        'cortex-danger': 'var(--danger)',
       },
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        sm:   'var(--radius-sm)',
+        md:   'var(--radius-md)',
+        lg:   'var(--radius-lg)',
+        xl:   'var(--radius-xl)',
+        '2xl':'var(--radius-xl)',
+        full: 'var(--radius-full)',
+      },
+      boxShadow: {
+        sm:   'var(--shadow-sm)',
+        md:   'var(--shadow-md)',
+        lg:   'var(--shadow-lg)',
+        xl:   'var(--shadow-xl)',
+        glow: 'var(--shadow-glow)',
       },
       animation: {
-        'ping-slow': 'ping 2s cubic-bezier(0, 0, 0.2, 1) infinite',
+        'fade-up':    'fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) both',
+        'fade-in':    'fadeIn 0.5s ease both',
+        'scale-in':   'scaleIn 0.4s cubic-bezier(0.16,1,0.3,1) both',
+        'spin-slow':  'spin 8s linear infinite',
+        'pulse-dot':  'pulse-dot 1.8s ease-in-out infinite',
+      },
+      keyframes: {
+        fadeUp:  { from:{opacity:'0',transform:'translateY(20px)'}, to:{opacity:'1',transform:'translateY(0)'} },
+        fadeIn:  { from:{opacity:'0'}, to:{opacity:'1'} },
+        scaleIn: { from:{opacity:'0',transform:'scale(0.94)'}, to:{opacity:'1',transform:'scale(1)'} },
+        'pulse-dot': {
+          '0%,100%': {opacity:'1',transform:'scale(1)'},
+          '50%':     {opacity:'0.6',transform:'scale(0.85)'},
+        },
+      },
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+      },
+      transitionTimingFunction: {
+        'spring': 'cubic-bezier(0.16, 1, 0.3, 1)',
       },
     },
   },

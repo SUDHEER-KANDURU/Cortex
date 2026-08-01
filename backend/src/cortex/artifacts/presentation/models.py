@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from pydantic import BaseModel
-from cortex.artifacts.domain.entities import ArtifactContentType
+from cortex.artifacts.domain.entities import Artifact, ArtifactContentType
 
 
 class ArtifactCreateRequest(BaseModel):
@@ -25,7 +25,7 @@ class ArtifactResponse(BaseModel):
     model_config = {"from_attributes": True}
 
     @classmethod
-    def from_artifact(cls, artifact: "Artifact") -> "ArtifactResponse":  # type: ignore[name-defined]
+    def from_artifact(cls, artifact: Artifact) -> "ArtifactResponse":
         return cls(
             id=artifact.id,
             job_id=artifact.job_id,
@@ -42,7 +42,7 @@ class ArtifactListResponse(BaseModel):
     total: int
 
     @classmethod
-    def from_artifacts(cls, artifacts: list) -> "ArtifactListResponse":
+    def from_artifacts(cls, artifacts: list[Artifact]) -> "ArtifactListResponse":
         return cls(
             artifacts=[ArtifactResponse.from_artifact(a) for a in artifacts],
             total=len(artifacts),

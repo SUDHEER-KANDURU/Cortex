@@ -17,23 +17,23 @@ import gsap from "gsap"
 // ── Palette — NO blue, NO purple ─────────────────────────────────────────────
 
 const STEP_COLORS = {
-  active:   "#0a0a0a",
-  inactive: "rgba(0,0,0,0.25)",
-  line:     "rgba(0,0,0,0.12)",
-  dot:      "#0a0a0a",
-  dotText:  "#ffffff",
-  border:   "rgba(0,0,0,0.10)",
-  panelBg: "rgba(255,255,255,0.65)",
-  scanCurrent: "#0a0a0a",
-  scanDone:    "#28c840",
-  astNode:     "#111111",
-  graphRoot:   "#111111",
-  graphMod:    "#444444",
-  graphFile:   "#888888",
-  graphEdge:   "rgba(0,0,0,0.18)",
-  graphEdgeActive: "#111111",
-  artifactBg:  "rgba(0,0,0,0.04)",
-  artifactBorder: "rgba(0,0,0,0.08)",
+  active:   "var(--primary)",
+  inactive: "var(--text-muted)",
+  line:     "var(--border)",
+  dot:      "var(--primary)",
+  dotText:  "#07090d",
+  border:   "var(--border)",
+  panelBg:  "var(--cx-section-bg, rgba(15,17,23,0.60))",
+  scanCurrent: "var(--text)",
+  scanDone:    "var(--success)",
+  astNode:     "rgba(255,255,255,0.85)",
+  graphRoot:   "rgba(255,255,255,0.90)",
+  graphMod:    "rgba(255,255,255,0.60)",
+  graphFile:   "rgba(255,255,255,0.35)",
+  graphEdge:   "var(--border)",
+  graphEdgeActive: "var(--primary)",
+  artifactBg:  "var(--cx-pill-bg)",
+  artifactBorder: "var(--cx-pill-border)",
 }
 
 // ── Visuals ───────────────────────────────────────────────────────────────────
@@ -42,7 +42,10 @@ function ScanVisual({ active }: { active: boolean }) {
   const [tick, setTick] = useState(0)
   useEffect(() => {
     if (!active) { setTick(0); return }
-    const t = setInterval(() => setTick(v => v + 1), 180)
+    const t = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      setTick(v => v + 1)
+    }, 180)
     return () => clearInterval(t)
   }, [active])
 
@@ -57,7 +60,7 @@ function ScanVisual({ active }: { active: boolean }) {
   const cur = Math.floor(tick / 2) % (files.length + 1)
 
   return (
-    <div style={{ padding: "20px 24px", fontFamily: "var(--font-mono,'Fira Code',monospace)", fontSize: "11px" }}>
+    <div style={{ padding: "20px 24px", fontFamily: "var(--font-mono)", fontSize: "11px" }}>
       {files.map((f, i) => {
         const shown = cur > i
         const current = cur === i
@@ -65,17 +68,17 @@ function ScanVisual({ active }: { active: boolean }) {
           <div key={f} style={{
             display: "flex", alignItems: "center", gap: "10px",
             padding: "5px 8px", borderRadius: "6px", marginBottom: "3px",
-            background: current ? "rgba(0,0,0,0.04)" : "transparent",
+            background: current ? "rgba(255,255,255,0.06)" : "transparent",
             opacity: shown || current ? 1 : 0.25,
             transition: "all 0.25s ease",
           }}>
             <span style={{
-              color: shown ? STEP_COLORS.scanDone : (current ? STEP_COLORS.scanCurrent : "#ccc"),
+              color: shown ? STEP_COLORS.scanDone : (current ? STEP_COLORS.scanCurrent : "var(--text-muted)"),
               fontSize: "10px", minWidth: "12px",
             }}>
               {shown ? "✓" : (current ? "›" : "·")}
             </span>
-            <span style={{ color: current ? STEP_COLORS.scanCurrent : "rgba(0,0,0,0.45)" }}>{f}</span>
+            <span style={{ color: current ? STEP_COLORS.scanCurrent : "var(--text-muted)" }}>{f}</span>
           </div>
         )
       })}
@@ -110,7 +113,10 @@ function ASTVisual({ active }: { active: boolean }) {
 
   useEffect(() => {
     if (!active) { setRev(0); return }
-    const t = setInterval(() => setRev(v => Math.min(v + 1, nodes.length + edges.length)), 220)
+    const t = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      setRev(v => Math.min(v + 1, nodes.length + edges.length))
+    }, 220)
     return () => clearInterval(t)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
@@ -134,20 +140,20 @@ function ASTVisual({ active }: { active: boolean }) {
           const isRoot = i === 0
           const isMid  = i <= 2
           const show   = rev > i
-          const fill   = show ? (isRoot ? STEP_COLORS.astNode : isMid ? "#444" : "#888") : "#eee"
+          const fill   = show ? (isRoot ? STEP_COLORS.astNode : isMid ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.40)") : "rgba(255,255,255,0.06)"
           return (
             <g key={i} style={{ opacity: show ? 1 : 0, transition: "opacity 0.25s ease" }}>
               <rect x={n.x} y={n.y} width={56} height={22} rx={5} fill={fill} />
               <text x={n.x + 28} y={n.y + 14} textAnchor="middle"
-                fontSize="7.5" fontWeight="700" fill={show ? "#fff" : "#aaa"}
-                style={{ fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
+                fontSize="7.5" fontWeight="700" fill={show ? "#07090d" : "rgba(255,255,255,0.15)"}
+                style={{ fontFamily: "var(--font-mono)" }}>
                 {n.label}
               </text>
             </g>
           )
         })}
       </svg>
-      <p style={{ fontSize: "10px", color: "rgba(0,0,0,0.4)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
+      <p style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
         abstract syntax tree extracted
       </p>
     </div>
@@ -158,7 +164,10 @@ function GraphVisual({ active }: { active: boolean }) {
   const [pulse, setPulse] = useState(0)
   useEffect(() => {
     if (!active) return
-    const t = setInterval(() => setPulse(p => (p + 1) % 6), 480)
+    const t = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      setPulse(p => (p + 1) % 6)
+    }, 480)
     return () => clearInterval(t)
   }, [active])
 
@@ -197,14 +206,14 @@ function GraphVisual({ active }: { active: boolean }) {
                 transition: "filter 0.35s ease",
               }} />
             <text x={n.x} y={n.y + n.r + 9} textAnchor="middle"
-              fontSize="6" fill="rgba(0,0,0,0.4)"
-              style={{ fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
+              fontSize="6" fill="var(--text-muted)"
+              style={{ fontFamily: "var(--font-mono)" }}>
               {n.id}
             </text>
           </g>
         ))}
       </svg>
-      <p style={{ fontSize: "10px", color: "rgba(0,0,0,0.4)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
+      <p style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
         241 nodes · 387 relationships
       </p>
     </div>
@@ -227,21 +236,19 @@ function ArtifactsVisual({ active }: { active: boolean }) {
         <div key={a.name} style={{
           display: "flex", alignItems: "center", gap: "9px",
           padding: "9px 12px", borderRadius: "10px",
-          border: "1px solid rgba(255,255,255,0.85)",
-          background: active
-            ? "rgba(255,255,255,0.65)"
-            : "rgba(255,255,255,0.25)",
+          border: "1px solid var(--cx-pill-border)",
+          background: active ? "var(--cx-pill-bg)" : "rgba(255,255,255,0.02)",
           backdropFilter: "blur(12px) saturate(160%)",
           WebkitBackdropFilter: "blur(12px) saturate(160%)",
-          boxShadow: active ? "0 2px 8px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,1)" : "none",
+          boxShadow: active ? "var(--shadow-sm)" : "none",
           transition: `all 0.45s ease ${active ? a.delay : 0}ms`,
           transform: active ? "none" : "translateY(8px)",
           opacity: active ? 1 : 0,
         }}>
-          <span style={{ fontSize: "13px", color: "#333" }}>{a.icon}</span>
+          <span style={{ fontSize: "13px", color: "var(--primary)" }}>{a.icon}</span>
           <span style={{
-            fontSize: "9px", fontWeight: 600, color: "rgba(0,0,0,0.6)",
-            fontFamily: "var(--font-mono,'Fira Code',monospace)", lineHeight: 1.3,
+            fontSize: "9px", fontWeight: 600, color: "var(--text-secondary)",
+            fontFamily: "var(--font-mono)", lineHeight: 1.3,
           }}>
             {a.name}
           </span>
@@ -255,7 +262,10 @@ function RepositoryVisual({ active }: { active: boolean }) {
   const [pulse, setPulse] = useState(0)
   useEffect(() => {
     if (!active) { setPulse(0); return }
-    const t = setInterval(() => setPulse(v => v + 1), 600)
+    const t = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      setPulse(v => v + 1)
+    }, 600)
     return () => clearInterval(t)
   }, [active])
 
@@ -268,15 +278,15 @@ function RepositoryVisual({ active }: { active: boolean }) {
   ]
 
   return (
-    <div style={{ padding: "20px 24px", fontFamily: "var(--font-mono,'Fira Code',monospace)", fontSize: "11px" }}>
+    <div style={{ padding: "20px 24px", fontFamily: "var(--font-mono)", fontSize: "11px" }}>
       <div style={{
         display: "flex", alignItems: "center", gap: "8px",
         marginBottom: "14px", fontSize: "10px",
-        color: "rgba(0,0,0,0.4)", letterSpacing: "0.08em",
+        color: "var(--text-muted)", letterSpacing: "0.08em",
       }}>
         <span style={{
           display: "inline-block", width: 8, height: 8, borderRadius: "50%",
-          background: active ? "#28c840" : "rgba(0,0,0,0.18)",
+          background: active ? "var(--success)" : "var(--border)",
           transition: "background 0.4s ease",
         }} />
         {active ? "Connected — cloning…" : "Awaiting URL"}
@@ -289,21 +299,21 @@ function RepositoryVisual({ active }: { active: boolean }) {
             paddingLeft: `${item.depth * 16 + 8}px`,
             padding: `5px 8px 5px ${item.depth * 16 + 8}px`,
             borderRadius: "6px", marginBottom: "3px",
-            background: isHighlighted ? "rgba(0,0,0,0.04)" : "transparent",
-            opacity: active ? (isHighlighted ? 1 : 0.7) : 0.25,
+            background: isHighlighted ? "rgba(255,255,255,0.06)" : "transparent",
+            opacity: active ? (isHighlighted ? 1 : 0.65) : 0.25,
             transition: "all 0.3s ease",
           }}>
-            <span style={{ fontSize: "9px", color: "rgba(0,0,0,0.4)", minWidth: "12px" }}>{item.icon}</span>
-            <span style={{ color: isHighlighted ? "#0a0a0a" : "rgba(0,0,0,0.5)" }}>{item.label}</span>
+            <span style={{ fontSize: "9px", color: "var(--text-muted)", minWidth: "12px" }}>{item.icon}</span>
+            <span style={{ color: isHighlighted ? "var(--text)" : "var(--text-muted)" }}>{item.label}</span>
           </div>
         )
       })}
       <div style={{
         marginTop: "12px", padding: "8px 10px", borderRadius: "8px",
-        background: "rgba(0,0,0,0.03)", border: "1px solid rgba(0,0,0,0.06)",
-        fontSize: "10px", color: "rgba(0,0,0,0.45)", letterSpacing: "0.05em",
+        background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)",
+        fontSize: "10px", color: "var(--text-muted)", letterSpacing: "0.05em",
       }}>
-        <span style={{ color: "rgba(0,0,0,0.3)", marginRight: "6px" }}>$</span>
+        <span style={{ color: "var(--text-muted)", marginRight: "6px" }}>$</span>
         git clone {active ? <span style={{ opacity: 0.6 }}>github.com/…</span> : "—"}
       </div>
     </div>
@@ -314,7 +324,10 @@ function ReasoningEngineVisual({ active }: { active: boolean }) {
   const [step, setStep] = useState(0)
   useEffect(() => {
     if (!active) { setStep(0); return }
-    const t = setInterval(() => setStep(v => (v + 1) % 5), 700)
+    const t = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      setStep(v => (v + 1) % 5)
+    }, 700)
     return () => clearInterval(t)
   }, [active])
 
@@ -327,14 +340,14 @@ function ReasoningEngineVisual({ active }: { active: boolean }) {
   ]
 
   return (
-    <div style={{ padding: "20px 24px", fontFamily: "var(--font-mono,'Fira Code',monospace)", fontSize: "11px" }}>
+    <div style={{ padding: "20px 24px", fontFamily: "var(--font-mono)", fontSize: "11px" }}>
       <div style={{
         display: "flex", alignItems: "center", gap: "8px",
-        marginBottom: "14px", fontSize: "10px", color: "rgba(0,0,0,0.4)", letterSpacing: "0.06em",
+        marginBottom: "14px", fontSize: "10px", color: "var(--text-muted)", letterSpacing: "0.06em",
       }}>
         <span style={{
           display: "inline-block", width: 7, height: 12,
-          background: active ? "#0a0a0a" : "rgba(0,0,0,0.18)",
+          background: active ? "var(--primary)" : "var(--border)",
           verticalAlign: "middle",
           animation: active ? "caret-blink 0.9s step-end infinite" : "none",
         }} />
@@ -348,18 +361,18 @@ function ReasoningEngineVisual({ active }: { active: boolean }) {
             <div key={thought} style={{
               display: "flex", alignItems: "center", gap: "10px",
               padding: "6px 10px", borderRadius: "8px",
-              background: isCurrent ? "rgba(0,0,0,0.04)" : "transparent",
+              background: isCurrent ? "rgba(255,255,255,0.06)" : "transparent",
               opacity: isDone ? 0.45 : (isCurrent ? 1 : 0.2),
               transition: "all 0.35s ease",
             }}>
               <span style={{
                 fontSize: "9px",
-                color: isDone ? "#28c840" : (isCurrent ? "#0a0a0a" : "rgba(0,0,0,0.25)"),
+                color: isDone ? "var(--success)" : (isCurrent ? "var(--primary)" : "var(--text-muted)"),
                 minWidth: "12px",
               }}>
                 {isDone ? "✓" : (isCurrent ? "›" : "·")}
               </span>
-              <span style={{ color: isCurrent ? "#0a0a0a" : "rgba(0,0,0,0.45)", lineHeight: 1.4 }}>
+              <span style={{ color: isCurrent ? "var(--text)" : "var(--text-muted)", lineHeight: 1.4 }}>
                 {thought}
               </span>
             </div>
@@ -445,40 +458,38 @@ function ConnectorLine({ active, isDone }: ConnectorLineProps) {
       viewBox={`0 0 2 ${LINE_LENGTH}`}
       overflow="visible"
       style={{ display: "block", margin: "0 auto" }}
+      aria-hidden="true"
     >
-      {/* Glow line — only visible when active or done */}
+      {/* Glow line */}
       <line
         ref={glowRef}
-        x1="1" y1="0"
-        x2="1" y2={LINE_LENGTH}
-        stroke="rgba(0,0,0,0.2)"
+        x1="1" y1="0" x2="1" y2={LINE_LENGTH}
+        stroke="var(--border-hover, rgba(255,255,255,0.14))"
         strokeWidth="2"
         strokeDasharray={LINE_LENGTH}
         strokeDashoffset={isDone ? 0 : LINE_LENGTH}
-        opacity={(isDone || active) ? 0.3 : 0}
+        opacity={(isDone || active) ? 0.4 : 0}
         style={{ transition: "opacity 0.3s ease" }}
       />
       {/* Main connector line */}
       <line
         ref={lineRef}
-        x1="1" y1="0"
-        x2="1" y2={LINE_LENGTH}
-        stroke={isDone ? "#333" : "rgba(0,0,0,0.1)"}
+        x1="1" y1="0" x2="1" y2={LINE_LENGTH}
+        stroke={isDone ? "var(--text-muted, #7A8395)" : "var(--border, rgba(255,255,255,0.08))"}
         strokeWidth="1"
         strokeDasharray={LINE_LENGTH}
         strokeDashoffset={isDone ? 0 : LINE_LENGTH}
       />
-      {/* Data-flow particle — 2px dot animated along the connector, only when done */}
+      {/* Data-flow particle */}
       <line
         ref={particleRef}
-        x1="1" y1="0"
-        x2="1" y2={LINE_LENGTH}
-        stroke="#333"
+        x1="1" y1="0" x2="1" y2={LINE_LENGTH}
+        stroke="var(--primary, #00E5A8)"
         strokeWidth="2"
         strokeDasharray={`3 ${LINE_LENGTH}`}
         strokeDashoffset={LINE_LENGTH}
-        opacity={isDone ? 0.5 : 0}
-        style={{ transition: 'opacity 0.3s ease' }}
+        opacity={isDone ? 0.6 : 0}
+        style={{ transition: "opacity 0.3s ease" }}
       />
     </svg>
   )
@@ -610,12 +621,13 @@ function EngineeringTerminal({ activeStep }: { activeStep: number }) {
 
     let count = 0
     timerRef.current = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
       count += 1
       setVisibleLines(count)
       if (count >= logs.length) {
         if (timerRef.current) clearInterval(timerRef.current)
       }
-    }, 140)
+    }, 250)
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
@@ -667,7 +679,7 @@ function EngineeringTerminal({ activeStep }: { activeStep: number }) {
           <span style={{
             fontSize: "10px", fontWeight: 700, letterSpacing: "0.12em",
             textTransform: "uppercase", color: "rgba(255,255,255,0.3)",
-            fontFamily: "var(--font-mono,'Fira Code',monospace)",
+            fontFamily: "var(--font-mono)",
           }}>
             cortex — step {stepNum} / {STEPS.length} — {stepLabel}
           </span>
@@ -683,7 +695,7 @@ function EngineeringTerminal({ activeStep }: { activeStep: number }) {
       <div style={{
         flex: 1,
         padding: "20px 22px",
-        fontFamily: "var(--font-mono,'Fira Code',monospace)",
+        fontFamily: "var(--font-mono)",
         fontSize: "12.5px",
         lineHeight: "2",
         overflow: "hidden",
@@ -752,6 +764,7 @@ export function PortfolioHowItWorks() {
   const startAuto = useCallback(() => {
     if (autoTimerRef.current) clearInterval(autoTimerRef.current)
     autoTimerRef.current = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
       setActiveStep(s => (s + 1) % STEPS.length)
     }, 3200)
   }, [])
@@ -820,17 +833,17 @@ export function PortfolioHowItWorks() {
       id="how-it-works"
       style={{ height: "300vh", position: "relative" }}
     >
-      {/* ── Sticky inner — Apple glass frosted background ── */}
+      {/* ── Sticky inner — glass panel, dark/light aware ── */}
       <div style={{
         position: "sticky",
         top: 56,
         height: "calc(100vh - 56px)",
-        borderTop: "1px solid rgba(255,255,255,0.9)",
-        borderBottom: "1px solid rgba(0,0,0,0.05)",
+        borderTop: "1px solid var(--cx-card-border)",
+        borderBottom: "1px solid var(--cx-card-border)",
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
-        background: "rgba(255,255,255,0.72)",
+        background: "var(--cx-section-bg)",
         backdropFilter: "saturate(180%) blur(20px)",
         WebkitBackdropFilter: "saturate(180%) blur(20px)",
         paddingTop: "8px",
@@ -843,19 +856,18 @@ export function PortfolioHowItWorks() {
             <div>
               <p style={{
                 fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em",
-                textTransform: "uppercase", color: "rgba(0,0,0,0.35)",
-                fontFamily: "var(--font-mono,'Fira Code',monospace)",
+                textTransform: "uppercase", color: "var(--cx-eyebrow)",
+                fontFamily: "var(--font-mono)",
                 marginBottom: "8px",
               }}>
                 Pipeline
               </p>
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight"
-                style={{ fontFamily: "var(--font-display,'Syne',sans-serif)", color: "oklch(0.03 0 0)", letterSpacing: "-0.04em", lineHeight: 1.1 }}>
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight cx-text"
+                style={{ fontFamily: "var(--font-sans)", letterSpacing: "-0.04em", lineHeight: 1.1 }}>
                 How Cortex works
               </h2>
             </div>
-            <p className="text-sm text-muted-foreground max-w-[280px] md:text-right leading-relaxed hidden md:block"
-              style={{ color: "rgba(0,0,0,0.4)" }}>
+            <p className="text-sm max-w-[280px] md:text-right leading-relaxed hidden md:block cx-text-muted">
               Six steps from raw repository to structured understanding.
             </p>
           </div>
@@ -877,25 +889,27 @@ export function PortfolioHowItWorks() {
                       display: "flex", alignItems: "flex-start", gap: "12px",
                       padding: isActive ? "10px 12px" : "6px 12px",
                       borderRadius: "12px",
-                      background: isActive ? "rgba(255,255,255,0.75)" : "transparent",
+                      background: isActive ? "var(--cx-pill-bg)" : "transparent",
                       backdropFilter: isActive ? "blur(8px) saturate(180%)" : "none",
                       WebkitBackdropFilter: isActive ? "blur(8px) saturate(180%)" : "none",
-                      border: isActive ? "1px solid rgba(255,255,255,0.9)" : "1px solid transparent",
-                      boxShadow: isActive ? "0 4px 20px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)" : "none",
+                      border: isActive ? "1px solid var(--cx-pill-border)" : "1px solid transparent",
+                      boxShadow: isActive ? "var(--shadow-sm)" : "none",
                       transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
                     }}>
                       {/* Number bubble + connector line */}
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
                         <div style={{
                           width: "28px", height: "28px", borderRadius: "50%",
-                          background: isActive ? STEP_COLORS.active : (isDone ? "#111" : "rgba(0,0,0,0.07)"),
+                          background: isActive ? "var(--primary)" : (isDone ? "var(--success)" : "var(--cx-stat-bg)"),
+                          border: `1px solid ${isActive ? "transparent" : isDone ? "transparent" : "var(--cx-stat-border)"}`,
                           display: "flex", alignItems: "center", justifyContent: "center",
                           transition: "background 0.35s ease",
+                          boxShadow: isActive ? "0 0 10px var(--primary-glow)" : "none",
                         }}>
                           <span style={{
                             fontSize: "10px", fontWeight: 700,
-                            color: (isActive || isDone) ? "#fff" : "rgba(0,0,0,0.3)",
-                            fontFamily: "var(--font-mono,'Fira Code',monospace)",
+                            color: (isActive || isDone) ? (isActive ? "#07090d" : "#fff") : "var(--text-muted)",
+                            fontFamily: "var(--font-mono)",
                             transition: "color 0.3s ease",
                           }}>
                             {isDone ? "✓" : step.number}
@@ -909,15 +923,14 @@ export function PortfolioHowItWorks() {
                       {/* Text */}
                       <div style={{ paddingTop: "5px", flex: 1, minWidth: 0 }}>
                         <h3 style={{
-                          fontFamily: "var(--font-display,'Syne',sans-serif)",
+                          fontFamily: "var(--font-sans)",
                           fontSize: "13px", fontWeight: 600,
-                          color: isActive ? "rgba(0,0,0,0.9)" : "rgba(0,0,0,0.4)",
+                          color: isActive ? "var(--text)" : "var(--text-muted)",
                           transition: "color 0.35s ease",
                           margin: 0,
                         }}>
                           {step.title}
                         </h3>
-                        {/* CLS-safe reveal: only opacity + transform (no layout properties animated) */}
                         <div style={{
                           overflow: "hidden",
                           transform: isActive ? "scaleY(1)" : "scaleY(0)",
@@ -928,7 +941,7 @@ export function PortfolioHowItWorks() {
                         }}>
                           <p style={{
                             fontSize: "11px", lineHeight: 1.5,
-                            color: "rgba(0,0,0,0.4)",
+                            color: "var(--text-muted)",
                             marginTop: "2px",
                           }}>
                             {step.description}
@@ -947,11 +960,11 @@ export function PortfolioHowItWorks() {
                     height: "2px",
                     flex: i === activeStep ? 3 : 1,
                     borderRadius: "2px",
-                    background: i <= activeStep ? "#111" : "rgba(0,0,0,0.12)",
+                    background: i <= activeStep ? "var(--primary)" : "var(--border)",
                     transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
                   }} />
                 ))}
-                <span style={{ fontSize: "9px", color: "rgba(0,0,0,0.3)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", marginLeft: "4px" }}>
+                <span style={{ fontSize: "9px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", marginLeft: "4px" }}>
                   {activeStep + 1} / {STEPS.length}
                 </span>
               </div>
@@ -969,45 +982,42 @@ export function PortfolioHowItWorks() {
               <div key={step.number} style={{
                 borderRadius: "16px",
                 overflow: "hidden",
-                background: i === activeStep
-                  ? "rgba(255,255,255,0.8)"
-                  : "rgba(255,255,255,0.45)",
+                background: i === activeStep ? "var(--cx-pill-bg)" : "var(--cx-row-bg)",
                 backdropFilter: "blur(8px) saturate(180%)",
                 WebkitBackdropFilter: "blur(8px) saturate(180%)",
                 border: i === activeStep
-                  ? "1px solid rgba(255,255,255,0.95)"
-                  : "1px solid rgba(255,255,255,0.55)",
-                boxShadow: i === activeStep
-                  ? "0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1)"
-                  : "0 2px 8px rgba(0,0,0,0.04)",
+                  ? "1px solid var(--cx-pill-border)"
+                  : "1px solid var(--cx-card-border)",
+                boxShadow: i === activeStep ? "var(--shadow-md)" : "none",
                 transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
               }}>
                 <div style={{
                   padding: "14px 16px",
-                  borderBottom: "1px solid rgba(255,255,255,0.5)",
-                  background: "rgba(255,255,255,0.4)",
-                  backdropFilter: "blur(8px)",
-                  WebkitBackdropFilter: "blur(8px)",
+                  borderBottom: "1px solid var(--cx-card-border)",
+                  background: "rgba(255,255,255,0.02)",
                   display: "flex", alignItems: "center", gap: "12px",
                 }}>
                   <div style={{
                     width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
-                    background: i === activeStep ? "#111" : "rgba(0,0,0,0.07)",
+                    background: i === activeStep ? "var(--primary)" : "var(--cx-stat-bg)",
+                    border: `1px solid ${i === activeStep ? "transparent" : "var(--cx-stat-border)"}`,
                     display: "flex", alignItems: "center", justifyContent: "center",
                     transition: "background 0.3s ease",
+                    boxShadow: i === activeStep ? "0 0 10px var(--primary-glow)" : "none",
                   }}>
                     <span style={{
                       fontSize: "10px", fontWeight: 700,
-                      color: i === activeStep ? "#fff" : "rgba(0,0,0,0.3)",
-                      fontFamily: "var(--font-mono,'Fira Code',monospace)",
+                      color: i === activeStep ? "#07090d" : "var(--text-muted)",
+                      fontFamily: "var(--font-mono)",
                     }}>{step.number}</span>
                   </div>
                   <div>
                     <h3 style={{
-                      fontFamily: "var(--font-display,'Syne',sans-serif)",
+                      fontFamily: "var(--font-sans)",
                       fontSize: "14px", fontWeight: 600, margin: 0,
+                      color: "var(--text)",
                     }}>{step.title}</h3>
-                    <p style={{ fontSize: "12px", color: "rgba(0,0,0,0.45)", marginTop: "2px" }}>{step.description}</p>
+                    <p style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>{step.description}</p>
                   </div>
                 </div>
                 <step.Visual active={i === activeStep} />

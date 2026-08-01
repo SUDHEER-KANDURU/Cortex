@@ -1,6 +1,6 @@
 // =============================================================================
-// Sidebar — Optional collapsible sidebar for future navigation items
-// Currently a stub; ready to be extended with route-based highlighting.
+// Sidebar — Collapsible sidebar navigation using Cortex design tokens
+// Ready for extension with route-based highlighting.
 // =============================================================================
 
 import React from 'react';
@@ -9,7 +9,6 @@ import { LayoutDashboard, Briefcase, GitGraph } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
 export interface SidebarProps {
-  /** Currently active route path for highlighting */
   activePath?: string;
 }
 
@@ -22,7 +21,11 @@ const NAV_ITEMS = [
 export default function Sidebar({ activePath }: SidebarProps) {
   return (
     <aside
-      className="hidden md:flex w-56 shrink-0 flex-col gap-1 border-r border-gray-800 bg-gray-900 py-4 px-3"
+      className="hidden md:flex w-56 shrink-0 flex-col gap-1 py-4 px-3"
+      style={{
+        background: 'var(--surface)',
+        borderRight: '1px solid var(--border)',
+      }}
       aria-label="Sidebar navigation"
     >
       {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
@@ -30,10 +33,10 @@ export default function Sidebar({ activePath }: SidebarProps) {
           key={href}
           href={href}
           className={cn(
-            'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+            'flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium transition-colors',
             activePath === href
-              ? 'bg-gray-800 text-white'
-              : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
+              ? 'bg-[var(--primary-dim)] text-[var(--primary)]'
+              : 'text-[var(--text-muted)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[var(--text)]'
           )}
           aria-current={activePath === href ? 'page' : undefined}
         >

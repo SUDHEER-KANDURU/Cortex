@@ -2,7 +2,12 @@
 
 from datetime import datetime
 from pydantic import BaseModel
-from cortex.graph.domain.entities import NodeType, RelationshipType
+from cortex.graph.domain.entities import (
+    GraphNode,
+    GraphEdge,
+    NodeType,
+    RelationshipType,
+)
 
 
 class GraphNodeCreate(BaseModel):
@@ -31,7 +36,7 @@ class GraphNodeResponse(BaseModel):
     model_config = {"from_attributes": True}
 
     @classmethod
-    def from_node(cls, node: "GraphNode") -> "GraphNodeResponse":  # type: ignore[name-defined]
+    def from_node(cls, node: GraphNode) -> "GraphNodeResponse":
         return cls(
             id=node.id,
             label=node.label,
@@ -54,7 +59,7 @@ class GraphEdgeResponse(BaseModel):
     model_config = {"from_attributes": True}
 
     @classmethod
-    def from_edge(cls, edge: "GraphEdge") -> "GraphEdgeResponse":  # type: ignore[name-defined]
+    def from_edge(cls, edge: GraphEdge) -> "GraphEdgeResponse":
         return cls(
             id=edge.id,
             source_id=edge.source_id,
@@ -75,8 +80,8 @@ class GraphResponse(BaseModel):
     @classmethod
     def from_graph(
         cls,
-        nodes: list,
-        edges: list,
+        nodes: list[GraphNode],
+        edges: list[GraphEdge],
     ) -> "GraphResponse":
         return cls(
             nodes=[GraphNodeResponse.from_node(n) for n in nodes],

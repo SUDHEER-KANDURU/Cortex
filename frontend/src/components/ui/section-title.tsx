@@ -78,10 +78,12 @@ export function SectionTitle({
   const [visible, setVisible] = useState(false)
   const ref = useRef<HTMLHeadingElement>(null)
 
-  const prefersReducedMotion =
+  // Read once at component creation — this never changes during a session
+  const prefersReducedMotion = useRef(
     typeof window !== "undefined"
       ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      : false
+      : false,
+  ).current
 
   useEffect(() => {
     const el = ref.current
@@ -107,10 +109,11 @@ export function SectionTitle({
     <Tag
       ref={ref as React.RefObject<HTMLHeadingElement>}
       className={className}
+      data-section-title
       style={{
-        fontFamily: "var(--font-display,'Syne',system-ui,sans-serif)",
-        color: "oklch(0.03 0 0)",
-        letterSpacing: "-0.045em",
+        fontFamily: "var(--font-sans, 'Geist', system-ui, sans-serif)",
+        color: "var(--text)",
+        letterSpacing: "-0.04em",
         lineHeight: 1.06,
         willChange: "opacity, transform, filter",
         overflow: "visible",

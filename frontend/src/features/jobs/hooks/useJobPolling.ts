@@ -74,6 +74,8 @@ export function useJobPolling(jobId: string | null): UseJobPollingReturn {
     void fetchJob();
 
     intervalRef.current = setInterval(() => {
+      // Skip poll if tab is hidden — resume automatically when visible again
+      if (document.visibilityState === 'hidden') return;
       void fetchJob();
     }, POLL_INTERVAL_MS);
 

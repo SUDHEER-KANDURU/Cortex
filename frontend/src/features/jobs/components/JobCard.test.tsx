@@ -54,13 +54,15 @@ describe('JobCard', () => {
   it('applies selected styles when isSelected is true', () => {
     render(<JobCard job={mockJob} isSelected={true} />);
     const button = screen.getByRole('button');
-    expect(button.className).toContain('violet');
+    // Selected state uses the brand primary (teal) accent border/bg
+    expect(button.className).toContain('rgba(0,229,168');
   });
 
   it('does not apply selected styles when isSelected is false', () => {
     render(<JobCard job={mockJob} isSelected={false} />);
     const button = screen.getByRole('button');
-    expect(button.className).not.toContain('violet-500/10');
+    // Unselected state uses neutral card/border tokens, not the primary accent
+    expect(button.className).not.toContain('rgba(0,229,168,0.35)');
   });
 
   it('sets aria-pressed to true when selected', () => {
