@@ -3,7 +3,7 @@ The router calls this. This calls the repository.
 Nothing here knows about HTTP or databases directly."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from cortex.jobs.domain.entities import Job, JobStatus, ArtifactType
 from cortex.jobs.domain.interfaces import (
     AbstractJobRepository,
@@ -13,6 +13,10 @@ from shared.exceptions import NotFoundError, ValidationError
 import structlog
 
 logger = structlog.get_logger()
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class JobService(AbstractJobService):
@@ -43,8 +47,8 @@ class JobService(AbstractJobService):
             artifact_type=artifact_type,
             options=options,
             status=JobStatus.PENDING,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=_now(),
+            updated_at=_now(),
         )
 
         saved = await self._repo.save(job)
@@ -55,10 +59,6 @@ class JobService(AbstractJobService):
             repo_url=repo_url,
             artifact_type=artifact_type.value,
         )
-
-        # Celery dispatch added in Week 9
-        # from worker.celery_app import celery_app
-        # celery_app.send_task("analyze_repo", args=[saved.id])
 
         return saved
 
@@ -116,8 +116,11 @@ class JobService(AbstractJobService):
         )
 
     async def mark_running(self, job_id: str) -> Job:
-        """Called by the Celery worker when it starts processing."""
+        """Called by the pipeline when it starts processing."""
         job = await self.get(job_id)
+
+        if job.status == JobStatus.RUNNING:
+            return job  # idempotent
 
         if job.status != JobStatus.PENDING:
             raise ValidationError(
@@ -134,8 +137,11 @@ class JobService(AbstractJobService):
         return updated
 
     async def mark_completed(self, job_id: str) -> Job:
-        """Called by the Celery worker when processing succeeds."""
+        """Called by the pipeline when processing succeeds."""
         job = await self.get(job_id)
+
+        if job.status == JobStatus.COMPLETED:
+            return job  # idempotent
 
         if job.status != JobStatus.RUNNING:
             raise ValidationError(
@@ -152,8 +158,14 @@ class JobService(AbstractJobService):
         return updated
 
     async def mark_failed(self, job_id: str, error: str) -> Job:
-        """Called by the Celery worker when processing fails."""
-        await self.get(job_id)
+        """Called by the pipeline when processing fails."""
+        job = await self.get(job_id)
+
+        # Fix 13 — don't overwrite terminal non-failed states
+        if job.status in {JobStatus.COMPLETED, JobStatus.CANCELLED}:
+            raise ValidationError(
+                f"Cannot mark job as failed — current status: '{job.status.value}'"
+            )
 
         updated = await self._repo.update_status(
             job_id=job_id,

@@ -1,11 +1,13 @@
-"""GitHub API client — fetches repository structure and file contents.
-This is the data ingestion layer for the Cortex pipeline."""
+"""GitHub API client — fetches repository structure and file contents."""
 
+import asyncio
 import base64
 from dataclasses import dataclass
 from typing import Any
+
 import httpx
 import structlog
+
 from cortex.config import get_settings
 from shared.exceptions import InfrastructureError
 
@@ -14,7 +16,6 @@ logger = structlog.get_logger()
 
 @dataclass
 class GitHubFile:
-    """A single file fetched from a GitHub repository."""
     path: str
     name: str
     content: str
@@ -23,7 +24,6 @@ class GitHubFile:
     encoding: str = "utf-8"
 
     def is_code_file(self) -> bool:
-        """Returns True if this is a source code file worth parsing."""
         code_extensions = {
             ".py", ".java", ".ts", ".tsx", ".js", ".jsx",
             ".go", ".rs", ".cpp", ".c", ".cs", ".rb",
@@ -32,7 +32,6 @@ class GitHubFile:
         return any(self.path.endswith(ext) for ext in code_extensions)
 
     def is_config_file(self) -> bool:
-        """Returns True if this is a config/build file."""
         config_files = {
             "package.json", "pyproject.toml", "pom.xml",
             "build.gradle", "Cargo.toml", "go.mod",
@@ -40,20 +39,18 @@ class GitHubFile:
         }
         config_extensions = {".yaml", ".yml", ".toml", ".json"}
         return (
-            self.name in config_files or
-            any(self.path.endswith(ext) for ext in config_extensions)
+            self.name in config_files
+            or any(self.path.endswith(ext) for ext in config_extensions)
         )
 
     def line_count(self) -> int:
-        """Returns the number of lines in this file."""
         return len(self.content.splitlines())
 
 
 @dataclass
 class GitHubTreeNode:
-    """A single node in the repository file tree."""
     path: str
-    type: str  # "blob" (file) or "tree" (directory)
+    type: str  # "blob" or "tree"
     sha: str
     size: int = 0
     url: str = ""
@@ -65,7 +62,6 @@ class GitHubTreeNode:
         return self.type == "tree"
 
     def extension(self) -> str:
-        """Returns the file extension including the dot."""
         if "." in self.path:
             return "." + self.path.rsplit(".", 1)[-1].lower()
         return ""
@@ -73,7 +69,6 @@ class GitHubTreeNode:
 
 @dataclass
 class RepoInfo:
-    """Basic metadata about a GitHub repository."""
     owner: str
     name: str
     full_name: str
@@ -93,14 +88,8 @@ class RepoInfo:
 class GitHubClient:
     """Fetches repository data from the GitHub REST API.
 
-    Handles authentication, rate limiting, base64 decoding,
-    and error normalization. All methods are async.
-
-    Usage:
-        client = GitHubClient()
-        owner, repo = client.parse_repo_url("https://github.com/user/repo")
-        tree = await client.get_file_tree(owner, repo)
-        file = await client.get_file_content(owner, repo, "src/main.py")
+    Fix 11 — uses a persistent httpx.AsyncClient for connection reuse
+    instead of opening a new client per request.
     """
 
     BASE_URL = "https://api.github.com"
@@ -108,21 +97,21 @@ class GitHubClient:
     def __init__(self) -> None:
         settings = get_settings()
         self._token = settings.github_token
-        self._headers = {
+        headers = {
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
         }
         if self._token:
-            self._headers["Authorization"] = f"Bearer {self._token}"
+            headers["Authorization"] = f"Bearer {self._token}"
+
+        # Fix 11 — persistent client, shared across all requests in this instance
+        self._client = httpx.AsyncClient(headers=headers, timeout=30.0)
+
+    async def close(self) -> None:
+        """Close the underlying HTTP connection pool."""
+        await self._client.aclose()
 
     def parse_repo_url(self, url: str) -> tuple[str, str]:
-        """Parse a GitHub URL into (owner, repo) tuple.
-
-        Handles:
-            https://github.com/owner/repo
-            https://github.com/owner/repo/
-            https://github.com/owner/repo.git
-        """
         url = url.rstrip("/").removesuffix(".git")
         parts = url.replace("https://github.com/", "").split("/")
         if len(parts) < 2:
@@ -132,12 +121,7 @@ class GitHubClient:
             )
         return parts[0], parts[1]
 
-    async def get_repo_info(
-        self,
-        owner: str,
-        repo: str,
-    ) -> RepoInfo:
-        """Fetch basic repository metadata."""
+    async def get_repo_info(self, owner: str, repo: str) -> RepoInfo:
         data = await self._get(f"/repos/{owner}/{repo}")
         return RepoInfo(
             owner=owner,
@@ -158,11 +142,6 @@ class GitHubClient:
         repo: str,
         branch: str = "HEAD",
     ) -> list[GitHubTreeNode]:
-        """Fetch the complete recursive file tree for a repository.
-
-        Returns all files and directories in one API call.
-        GitHub limits this to repositories under 7MB uncompressed.
-        """
         data = await self._get(
             f"/repos/{owner}/{repo}/git/trees/{branch}",
             params={"recursive": "1"},
@@ -203,23 +182,12 @@ class GitHubClient:
         repo: str,
         path: str,
     ) -> GitHubFile:
-        """Fetch and decode the content of a single file.
-
-        GitHub returns file content as base64 encoded text.
-        This method decodes it to a plain string automatically.
-        """
-        data = await self._get(
-            f"/repos/{owner}/{repo}/contents/{path}"
-        )
+        data = await self._get(f"/repos/{owner}/{repo}/contents/{path}")
 
         if data.get("type") != "file":
-            raise InfrastructureError(
-                f"Path is not a file: {path}"
-            )
+            raise InfrastructureError(f"Path is not a file: {path}")
 
-        # GitHub returns base64 with newlines — strip them first
-        raw_content = data.get("content", "")
-        raw_content = raw_content.replace("\n", "").replace(" ", "")
+        raw_content = data.get("content", "").replace("\n", "").replace(" ", "")
 
         try:
             decoded = base64.b64decode(raw_content).decode("utf-8")
@@ -242,20 +210,20 @@ class GitHubClient:
         repo: str,
         max_files: int = 50,
     ) -> list[GitHubFile]:
-        """Fetch the content of all code files in a repository.
+        """Fetch code files in parallel with a concurrency limit of 10.
 
-        Filters to only source code files (Python, Java, TypeScript etc.)
-        Limits to max_files to avoid hitting rate limits.
-        Files are sorted by size ascending — smaller files first.
+        Fix 10 — replaces sequential for-loop with asyncio.gather + semaphore.
         """
         tree = await self.get_file_tree(owner, repo)
 
-        # Filter to code files only, sorted by size
         code_nodes = sorted(
-            [n for n in tree if n.is_file() and n.extension() in {
-                ".py", ".java", ".ts", ".tsx", ".js", ".jsx",
-                ".go", ".rs", ".cpp", ".c", ".cs", ".rb",
-            }],
+            [
+                n for n in tree
+                if n.is_file() and n.extension() in {
+                    ".py", ".java", ".ts", ".tsx", ".js", ".jsx",
+                    ".go", ".rs", ".cpp", ".c", ".cs", ".rb",
+                }
+            ],
             key=lambda n: n.size,
         )[:max_files]
 
@@ -266,51 +234,46 @@ class GitHubClient:
             file_count=len(code_nodes),
         )
 
-        files = []
-        for node in code_nodes:
-            try:
-                file = await self.get_file_content(owner, repo, node.path)
-                files.append(file)
-                logger.info(
-                    "github_file_fetched",
-                    path=node.path,
-                    lines=file.line_count(),
-                )
-            except InfrastructureError as e:
-                # Skip files that can't be decoded — binary files etc.
-                logger.warning(
-                    "github_file_skipped",
-                    path=node.path,
-                    reason=str(e),
-                )
-                continue
+        semaphore = asyncio.Semaphore(10)
 
-        return files
+        async def fetch_one(node: GitHubTreeNode) -> GitHubFile | None:
+            async with semaphore:
+                try:
+                    file = await self.get_file_content(owner, repo, node.path)
+                    logger.info(
+                        "github_file_fetched",
+                        path=node.path,
+                        lines=file.line_count(),
+                    )
+                    return file
+                except InfrastructureError as e:
+                    logger.warning(
+                        "github_file_skipped",
+                        path=node.path,
+                        reason=str(e),
+                    )
+                    return None
+
+        results = await asyncio.gather(*[fetch_one(n) for n in code_nodes])
+        return [f for f in results if f is not None]
 
     async def _get(
         self,
         path: str,
         params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Make an authenticated GET request to the GitHub API."""
+        """Make an authenticated GET request to the GitHub API.
+
+        Fix 11 — uses persistent self._client instead of creating a new one.
+        """
         url = f"{self.BASE_URL}{path}"
 
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.get(
-                    url,
-                    headers=self._headers,
-                    params=params or {},
-                    timeout=30.0,
-                )
-            except httpx.TimeoutException:
-                raise InfrastructureError(
-                    f"GitHub API request timed out: {path}"
-                )
-            except httpx.NetworkError as e:
-                raise InfrastructureError(
-                    f"GitHub API network error: {e}"
-                )
+        try:
+            response = await self._client.get(url, params=params or {})
+        except httpx.TimeoutException:
+            raise InfrastructureError(f"GitHub API request timed out: {path}")
+        except httpx.NetworkError as e:
+            raise InfrastructureError(f"GitHub API network error: {e}")
 
         if response.status_code == 401:
             raise InfrastructureError(
@@ -329,8 +292,7 @@ class GitHubClient:
             )
         if response.status_code != 200:
             raise InfrastructureError(
-                f"GitHub API error {response.status_code}: "
-                f"{response.text[:200]}"
+                f"GitHub API error {response.status_code}: {response.text[:200]}"
             )
 
         return response.json()

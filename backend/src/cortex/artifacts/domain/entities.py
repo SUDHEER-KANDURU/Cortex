@@ -2,7 +2,7 @@
 Zero dependencies on frameworks, databases, or HTTP."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 import uuid
 
@@ -14,6 +14,10 @@ class ArtifactContentType(str, Enum):
     PLAIN = "text/plain"
 
 
+def _now() -> datetime:
+    return datetime.now(timezone.utc)  # Fix 1
+
+
 @dataclass
 class Artifact:
     job_id: str
@@ -22,12 +26,11 @@ class Artifact:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     content_inline: str | None = None
     storage_path: str | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=_now)
 
     def has_content(self) -> bool:
         """Returns True if artifact has any content."""
-        return self.content_inline is not None or \
-               self.storage_path is not None
+        return self.content_inline is not None or self.storage_path is not None
 
     def is_diagram(self) -> bool:
         """Returns True if this artifact is a Mermaid diagram."""

@@ -446,3 +446,66 @@ class MarkdownReportGenerator:
             )
 
         return "\n".join(lines)
+
+    def generate_database_schema(
+        self,
+        graph: GraphBuildResult,
+        repo_name: str,
+    ) -> str:
+        """Fix 6 — generate a database schema report from class/model nodes."""
+        classes = graph.nodes_by_type(NodeType.CLASS)
+        model_classes = [
+            c for c in classes
+            if any(
+                keyword in str(c.properties.get("file", "")).lower()
+                for keyword in ("model", "schema", "entity", "table", "orm")
+            )
+            or any(
+                keyword in c.label.lower()
+                for keyword in ("model", "entity", "schema", "record")
+            )
+        ]
+
+        lines = [
+            f"# Database Schema — {repo_name}",
+            "",
+            "Auto-generated from ORM model and entity files.",
+            "",
+        ]
+
+        if not model_classes:
+            # Fall back to all classes if no model-specific ones found
+            model_classes = classes[:20]
+            lines.append(
+                "> _No dedicated model files detected — showing all classes._\n"
+            )
+
+        lines += [
+            "## Tables / Entities",
+            "",
+        ]
+
+        for cls in model_classes:
+            file_path = str(cls.properties.get("file", "unknown"))
+            methods = cls.properties.get("methods", 0)
+            bases = cls.properties.get("base_classes", "")
+            base_str = f" extends `{bases}`" if bases else ""
+            lines += [
+                f"### `{cls.label}`{base_str}",
+                "",
+                f"- **File:** `{file_path}`",
+                f"- **Methods:** {methods}",
+                "",
+            ]
+
+        lines += [
+            "## Summary",
+            "",
+            f"| Metric | Count |",
+            f"|--------|-------|",
+            f"| Total entities | {len(model_classes)} |",
+            f"| Total graph nodes | {graph.node_count()} |",
+            f"| Total graph edges | {graph.edge_count()} |",
+        ]
+
+        return "\n".join(lines)

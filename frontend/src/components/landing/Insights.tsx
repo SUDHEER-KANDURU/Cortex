@@ -13,19 +13,19 @@ const insights = [
     visual: (
       <svg viewBox="0 0 200 90" style={{ width: "100%", height: "90px" }}>
         <rect x="80" y="5"  width="40" height="18" rx="5" fill="rgba(255,255,255,0.85)" opacity="0.9"/>
-        <text x="100" y="17" textAnchor="middle" fontSize="7" fill="#07090d" fontFamily="monospace" fontWeight="bold">Module</text>
+        <text x="100" y="17" textAnchor="middle" fontSize="7" fill="#060810" fontFamily="monospace" fontWeight="bold">Module</text>
         <line x1="100" y1="23" x2="50"  y2="38" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5"/>
         <line x1="100" y1="23" x2="150" y2="38" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5"/>
         <rect x="20"  y="38" width="60" height="18" rx="5" fill="rgba(255,255,255,0.60)" opacity="0.85"/>
-        <text x="50"  y="50" textAnchor="middle" fontSize="7" fill="#07090d" fontFamily="monospace" fontWeight="bold">ClassDef</text>
+        <text x="50"  y="50" textAnchor="middle" fontSize="7" fill="#060810" fontFamily="monospace" fontWeight="bold">ClassDef</text>
         <rect x="120" y="38" width="60" height="18" rx="5" fill="rgba(255,255,255,0.60)" opacity="0.85"/>
-        <text x="150" y="50" textAnchor="middle" fontSize="7" fill="#07090d" fontFamily="monospace" fontWeight="bold">FuncDef</text>
+        <text x="150" y="50" textAnchor="middle" fontSize="7" fill="#060810" fontFamily="monospace" fontWeight="bold">FuncDef</text>
         <line x1="50"  y1="56" x2="30" y2="70" stroke="rgba(255,255,255,0.18)" strokeWidth="1.2"/>
         <line x1="50"  y1="56" x2="70" y2="70" stroke="rgba(255,255,255,0.18)" strokeWidth="1.2"/>
         <rect x="10"  y="70" width="40" height="14" rx="4" fill="rgba(255,255,255,0.35)" opacity="0.75"/>
-        <text x="30"  y="80" textAnchor="middle" fontSize="6" fill="#07090d" fontFamily="monospace">Assign</text>
+        <text x="30"  y="80" textAnchor="middle" fontSize="6" fill="#060810" fontFamily="monospace">Assign</text>
         <rect x="55"  y="70" width="35" height="14" rx="4" fill="rgba(255,255,255,0.35)" opacity="0.75"/>
-        <text x="72"  y="80" textAnchor="middle" fontSize="6" fill="#07090d" fontFamily="monospace">Return</text>
+        <text x="72"  y="80" textAnchor="middle" fontSize="6" fill="#060810" fontFamily="monospace">Return</text>
       </svg>
     ),
   },
@@ -81,7 +81,7 @@ export function PortfolioInsights() {
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
         <div className="flex items-center justify-between mb-12 md:mb-16">
           <div data-reveal="up">
-            <p className="cx-eyebrow" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", fontFamily: "var(--font-mono,'Fira Code',monospace)", marginBottom: "10px" }}>Writing</p>
+            <p className="cx-eyebrow" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", marginBottom: "10px" }}>Writing</p>
             <SectionTitle className="text-3xl md:text-4xl lg:text-[52px] font-semibold tracking-tight">Insights</SectionTitle>
           </div>
           <Link href="https://github.com/SUDHEER-KANDURU/cortex" target="_blank" rel="noopener noreferrer"
@@ -101,7 +101,7 @@ export function PortfolioInsights() {
                 </div>
                 <div className="p-5">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="cx-pill" style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 10px", borderRadius: "100px", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
+                    <span className="cx-pill" style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 10px", borderRadius: "100px", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)" }}>
                       {item.tag}
                     </span>
                     <div className="cx-text-muted flex items-center gap-2 text-xs">
@@ -129,3 +129,4 @@ export function PortfolioInsights() {
     </section>
   )
 }
+

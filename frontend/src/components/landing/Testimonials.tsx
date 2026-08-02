@@ -55,7 +55,7 @@ function ArchitectureOutput({ active }: { active: boolean }) {
               style={{ transition: "fill 0.3s ease" }} />
             <text x={box.x + 42} y={box.y + 17} textAnchor="middle"
               fontSize="8.5" fontWeight="600" fill="#fff"
-              style={{ fontFamily: "var(--font-mono,'Geist Mono',monospace)" }}>
+              style={{ fontFamily: "var(--font-mono,'JetBrains Mono',monospace)" }}>
               {box.label}
             </text>
           </g>
@@ -109,7 +109,7 @@ function LearningPathOutput({ active }: { active: boolean }) {
             width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
             background: node.done ? "var(--primary)" : "rgba(255,255,255,0.06)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "8px", color: node.done ? "#07090d" : "var(--text-muted)",
+            fontSize: "8px", color: node.done ? "#060810" : "var(--text-muted)",
             fontFamily: "var(--font-mono)",
           }}>
             {node.done ? "✓" : (i + 1)}
@@ -275,7 +275,7 @@ function APISpecOutput({ active }: { active: boolean }) {
   }
 
   return (
-    <div style={{ padding: "14px 18px", fontFamily: "var(--font-mono,'Geist Mono',monospace)", fontSize: "10.5px", lineHeight: "1.9" }}>
+    <div style={{ padding: "14px 18px", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", fontSize: "10.5px", lineHeight: "1.9" }}>
       {spec.map((line, i) => (
         <div key={i} style={{
           color: lineColor(line.t),
@@ -386,7 +386,7 @@ function OutputCard({ output, index }: { output: OutputDef; index: number }) {
       </div>
       <div style={{ padding: "16px 18px" }}>
         <div className="cx-pill" style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "2px 10px", borderRadius: "100px", marginBottom: "8px" }}>
-          <span className="cx-text-mono" style={{ fontSize: "8px", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
+          <span className="cx-text-mono" style={{ fontSize: "8px", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)" }}>
             {output.label}
           </span>
         </div>
@@ -408,7 +408,7 @@ export function PortfolioTestimonials() {
       style={{ borderTop: "1px solid var(--cx-card-border)", background: "var(--cx-section-bg)", backdropFilter: "blur(20px) saturate(200%)", WebkitBackdropFilter: "blur(20px) saturate(200%)" }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
         <div className="mb-12 md:mb-16" data-reveal="up">
-          <p className="cx-eyebrow" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: "var(--font-mono,'Fira Code',monospace)", marginBottom: "10px" }}>Artifacts</p>
+          <p className="cx-eyebrow" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", marginBottom: "10px" }}>Artifacts</p>
           <SectionTitle className="text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight">What Cortex generates</SectionTitle>
           <p className="cx-text-muted mt-4 text-base max-w-xl" style={{ lineHeight: 1.7 }}>Every artifact is derived from your repository&apos;s knowledge graph — not templates, not guesswork.</p>
         </div>
@@ -419,3 +419,4 @@ export function PortfolioTestimonials() {
     </section>
   )
 }
+

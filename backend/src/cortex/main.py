@@ -1,6 +1,7 @@
 """Cortex FastAPI application factory."""
 
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from cortex.config import get_settings
@@ -14,21 +15,32 @@ from shared.logging import configure_logging
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create all database tables on startup if they don't exist."""
+    """Create all database tables on startup, then reset orphaned jobs."""
     from cortex.schema.models import Base
     from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy import update as sa_update
+    from cortex.schema.models import JobModel
+
     settings = get_settings()
 
     connect_args = {}
     if "sqlite" in settings.database_url:
         connect_args = {"check_same_thread": False}
 
-    engine = create_async_engine(
-        settings.database_url,
-        connect_args=connect_args,
-    )
+    engine = create_async_engine(settings.database_url, connect_args=connect_args)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Reset jobs stuck in running/pending from a previous process —
+        # their background tasks died and will never complete.
+        await conn.execute(
+            sa_update(JobModel)
+            .where(JobModel.status.in_(["running", "pending"]))
+            .values(
+                status="failed",
+                error_message="Server restarted — job was lost. Please resubmit.",
+                updated_at=datetime.now(timezone.utc),  # Fix 1
+            )
+        )
     await engine.dispose()
     yield
 
@@ -39,8 +51,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Cortex API",
-        description="Engineering Reasoning Engine — "
-        "Understand Code. Learn Engineering.",
+        description="Engineering Reasoning Engine — Understand Code. Learn Engineering.",
         version="0.1.0",
         docs_url="/api/docs",
         redoc_url="/api/redoc",

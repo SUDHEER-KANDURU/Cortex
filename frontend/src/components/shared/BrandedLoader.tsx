@@ -153,10 +153,12 @@ export function BrandedLoader({
         alignItems: 'center',
         gap: 20,
         padding: '36px 32px',
-        borderRadius: 'var(--radius-xl, 24px)',
-        background: 'var(--card, #151922)',
-        border: '1px solid var(--border, rgba(255,255,255,0.08))',
-        boxShadow: 'var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.6))',
+        borderRadius: 'var(--radius-xl, 26px)',
+        background: 'var(--glass-card, rgba(14,18,28,0.88))',
+        border: '1px solid var(--border, rgba(255,255,255,0.07))',
+        boxShadow: 'var(--shadow-xl), var(--edge-top), var(--edge-inner)',
+        backdropFilter: 'blur(32px) saturate(200%)',
+        WebkitBackdropFilter: 'blur(32px) saturate(200%)',
         minWidth: 260,
         maxWidth: 360,
       }}
@@ -170,16 +172,16 @@ export function BrandedLoader({
           fontFamily: 'var(--font-display, Syne, sans-serif)',
           fontSize: 15,
           fontWeight: 700,
-          letterSpacing: '-0.02em',
-          color: 'var(--text, #fff)',
+          letterSpacing: '-0.03em',
+          color: 'var(--text, #F0F4FF)',
         }}>
           Cortex
         </span>
         <span style={{
-          fontFamily: 'var(--font-mono, monospace)',
+          fontFamily: 'var(--font-mono, "JetBrains Mono", monospace)',
           fontSize: 11,
-          letterSpacing: '0.06em',
-          color: 'var(--text-muted, #7A8395)',
+          letterSpacing: '0.07em',
+          color: 'var(--text-muted, #6E7A90)',
           textTransform: 'uppercase',
         }}>
           {displayMessage}
@@ -246,7 +248,7 @@ export function FullScreenLoader({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'var(--bg, #07090d)',
+        background: 'var(--bg, #060810)',
         opacity,
         transition: 'opacity 300ms ease',
         willChange: 'opacity',
@@ -293,10 +295,10 @@ export function InlineLoader({
       <AnimatedCortexLogo size={size} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', alignItems: 'center' }}>
         <span style={{
-          fontFamily: 'var(--font-mono, monospace)',
+          fontFamily: 'var(--font-mono, "JetBrains Mono", monospace)',
           fontSize: 11,
-          letterSpacing: '0.06em',
-          color: 'var(--text-muted, #7A8395)',
+          letterSpacing: '0.07em',
+          color: 'var(--text-muted, #6E7A90)',
           textTransform: 'uppercase',
         }}>
           {displayMessage}
@@ -322,7 +324,7 @@ export function PageLoader() {
       aria-busy={true}
       style={{
         minHeight: '100vh',
-        background: 'var(--bg, #07090d)',
+        background: 'var(--bg, #060810)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

@@ -1,10 +1,9 @@
 'use client';
 
 // =============================================================================
-// Select — Premium liquid glass dropdown
-// Radix Select with full design system tokens
-// Rounded 18px · Backdrop blur · Shadow · Animated open/close
-// Keyboard accessible · WCAG AA contrast
+// Select — Premium Liquid Glass dropdown
+// Deep glass surface · 20px radius · Animated open/close · Keyboard accessible
+// Specular top edge · WCAG AA contrast in both themes
 // =============================================================================
 
 import * as React from 'react';
@@ -23,27 +22,17 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      // Layout
       'flex h-10 w-full items-center justify-between gap-2 px-3 py-2',
-      // Shape
       'rounded-[var(--radius-md)]',
-      // Colors
-      'bg-[rgba(255,255,255,0.05)] text-[var(--text)]',
+      'bg-[rgba(255,255,255,0.04)] text-[var(--text)]',
       'border border-[var(--border)]',
-      // Text
       'text-sm font-normal',
-      // Placeholder
       '[&>span[data-placeholder]]:text-[var(--text-muted)]',
-      // Focus
       'focus:outline-none focus:border-[var(--primary)]',
       'focus:shadow-[0_0_0_3px_var(--primary-dim)]',
-      // Hover
-      'hover:border-[var(--border-hover)] hover:bg-[rgba(255,255,255,0.07)]',
-      // Transition
+      'hover:border-[var(--border-hover)] hover:bg-[rgba(255,255,255,0.06)]',
       'transition-all duration-200 ease-out',
-      // Disabled
-      'disabled:cursor-not-allowed disabled:opacity-45',
-      // Line-clamp on content
+      'disabled:cursor-not-allowed disabled:opacity-40',
       '[&>span]:line-clamp-1 [&>span]:text-left',
       className
     )}
@@ -51,7 +40,10 @@ const SelectTrigger = React.forwardRef<
   >
     {children}
     <SelectPrimitive.Icon asChild>
-      <ChevronDown className="h-4 w-4 shrink-0 text-[var(--text-muted)] opacity-60 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+      <ChevronDown
+        className="h-4 w-4 shrink-0 text-[var(--text-muted)] opacity-60 transition-transform duration-200"
+        style={{ transition: 'transform 0.2s ease' }}
+      />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ));
@@ -63,11 +55,7 @@ const SelectScrollUpButton = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.ScrollUpButton
     ref={ref}
-    className={cn(
-      'flex cursor-default items-center justify-center py-1.5',
-      'text-[var(--text-muted)]',
-      className
-    )}
+    className={cn('flex cursor-default items-center justify-center py-1.5 text-[var(--text-muted)]', className)}
     {...props}
   >
     <ChevronUp className="h-4 w-4" />
@@ -81,11 +69,7 @@ const SelectScrollDownButton = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.ScrollDownButton
     ref={ref}
-    className={cn(
-      'flex cursor-default items-center justify-center py-1.5',
-      'text-[var(--text-muted)]',
-      className
-    )}
+    className={cn('flex cursor-default items-center justify-center py-1.5 text-[var(--text-muted)]', className)}
     {...props}
   >
     <ChevronDown className="h-4 w-4" />
@@ -101,28 +85,25 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        // Layout
         'relative z-50 min-w-[8rem] overflow-hidden',
-        // Shape — premium 18px radius
+        /* Shape */
         'rounded-[var(--radius-lg)]',
-        // Glass surface
-        'bg-[rgba(18,22,30,0.92)]',
+        /* Liquid glass surface — dark */
+        'bg-[rgba(11,15,24,0.96)]',
         'border border-[var(--border)]',
-        'backdrop-blur-[24px] saturate-150',
-        // Shadow — elevated dropdown
-        'shadow-[var(--shadow-xl),inset_0_1px_0_rgba(255,255,255,0.07)]',
-        // Text
+        'backdrop-blur-[36px] saturate-200',
+        /* Specular top edge highlight */
+        'shadow-[var(--shadow-xl),inset_0_1px_0_rgba(255,255,255,0.08),inset_0_0_0_1px_rgba(255,255,255,0.04)]',
         'text-[var(--text)]',
-        // Animations — open
+        /* Open animations */
         'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
-        // Animations — close
+        /* Close animations */
         'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
-        // Slide in from direction
+        /* Slide from direction */
         'data-[side=bottom]:slide-in-from-top-2',
         'data-[side=left]:slide-in-from-right-2',
         'data-[side=right]:slide-in-from-left-2',
         'data-[side=top]:slide-in-from-bottom-2',
-        // Popper offset
         position === 'popper' && [
           'data-[side=bottom]:translate-y-1',
           'data-[side=left]:-translate-x-1',
@@ -173,26 +154,19 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      // Layout
       'relative flex w-full cursor-pointer select-none items-center',
-      'rounded-[var(--radius-sm)] py-2 pl-9 pr-3',
-      // Text
-      'text-sm text-[var(--text-secondary)]',
+      'rounded-[var(--radius-sm)] py-2.5 pl-9 pr-3',
+      'text-sm font-medium text-[var(--text-secondary)]',
       'outline-none',
-      // Hover / focus
-      'focus:bg-[rgba(255,255,255,0.07)] focus:text-[var(--text)]',
-      'data-[highlighted]:bg-[rgba(255,255,255,0.07)] data-[highlighted]:text-[var(--text)]',
-      // Selected
+      'focus:bg-[rgba(255,255,255,0.08)] focus:text-[var(--text)]',
+      'data-[highlighted]:bg-[rgba(255,255,255,0.08)] data-[highlighted]:text-[var(--text)]',
       'data-[state=checked]:text-[var(--primary)]',
-      // Disabled
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-40',
-      // Transition
-      'transition-colors duration-150',
+      'transition-colors duration-120',
       className
     )}
     {...props}
   >
-    {/* Check indicator */}
     <span className="absolute left-3 flex h-3.5 w-3.5 items-center justify-center">
       <SelectPrimitive.ItemIndicator>
         <Check className="h-3.5 w-3.5 text-[var(--primary)]" />
@@ -216,14 +190,6 @@ const SelectSeparator = React.forwardRef<
 SelectSeparator.displayName = SelectPrimitive.Separator.displayName;
 
 export {
-  Select,
-  SelectGroup,
-  SelectValue,
-  SelectTrigger,
-  SelectContent,
-  SelectLabel,
-  SelectItem,
-  SelectSeparator,
-  SelectScrollUpButton,
-  SelectScrollDownButton,
+  Select, SelectGroup, SelectValue, SelectTrigger, SelectContent,
+  SelectLabel, SelectItem, SelectSeparator, SelectScrollUpButton, SelectScrollDownButton,
 };

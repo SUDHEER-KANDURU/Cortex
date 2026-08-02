@@ -18,9 +18,9 @@ import { InlineLoader } from '@/components/shared/BrandedLoader';
 import {
   Github, ChevronDown, Sparkles, Code2, LayoutDashboard,
   GitBranch, ExternalLink, Clock, AlertCircle, CheckCircle2,
-  Loader2, XCircle, ArrowLeft, Sun, Moon,
-  Cpu, Database, FileCode, Check,
+  Loader2, XCircle, ArrowLeft, Sun, Moon, Check,
 } from 'lucide-react';
+import AnimatedPipelineComponent from '@/components/pipeline/AnimatedPipeline';
 import * as Select from '@radix-ui/react-select';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
@@ -66,8 +66,6 @@ function tintBorder(d: boolean) { return d ? 'rgba(255,255,255,0.08)' : 'rgba(0,
 function hoverBg(d: boolean)    { return d ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'; }
 function selectedBg(d: boolean) { return d ? 'rgba(0,229,168,0.08)'   : 'rgba(0,179,122,0.10)'; }
 function rowHoverBg(d: boolean) { return d ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'; }
-function logBg(d: boolean)      { return d ? 'rgba(0,0,0,0.35)'       : 'rgba(0,0,0,0.04)'; }
-function logDimLine(d: boolean) { return d ? 'rgba(255,255,255,0.32)' : 'rgba(0,0,0,0.35)'; }
 
 // ── Dashboard background ──────────────────────────────────────────────────────
 function DashboardBackground({ isDark }: { isDark: boolean }) {
@@ -75,12 +73,12 @@ function DashboardBackground({ isDark }: { isDark: boolean }) {
     <div aria-hidden="true" style={{
       position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
       background: isDark
-        ? `radial-gradient(ellipse 70% 45% at 75% -5%, rgba(108,124,255,0.10) 0%, transparent 55%),
-           radial-gradient(ellipse 55% 40% at 5% 100%, rgba(0,229,168,0.06) 0%, transparent 50%),
-           var(--bg)`
-        : `radial-gradient(ellipse 70% 45% at 75% -5%, rgba(93,107,255,0.05) 0%, transparent 55%),
-           radial-gradient(ellipse 55% 40% at 5% 100%, rgba(0,179,122,0.04) 0%, transparent 50%),
-           var(--bg)`,
+        ? `radial-gradient(ellipse 65% 40% at 80% 0%, rgba(108,124,255,0.09) 0%, transparent 55%),
+           radial-gradient(ellipse 50% 35% at 0% 100%, rgba(0,229,168,0.06) 0%, transparent 50%),
+           var(--bg, #060810)`
+        : `radial-gradient(ellipse 65% 40% at 80% 0%, rgba(93,107,255,0.05) 0%, transparent 55%),
+           radial-gradient(ellipse 50% 35% at 0% 100%, rgba(0,158,107,0.04) 0%, transparent 50%),
+           var(--bg, #F4F6FB)`,
     }} />
   );
 }
@@ -98,13 +96,11 @@ function DashboardNavbar({ isDark, onToggleTheme }: NavbarProps) {
     }}>
       <nav aria-label="Dashboard navigation" style={{
         pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 4,
-        padding: '7px 10px', borderRadius: 24, width: '100%', maxWidth: 960,
-        background: 'var(--glass)',
-        backdropFilter: 'blur(40px) saturate(220%)', WebkitBackdropFilter: 'blur(40px) saturate(220%)',
+        padding: '7px 10px', borderRadius: 9999, width: '100%', maxWidth: 960,
+        background: 'var(--glass-nav, rgba(10,13,22,0.72))',
+        backdropFilter: 'blur(44px) saturate(220%)', WebkitBackdropFilter: 'blur(44px) saturate(220%)',
         border: `1px solid ${bdr}`,
-        boxShadow: isDark
-          ? 'var(--shadow-xl), inset 0 1px 0 rgba(255,255,255,0.07)'
-          : 'var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.80)',
+        boxShadow: 'var(--shadow-nav)',
         transition: 'background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
       }}>
         {/* Logo */}
@@ -211,10 +207,13 @@ function SidebarForm({ isDark, onJobSubmitted }: SidebarFormProps) {
         </Select.Trigger>
         <Select.Portal>
           <Select.Content position="popper" sideOffset={6} style={{
-            width: 'var(--radix-select-trigger-width)', background: 'var(--surface)',
-            border: `1px solid ${bdr}`, borderRadius: 14,
-            boxShadow: isDark ? 'var(--shadow-lg)' : '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',
-            backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+            width: 'var(--radix-select-trigger-width)',
+            background: isDark ? 'rgba(11,15,24,0.97)' : 'rgba(255,255,255,0.98)',
+            border: `1px solid ${bdr}`, borderRadius: 16,
+            boxShadow: isDark
+              ? 'var(--shadow-xl), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 0 1px rgba(255,255,255,0.04)'
+              : '0 16px 56px rgba(0,0,0,0.14), 0 4px 16px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.90)',
+            backdropFilter: 'blur(36px) saturate(200%)', WebkitBackdropFilter: 'blur(36px) saturate(200%)',
             padding: 4, zIndex: 9999, overflow: 'hidden',
             animation: 'dash-select-in 0.15s cubic-bezier(0.16,1,0.3,1)',
           }}>
@@ -248,8 +247,8 @@ function SidebarForm({ isDark, onJobSubmitted }: SidebarFormProps) {
         opacity: isSubmitting || !repoUrl.trim() ? 0.5 : 1,
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
         background: 'linear-gradient(135deg, var(--primary) 0%, #00c9a7 100%)',
-        color: '#07090d', border: 'none',
-        boxShadow: '0 4px 16px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.22)',
+        color: '#060810', border: 'none',
+        boxShadow: '0 4px 20px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.28)',
         transition: 'filter 0.2s ease, opacity 0.2s ease', fontFamily: 'var(--font-sans)',
       }}
         onMouseEnter={e => { if (!isSubmitting && repoUrl.trim()) e.currentTarget.style.filter = 'brightness(1.08)'; }}
@@ -315,9 +314,12 @@ function Sidebar({ isDark, jobs, jobsLoading, jobsError, selectedJobId, onJobSel
   const bdr = tintBorder(isDark);
   return (
     <aside aria-label="Repository sidebar" style={{
-      background: 'var(--glass)', backdropFilter: 'blur(24px) saturate(180%)', WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+      background: 'var(--glass-card, rgba(14,18,28,0.88))',
+      backdropFilter: 'blur(28px) saturate(200%)', WebkitBackdropFilter: 'blur(28px) saturate(200%)',
       border: `1px solid ${bdr}`,
-      boxShadow: isDark ? 'var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.06)' : 'var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.80)',
+      boxShadow: isDark
+        ? 'var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.07)'
+        : 'var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.85)',
       width: 300, minWidth: 300, maxWidth: 300,
       display: 'flex', flexDirection: 'column', borderRadius: 20, overflow: 'hidden', flexShrink: 0,
       transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
@@ -348,92 +350,22 @@ function Sidebar({ isDark, jobs, jobsLoading, jobsError, selectedJobId, onJobSel
   );
 }
 
-// ── Animated pipeline (running state) ────────────────────────────────────────
-const PIPELINE_STEPS = [
-  { icon: GitBranch, label: 'Clone Repo', key: 'clone'    },
-  { icon: Cpu,       label: 'Parse AST',  key: 'parse'    },
-  { icon: Database,  label: 'Build Graph',key: 'graph'    },
-  { icon: FileCode,  label: 'Generate',   key: 'generate' },
-];
-const LOG_LINES = ['Cloning repository…', 'Parsing AST nodes…', 'Writing graph nodes…', 'Generating artifact…'];
-
-function AnimatedPipeline({ jobId, isDark }: { jobId: string; isDark: boolean }) {
-  const [activeStep, setActiveStep] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
-  const startRef = useRef(Date.now());
-
-  useEffect(() => {
-    startRef.current = Date.now();
-    const st = setInterval(() => { if (document.visibilityState !== 'hidden') setActiveStep(s => (s + 1) % PIPELINE_STEPS.length); }, 3000);
-    const et = setInterval(() => { if (document.visibilityState !== 'hidden') setElapsed(Math.floor((Date.now() - startRef.current) / 1000)); }, 1000);
-    return () => { clearInterval(st); clearInterval(et); };
-  }, [jobId]);
-
-  const bdr = tintBorder(isDark);
+// ── Animated pipeline — delegates to the full Framer Motion component ─────────
+// The old inline implementation is replaced. All animation logic lives in
+// src/components/pipeline/AnimatedPipeline.tsx
+function AnimatedPipeline({ jobId, isDark, pipelineStatus, onCompletionEnd }: {
+  jobId: string;
+  isDark: boolean;
+  pipelineStatus?: 'idle' | 'running' | 'completed' | 'failed';
+  onCompletionEnd?: () => void;
+}) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 28, padding: '32px 24px', alignItems: 'center' }}>
-      {/* Status pill */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px', borderRadius: 100, background: 'var(--primary-dim)', border: '1px solid rgba(0,229,168,0.28)' }}>
-        <Loader2 style={{ width: 14, height: 14, color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
-        <span style={{ fontSize: 13, color: 'var(--primary)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-          Analyzing repository · {elapsed}s elapsed
-        </span>
-      </div>
-
-      {/* Steps */}
-      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', gap: 0 }}>
-        {PIPELINE_STEPS.map((step, i) => {
-          const Icon = step.icon;
-          const isDone = i < activeStep, isCurrent = i === activeStep;
-          return (
-            <React.Fragment key={step.key}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, transition: 'all 0.35s cubic-bezier(0.16,1,0.3,1)' }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: (isDone || isCurrent) ? 'var(--primary-dim)' : tint(isDark, 'xs'),
-                  border: `1px solid ${(isDone || isCurrent) ? 'rgba(0,229,168,0.35)' : bdr}`,
-                  boxShadow: isCurrent ? '0 0 16px var(--primary-glow)' : 'none',
-                  transform: isCurrent ? 'scale(1.12)' : 'scale(1)',
-                  transition: 'all 0.35s cubic-bezier(0.16,1,0.3,1)',
-                }}>
-                  {isDone
-                    ? <CheckCircle2 style={{ width: 18, height: 18, color: 'var(--primary)' }} />
-                    : <Icon style={{ width: 18, height: 18, color: isCurrent ? 'var(--primary)' : 'var(--text-muted)', animation: isCurrent ? 'pulse-dot 1.8s ease-in-out infinite' : 'none' }} />}
-                </div>
-                <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap', color: (isDone || isCurrent) ? 'var(--text)' : 'var(--text-muted)', fontFamily: 'var(--font-mono)', transition: 'color 0.3s ease' }}>
-                  {step.label}
-                </span>
-              </div>
-              {i < PIPELINE_STEPS.length - 1 && (
-                <div style={{ width: 40, height: 2, margin: '0 4px', marginBottom: 20, borderRadius: 1, background: i < activeStep ? 'linear-gradient(90deg, var(--primary), rgba(0,229,168,0.3))' : bdr, transition: 'background 0.5s ease' }} aria-hidden="true" />
-              )}
-            </React.Fragment>
-          );
-        })}
-      </div>
-
-      {/* Terminal log — fully theme-aware */}
-      <div style={{
-        width: '100%', maxWidth: 480,
-        background: logBg(isDark), border: `1px solid ${bdr}`,
-        borderRadius: 'var(--radius-md)', padding: '14px 18px',
-        fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: 2, color: 'var(--text-muted)',
-        transition: 'background 0.3s ease, border-color 0.3s ease',
-      }}>
-        {LOG_LINES.slice(0, activeStep + 1).map((line, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ color: i < activeStep ? 'var(--success)' : 'var(--primary)', fontSize: 10 }}>{i < activeStep ? '✓' : '›'}</span>
-            <span style={{ color: i < activeStep ? logDimLine(isDark) : 'var(--text-secondary)' }}>{line}</span>
-          </div>
-        ))}
-        <span style={{ display: 'inline-block', width: 7, height: 13, background: 'var(--primary)', verticalAlign: 'middle', animation: 'blink 1s step-end infinite', marginLeft: 4 }} aria-hidden="true" />
-      </div>
-
-      <p style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', margin: 0 }}>
-        This usually takes 30–60 seconds
-      </p>
-    </div>
+    <AnimatedPipelineComponent
+      jobId={jobId}
+      isDark={isDark}
+      pipelineStatus={pipelineStatus ?? 'running'}
+      onCompletionEnd={onCompletionEnd}
+    />
   );
 }
 
@@ -533,18 +465,12 @@ function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsE
 
         {/* Running */}
         {activeJob.status === 'running' && artifacts.length === 0 && (
-          <AnimatedPipeline jobId={activeJob.id} isDark={isDark} />
+          <AnimatedPipeline jobId={activeJob.id} isDark={isDark} pipelineStatus="running" />
         )}
 
-        {/* Failed */}
+        {/* Failed — show pipeline frozen at failure point */}
         {activeJob.status === 'failed' && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '48px 0', textAlign: 'center' }}>
-            <div style={{ width: 52, height: 52, borderRadius: 16, background: 'var(--danger-dim)', border: '1px solid rgba(239,83,80,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <XCircle style={{ width: 22, height: 22, color: 'var(--danger)' }} />
-            </div>
-            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--danger)', margin: 0 }}>Analysis failed</p>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Check backend logs for details</p>
-          </div>
+          <AnimatedPipeline jobId={activeJob.id} isDark={isDark} pipelineStatus="failed" />
         )}
 
         {/* Cancelled */}
@@ -649,24 +575,6 @@ export default function DashboardPage() {
 
   return (
     <>
-      <style>{`
-        @keyframes spin      { to { transform: rotate(360deg); } }
-        @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(.85)} }
-        @keyframes blink     { 0%,100%{opacity:1} 50%{opacity:0} }
-        @keyframes dash-select-in { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
-
-        .dash-scroll::-webkit-scrollbar       { width: 4px; }
-        .dash-scroll::-webkit-scrollbar-track { background: transparent; }
-        .dash-scroll::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.18); border-radius: 4px; }
-        .dash-scroll::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.30); }
-
-        /* pre/code in artifact viewer */
-        .dash-content pre { border-color: var(--border) !important; color: var(--text-secondary) !important; }
-        [data-theme="dark"]  .dash-content pre { background: rgba(0,0,0,0.38) !important; }
-        [data-theme="light"] .dash-content pre { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.09) !important; }
-        .react-flow__attribution { display: none; }
-      `}</style>
-
       <DashboardBackground isDark={isDark} />
 
       <div style={{ position: 'fixed', inset: 0, zIndex: 1, display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-sans)' }}>
@@ -682,9 +590,12 @@ export default function DashboardPage() {
 
           {/* Main glass panel */}
           <main className="dash-content" style={{
-            background: 'var(--glass)', backdropFilter: 'blur(24px) saturate(180%)', WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+            background: 'var(--glass-card, rgba(14,18,28,0.88))',
+            backdropFilter: 'blur(28px) saturate(200%)', WebkitBackdropFilter: 'blur(28px) saturate(200%)',
             border: `1px solid ${tintBorder(isDark)}`,
-            boxShadow: isDark ? 'var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.06)' : 'var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.80)',
+            boxShadow: isDark
+              ? 'var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.07)'
+              : 'var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.85)',
             flex: 1, borderRadius: 20, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0,
             transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
           }}>

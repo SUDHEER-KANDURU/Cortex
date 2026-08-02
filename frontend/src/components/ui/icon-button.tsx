@@ -46,7 +46,7 @@ const VARIANT_MAP = {
   ].join(' '),
   primary: [
     'bg-gradient-to-r from-[var(--primary)] to-[#00c9a7]',
-    'text-[#07090d]',
+    'text-[#060810]',
     'border border-transparent',
     'hover:brightness-110',
   ].join(' '),
@@ -101,3 +101,4 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
   }
 );
 IconButton.displayName = 'IconButton';
+

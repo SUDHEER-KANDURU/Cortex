@@ -84,20 +84,20 @@ export default React.memo(function StatusBadge({ status, className }: StatusBadg
       role="status"
       aria-label={`Status: ${cfg.label}`}
       className={cn(
-        // twClass kept for test assertions (slate / yellow / emerald / red)
         cfg.twClass,
         'inline-flex items-center gap-1.5 shrink-0',
-        'text-[10px] font-semibold uppercase tracking-[0.08em]',
+        'text-[10px] font-semibold uppercase tracking-[0.07em]',
         'px-2.5 py-0.5 rounded-full',
         cfg.textClass,
         className,
       )}
       style={{
-        background:              isDark ? cfg.darkBg     : cfg.lightBg,
-        border:                  `1px solid ${isDark ? cfg.darkBorder : cfg.lightBorder}`,
-        backdropFilter:          'blur(4px) saturate(160%)',
-        WebkitBackdropFilter:    'blur(4px) saturate(160%)',
-        transition:              'background 0.3s ease, border-color 0.3s ease',
+        background:           isDark ? cfg.darkBg     : cfg.lightBg,
+        border:               `1px solid ${isDark ? cfg.darkBorder : cfg.lightBorder}`,
+        backdropFilter:       'blur(6px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(6px) saturate(180%)',
+        fontFamily:           'var(--font-mono, "JetBrains Mono", monospace)',
+        transition:           'background 0.3s ease, border-color 0.3s ease',
       }}
       data-testid="status-badge"
       data-status={status}

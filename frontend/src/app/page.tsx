@@ -437,7 +437,7 @@ export default function HomePage() {
   return (
     <div
       className="portfolio-page"
-      style={{ fontFamily: "var(--font-sans,'DM Sans',system-ui,sans-serif)" }}
+      style={{ fontFamily: "var(--font-sans,'Inter',system-ui,sans-serif)" }}
     >
       {/* ── Cyber-Aurora liquid blob background ── */}
       <div className="liquid-bg-mesh" aria-hidden="true">
@@ -464,3 +464,4 @@ export default function HomePage() {
     </div>
   )
 }
+

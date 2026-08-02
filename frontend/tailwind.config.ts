@@ -15,8 +15,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans:    ['var(--font-sans)', 'DM Sans', 'system-ui', 'sans-serif'],
-        mono:    ['var(--font-mono)', 'Fira Code', 'ui-monospace', 'monospace'],
+        sans:    ['var(--font-sans)', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        mono:    ['var(--font-mono)', 'JetBrains Mono', 'ui-monospace', 'monospace'],
         display: ['var(--font-display)', 'Syne', 'system-ui', 'sans-serif'],
       },
       colors: {

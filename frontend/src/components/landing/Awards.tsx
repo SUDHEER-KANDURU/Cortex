@@ -19,7 +19,7 @@ export function PortfolioAwards() {
       style={{ borderTop: "1px solid var(--cx-card-border)", background: "var(--cx-section-bg)", backdropFilter: "blur(20px) saturate(200%)", WebkitBackdropFilter: "blur(20px) saturate(200%)" }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
         <div className="mb-12 md:mb-16" data-reveal="up">
-          <p className="cx-eyebrow" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", fontFamily: "var(--font-mono,'Fira Code',monospace)", marginBottom: "10px" }}>Architecture</p>
+          <p className="cx-eyebrow" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", marginBottom: "10px" }}>Architecture</p>
           <SectionTitle className="text-3xl md:text-4xl lg:text-[52px] font-semibold tracking-tight">Tech &amp; Architecture</SectionTitle>
         </div>
         <div className="flex flex-col gap-3" data-stagger>
@@ -33,7 +33,7 @@ export function PortfolioAwards() {
               <div className="flex items-center gap-5 flex-1 min-w-0">
                 <div className="cx-stat-card group-hover:!bg-black group-hover:!border-black flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110"
                   style={{ backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}>
-                  <span className="cx-text-muted group-hover:!text-white" style={{ fontSize: "9px", fontWeight: 700, fontFamily: "var(--font-mono,'Fira Code',monospace)", letterSpacing: "0.04em" }}>
+                  <span className="cx-text-muted group-hover:!text-white" style={{ fontSize: "9px", fontWeight: 700, fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", letterSpacing: "0.04em" }}>
                     {item.year}
                   </span>
                 </div>

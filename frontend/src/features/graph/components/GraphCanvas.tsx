@@ -38,7 +38,7 @@ function themeTokens() {
   return {
     dark,
     // Canvas background
-    canvasBg:       dark ? '#07090d' : '#f6f8fc',
+    canvasBg:       dark ? '#060810' : '#f6f8fc',
     // Dot / grid color
     dotColor:       dark ? '#1e2533' : '#d1d5db',
     // Edge line color
@@ -257,3 +257,4 @@ export default function GraphCanvas({ nodes: rawNodes, edges: rawEdges }: GraphC
     </div>
   );
 }
+

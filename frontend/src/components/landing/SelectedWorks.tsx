@@ -99,7 +99,7 @@ function ArchitectureDemoVisual({ onStart }: { onStart?: (startFn: () => void) =
             <text x={box.x + 40} y={box.y + 17} textAnchor="middle"
               fontSize="9" fontWeight="600"
               fill={step > i ? "#fff" : "rgba(255,255,255,0.2)"}
-              style={{ fontFamily: "var(--font-mono,'Geist Mono',monospace)", transition: "fill 0.35s ease" }}>
+              style={{ fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", transition: "fill 0.35s ease" }}>
               {box.label}
             </text>
           </g>
@@ -136,8 +136,8 @@ function LearningPathVisual() {
             <rect x={n.x - 38} y={yPos[i]} width={76} height={20} rx={10} fill={fills[i]} />
             <text x={n.x} y={yPos[i] + 13} textAnchor="middle"
               fontSize="7" fontWeight="600"
-              fill={n.done ? "#07090d" : "rgba(255,255,255,0.3)"}
-              style={{ fontFamily: "var(--font-mono,'Geist Mono',monospace)" }}>
+              fill={n.done ? "#060810" : "rgba(255,255,255,0.3)"}
+              style={{ fontFamily: "var(--font-mono,'JetBrains Mono',monospace)" }}>
               {n.label}
             </text>
           </g>
@@ -178,7 +178,7 @@ function InterviewPrepVisual({ onStart }: { onStart?: (startFn: () => void) => v
           <div key={i} style={{
             padding: "8px 12px", marginBottom: "6px", borderRadius: "10px",
             fontSize: "10px", fontWeight: 500,
-            fontFamily: "var(--font-mono,'Geist Mono',monospace)",
+            fontFamily: "var(--font-mono,'JetBrains Mono',monospace)",
             border: `1px solid ${i === idx ? "var(--border-hover)" : "var(--border)"}`,
             background: i === idx ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.02)",
             color: i === idx ? "var(--text)" : "var(--text-muted)",
@@ -193,7 +193,7 @@ function InterviewPrepVisual({ onStart }: { onStart?: (startFn: () => void) => v
         ))}
         <div style={{
           marginTop: "8px", padding: "8px 12px", borderRadius: "10px",
-          fontSize: "9px", fontFamily: "var(--font-mono,'Geist Mono',monospace)",
+          fontSize: "9px", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)",
           background: "rgba(0,229,168,0.06)", border: "1px solid rgba(0,229,168,0.18)",
           color: "var(--primary)",
           opacity: revealed ? 1 : 0,
@@ -233,7 +233,7 @@ function VibeCodeVisual({ onStart }: { onStart?: (startFn: () => void) => void }
 
   return (
     <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", background: "var(--cx-visual-bg)", backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)" }}>
-      <div style={{ width: "100%", maxWidth: 300, fontFamily: "var(--font-mono,'Geist Mono',monospace)" }}>
+      <div style={{ width: "100%", maxWidth: 300, fontFamily: "var(--font-mono,'JetBrains Mono',monospace)" }}>
         <div style={{ marginBottom: "8px", fontSize: "9px", color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase",
           opacity: revealed ? 1 : 0, transition: "opacity 0.4s ease" }}>
           repository.py — 3 issues found
@@ -329,7 +329,7 @@ function WorkCard({ work, index }: { work: Work; index: number }) {
               fontSize: "9px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
               backdropFilter: "blur(12px) saturate(180%)",
               WebkitBackdropFilter: "blur(12px) saturate(180%)",
-              fontFamily: "var(--font-mono,'Fira Code',monospace)",
+              fontFamily: "var(--font-mono,'JetBrains Mono',monospace)",
             }}>
               {work.category}
             </div>
@@ -389,7 +389,7 @@ export function PortfolioSelectedWorks() {
             <p className="cx-eyebrow" style={{
               fontSize: "10px", fontWeight: 700, letterSpacing: "0.16em",
               textTransform: "uppercase",
-              fontFamily: "var(--font-mono,'Fira Code',monospace)", marginBottom: "8px",
+              fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", marginBottom: "8px",
             }}>
               Outputs
             </p>
@@ -416,4 +416,5 @@ export function PortfolioSelectedWorks() {
     </section>
   )
 }
+
 

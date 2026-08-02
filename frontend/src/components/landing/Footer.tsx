@@ -101,7 +101,7 @@ export function PortfolioFooter() {
               className="cta-shimmer inline-flex items-center justify-center w-full px-4 py-3 text-sm font-semibold rounded-xl transition-all duration-300"
               style={{
                 background: "linear-gradient(135deg, var(--primary) 0%, #00c9a7 100%)",
-                color: "#07090d",
+                color: "#060810",
                 boxShadow: "0 4px 16px var(--primary-glow)",
                 textDecoration: "none",
               }}
@@ -128,3 +128,4 @@ export function PortfolioFooter() {
     </footer>
   )
 }
+

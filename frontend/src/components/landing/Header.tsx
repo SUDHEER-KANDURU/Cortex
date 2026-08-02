@@ -134,31 +134,30 @@ export function PortfolioHeader() {
   }, [activeSection, updatePill])
 
   // ── Theme-aware pill & icon colors ────────────────────────────────────────
-  // These mirror the CSS variables in index_new.html exactly.
   const glass = isDark
     ? {
-        bg:        "rgba(18,18,26,0.55)",
-        border:    "rgba(255,255,255,0.08)",
-        shadow:    "0 30px 60px -15px rgba(0,0,0,0.7), inset 0 1px 2px rgba(255,255,255,0.15), inset 0 -1px 3px rgba(0,255,135,0.08), 0 0 0 1px rgba(255,255,255,0.08)",
-        reflection: "linear-gradient(180deg,rgba(255,255,255,0.12) 0%,rgba(255,255,255,0) 100%)",
-        glare:     "rgba(96,239,255,0.25)",
-        pill:      "linear-gradient(135deg,rgba(255,255,255,0.10) 0%,rgba(255,255,255,0.03) 100%)",
-        pillShadow:"0 8px 32px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.2), 0 0 15px rgba(0,255,135,0.15)",
-        iconColor: "#8f9ba8",
-        iconActive:"#00ff87",
-        divider:   "rgba(255,255,255,0.10)",
+        bg:         "rgba(10, 13, 22, 0.72)",
+        border:     "rgba(255,255,255,0.08)",
+        shadow:     "0 2px 40px rgba(0,0,0,0.55), 0 1px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.09), inset 0 0 0 1px rgba(255,255,255,0.04)",
+        reflection: "linear-gradient(180deg,rgba(255,255,255,0.10) 0%,rgba(255,255,255,0) 100%)",
+        glare:      "rgba(96,239,255,0.20)",
+        pill:       "rgba(255,255,255,0.09)",
+        pillShadow: "0 2px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.15)",
+        iconColor:  "#8f9ba8",
+        iconActive: "var(--primary, #00E5A8)",
+        divider:    "rgba(255,255,255,0.09)",
       }
     : {
-        bg:        "rgba(255,255,255,0.25)",
-        border:    "rgba(255,255,255,0.60)",
-        shadow:    "0 30px 60px -15px rgba(0,120,255,0.12), inset 0 1px 2px rgba(255,255,255,0.9), inset 0 -1px 3px rgba(0,242,254,0.2), 0 0 0 1px rgba(255,255,255,0.60)",
-        reflection: "linear-gradient(180deg,rgba(255,255,255,0.7) 0%,rgba(255,255,255,0) 100%)",
-        glare:     "rgba(0,242,254,0.4)",
-        pill:      "linear-gradient(135deg,#ffffff 0%,#e2eafc 100%)",
-        pillShadow:"0 8px 20px rgba(0,100,255,0.15), inset 0 1px 2px rgba(255,255,255,0.9)",
-        iconColor: "#4a5568",
-        iconActive:"#0066ff",
-        divider:   "rgba(0,0,0,0.10)",
+        bg:         "rgba(250, 252, 255, 0.78)",
+        border:     "rgba(255,255,255,0.65)",
+        shadow:     "0 2px 32px rgba(0,0,0,0.10), 0 1px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.90), inset 0 0 0 1px rgba(255,255,255,0.55)",
+        reflection: "linear-gradient(180deg,rgba(255,255,255,0.75) 0%,rgba(255,255,255,0) 100%)",
+        glare:      "rgba(0,242,254,0.35)",
+        pill:       "#ffffff",
+        pillShadow: "0 2px 14px rgba(0,80,200,0.12), inset 0 1px 0 rgba(255,255,255,0.95)",
+        iconColor:  "#4a5568",
+        iconActive: "var(--primary, #009E6B)",
+        divider:    "rgba(0,0,0,0.09)",
       }
 
   if (!mounted) return null
@@ -242,15 +241,16 @@ export function PortfolioHeader() {
           >
             <span style={{
               width: 26, height: 26, borderRadius: "8px",
-              background: isDark ? "rgba(255,255,255,0.1)" : "#0a0a0a",
+              background: isDark ? "rgba(0,229,168,0.12)" : "#0a0a0a",
               display: "inline-flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0,
+              border: isDark ? "1px solid rgba(0,229,168,0.22)" : "none",
               boxShadow: isDark
-                ? "inset 0 1px 0 rgba(255,255,255,0.15)"
+                ? "0 0 10px rgba(0,229,168,0.12), inset 0 1px 0 rgba(255,255,255,0.12)"
                 : "0 1px 4px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12)",
               transition: "background 0.4s ease",
             }}>
-              <LayoutDashboard style={{ width: 12, height: 12, color: isDark ? "#00ff87" : "#fff" }} />
+              <LayoutDashboard style={{ width: 12, height: 12, color: isDark ? "var(--primary, #00E5A8)" : "#fff" }} />
             </span>
             <span style={{
               fontFamily: "var(--font-display,'Syne',sans-serif)",
@@ -282,6 +282,8 @@ export function PortfolioHeader() {
                 transition: "transform 0.45s cubic-bezier(0.16,1,0.3,1), width 0.45s cubic-bezier(0.16,1,0.3,1)",
                 zIndex: 1,
                 pointerEvents: "none",
+                backdropFilter: "blur(8px)",
+                WebkitBackdropFilter: "blur(8px)",
               }}
             />
 
@@ -305,7 +307,7 @@ export function PortfolioHeader() {
                     color: isActive ? glass.iconActive : glass.iconColor,
                     textDecoration: "none",
                     whiteSpace: "nowrap",
-                    fontFamily: "var(--font-sans,'DM Sans',sans-serif)",
+                    fontFamily: "var(--font-sans,'Inter',system-ui,sans-serif)",
                     transition: "color 0.3s ease",
                     background: "transparent",
                     border: "none",
@@ -408,22 +410,22 @@ export function PortfolioHeader() {
               padding: "8px 18px",
               borderRadius: "16px",
               background: isDark
-                ? "linear-gradient(135deg,rgba(0,255,135,0.18) 0%,rgba(96,239,255,0.14) 100%)"
+                ? "linear-gradient(135deg, var(--primary, #00E5A8) 0%, #00c9a7 100%)"
                 : "#0a0a0a",
-              color: isDark ? "#00ff87" : "#fff",
+              color: isDark ? "#060810" : "#fff",
               fontSize: "13px",
               fontWeight: 600,
               textDecoration: "none",
               letterSpacing: "-0.01em",
-              border: isDark ? "1px solid rgba(0,255,135,0.25)" : "none",
+              border: "none",
               boxShadow: isDark
-                ? "0 0 20px rgba(0,255,135,0.15), inset 0 1px 0 rgba(255,255,255,0.12)"
+                ? "0 4px 16px rgba(0,229,168,0.25), inset 0 1px 0 rgba(255,255,255,0.22)"
                 : "0 1px 6px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.10)",
               whiteSpace: "nowrap",
-              fontFamily: "var(--font-sans,'DM Sans',sans-serif)",
+              fontFamily: "var(--font-sans,'Inter',sans-serif)",
               zIndex: 3,
               position: "relative",
-              transition: "all 0.3s ease",
+              transition: "all 0.25s ease",
             }}
             onMouseEnter={e => {
               e.currentTarget.style.filter = "brightness(1.15)"
@@ -463,9 +465,9 @@ export function PortfolioHeader() {
       </header>
 
       {/* ── CSS for glare hover ──────────────────────────────────────────── */}
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         nav:hover .liquid-glare { opacity: 1 !important; }
-      `}</style>
+      ` }} />
 
       {/* ── Mobile overlay ─────────────────────────────────────────────── */}
       {isMobileMenuOpen && (
@@ -513,13 +515,13 @@ export function PortfolioHeader() {
                     padding: "13px 16px", borderRadius: "14px",
                     fontSize: "16px", fontWeight: isActive ? 600 : 400,
                     color: isActive
-                      ? (isDark ? "#00ff87" : "#fff")
-                      : (isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.55)"),
+                      ? (isDark ? "var(--primary, #00E5A8)" : "#fff")
+                      : (isDark ? "rgba(240,244,255,0.50)" : "rgba(0,0,0,0.55)"),
                     background: isActive
-                      ? (isDark ? "rgba(0,255,135,0.12)" : "#0a0a0a")
+                      ? (isDark ? "rgba(0,229,168,0.10)" : "#0a0a0a")
                       : (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"),
-                    border: `1px solid ${isActive ? glass.iconActive + "30" : glass.border}`,
-                    fontFamily: "var(--font-sans,'DM Sans',sans-serif)",
+                    border: `1px solid ${isActive ? "rgba(0,229,168,0.25)" : glass.border}`,
+                    fontFamily: "var(--font-sans,'Inter',sans-serif)",
                     textDecoration: "none",
                     transition: "all 0.2s ease",
                   }}
@@ -541,14 +543,14 @@ export function PortfolioHeader() {
                 fontSize: "15px", fontWeight: 600,
                 borderRadius: "14px",
                 background: isDark
-                  ? "linear-gradient(135deg,rgba(0,255,135,0.2) 0%,rgba(96,239,255,0.15) 100%)"
+                  ? "linear-gradient(135deg, var(--primary, #00E5A8) 0%, #00c9a7 100%)"
                   : "#0a0a0a",
-                color: isDark ? "#00ff87" : "#fff",
+                color: isDark ? "#060810" : "#fff",
                 textDecoration: "none",
-                border: isDark ? "1px solid rgba(0,255,135,0.3)" : "none",
-                boxShadow: isDark ? "0 0 24px rgba(0,255,135,0.2)" : "0 4px 16px rgba(0,0,0,0.16)",
+                border: "none",
+                boxShadow: isDark ? "0 4px 20px rgba(0,229,168,0.25)" : "0 4px 16px rgba(0,0,0,0.16)",
                 letterSpacing: "-0.01em",
-                fontFamily: "var(--font-sans,'DM Sans',sans-serif)",
+                fontFamily: "var(--font-sans,'Inter',sans-serif)",
               }}
             >
               Launch App

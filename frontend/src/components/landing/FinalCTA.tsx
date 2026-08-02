@@ -19,7 +19,7 @@ export function PortfolioFinalCTA() {
           <div className="cx-pill inline-flex items-center gap-2 mb-6 px-4 py-2 rounded-full"
             style={{ backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)" }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--cx-text)", display: "inline-block", animation: "pulse-dot 2s ease-in-out infinite" }} />
-            <span className="cx-text-mono" style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "var(--font-mono,'Fira Code',monospace)" }}>
+            <span className="cx-text-mono" style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)" }}>
               Free &amp; Offline
             </span>
           </div>
@@ -38,7 +38,7 @@ export function PortfolioFinalCTA() {
           <div className="flex flex-wrap items-center justify-center gap-2 mt-10">
             {["Scan Repo", "Parse AST", "Build Graph", "Generate Artifacts"].map((step, i) => (
               <div key={step} className="flex items-center gap-2">
-                <span className="cx-pill cx-text-mono" style={{ padding: "6px 16px", borderRadius: "100px", fontSize: "11px", fontWeight: 600, backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)", letterSpacing: "0.04em", fontFamily: "var(--font-mono,'Fira Code',monospace)", transition: "all 0.25s ease" }}
+                <span className="cx-pill cx-text-mono" style={{ padding: "6px 16px", borderRadius: "100px", fontSize: "11px", fontWeight: 600, backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)", letterSpacing: "0.04em", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", transition: "all 0.25s ease" }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)" }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "none" }}>
                   {step}
@@ -54,7 +54,7 @@ export function PortfolioFinalCTA() {
               className="group inline-flex items-center justify-center gap-2 px-9 py-4 text-base font-semibold rounded-full"
               style={{
                 background: "linear-gradient(135deg, var(--primary) 0%, #00c9a7 100%)",
-                color: "#07090d",
+                color: "#060810",
                 boxShadow: "0 8px 32px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.22)",
                 transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s ease, filter 0.2s ease",
               }}
@@ -74,7 +74,7 @@ export function PortfolioFinalCTA() {
             </Link>
           </div>
 
-          <p className="cx-text-faint mt-8 text-xs" style={{ fontFamily: "var(--font-mono,'Fira Code',monospace)", letterSpacing: "0.06em" }}>
+          <p className="cx-text-faint mt-8 text-xs" style={{ fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", letterSpacing: "0.06em" }}>
             MIT License · Built at SRMIST Chennai · Zero cloud dependencies
           </p>
         </div>
@@ -82,3 +82,4 @@ export function PortfolioFinalCTA() {
     </section>
   )
 }
+

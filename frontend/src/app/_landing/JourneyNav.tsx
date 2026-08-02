@@ -58,12 +58,12 @@ export default function JourneyNav() {
         animation: 'journeyNavIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both',
       }}
     >
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes journeyNavIn {
           from { transform: translateY(-100%); opacity: 0; }
           to   { transform: translateY(0);     opacity: 1; }
         }
-      `}</style>
+      ` }} />
 
       <div className="flex items-center gap-4">
         <div className="w-6 h-6 rounded bg-carnallite-violet flex items-center justify-center">

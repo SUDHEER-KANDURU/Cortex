@@ -1,10 +1,11 @@
 """Jobs API router — uses JobService via FastAPI dependency injection."""
-import asyncio
-from cortex.artifacts.application.use_cases import ArtifactService
-from cortex.artifacts.domain.entities import ArtifactContentType
+import structlog
 
-from fastapi import APIRouter, HTTPException, Query, Depends
-from cortex.jobs.domain.entities import JobStatus, ArtifactType
+from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks
+from cortex.artifacts.domain.entities import ArtifactContentType
+from cortex.artifacts.application.use_cases import ArtifactService
+from cortex.artifacts.infrastructure.dependencies import artifact_repository
+from cortex.jobs.domain.entities import Job, JobStatus, ArtifactType
 from cortex.jobs.application.use_cases import JobService
 from cortex.jobs.infrastructure.pg_repository import PostgresJobRepository
 from cortex.config import get_settings
@@ -16,23 +17,69 @@ from cortex.jobs.presentation.models import (
 )
 from shared.exceptions import NotFoundError, ValidationError
 
+logger = structlog.get_logger()
+
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
-# Single shared repository instance for the lifetime of the process
+# Single shared instances for the lifetime of the process
 _repository = PostgresJobRepository(get_settings().database_url)
+_artifact_service = ArtifactService(artifact_repository)
 
 
 def get_job_service() -> JobService:
-    """FastAPI dependency — returns JobService with the shared repository.
-    When we switch to PostgreSQL, only _repository changes here.
-    The router, service, and all tests stay exactly the same."""
+    """FastAPI dependency — returns JobService with the shared repository."""
     return JobService(_repository)
 
-def _get_artifact_service() -> ArtifactService:
-    from cortex.artifacts.presentation.router import (
-        get_shared_artifact_repository,
-    )
-    return ArtifactService(get_shared_artifact_repository())
+
+async def _run_pipeline_for_job(job: Job, service: JobService) -> None:
+    """Run the full analysis pipeline for a job.
+
+    Called via FastAPI BackgroundTasks so it runs after the response is
+    sent, within the same process lifetime as the HTTP request.
+    """
+    try:
+        from cortex.pipeline.application.orchestrator import build_default_pipeline
+
+        await service.mark_running(job.id)
+        pipeline = build_default_pipeline()
+        context = await pipeline.run(job)
+
+        if context.has_error():
+            logger.error(
+                "pipeline_context_error",
+                job_id=job.id,
+                error=context.error,
+            )
+
+        content = (
+            context.artifact_content
+            or "# No content generated\n\nThe pipeline completed but produced no output."
+        )
+        content_type = context.artifact_content_type or ArtifactContentType.MARKDOWN
+
+        await _artifact_service.create(
+            job_id=job.id,
+            artifact_type=job.artifact_type.value,
+            content_type=content_type,
+            content_inline=content,
+        )
+
+        await service.mark_completed(job.id)
+
+        logger.info(
+            "pipeline_completed",
+            job_id=job.id,
+            content_length=len(content),
+        )
+
+    except Exception as e:
+        import traceback
+        logger.error("pipeline_failed", job_id=job.id, error=str(e))
+        traceback.print_exc()
+        try:
+            await service.mark_failed(job.id, str(e))
+        except Exception:
+            pass
 
 
 @router.post(
@@ -45,6 +92,7 @@ def _get_artifact_service() -> ArtifactService:
 )
 async def create_job(
     request: JobCreateRequest,
+    background_tasks: BackgroundTasks,
     service: JobService = Depends(get_job_service),
 ) -> JobResponse:
     try:
@@ -56,36 +104,9 @@ async def create_job(
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
-    async def run_pipeline() -> None:
-        try:
-            from cortex.pipeline.application.orchestrator import (
-                build_default_pipeline,
-            )
-            await service.mark_running(job.id)
-            pipeline = build_default_pipeline()
-            context = await pipeline.run(job)
-
-            if context.artifact_content:
-                content_type = (
-                    context.artifact_content_type
-                    or ArtifactContentType.MARKDOWN
-                )
-                await _get_artifact_service().create(
-                    job_id=job.id,
-                    artifact_type=job.artifact_type.value,
-                    content_type=content_type,
-                    content_inline=context.artifact_content,
-                )
-
-            await service.mark_completed(job.id)
-
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            await service.mark_failed(job.id, str(e))
-
-    asyncio.create_task(run_pipeline())
+    background_tasks.add_task(_run_pipeline_for_job, job, service)
     return JobResponse.from_job(job)
+
 
 @router.get(
     "",
@@ -160,31 +181,32 @@ async def cancel_job(
     status_code=201,
     summary="Retry a failed job",
     description=(
-        "Creates a new job with the same parameters as a failed job. "
+        "Creates a new job with the same parameters as a failed job "
+        "and immediately starts the pipeline. "
         "Returns 409 if the original job is not in failed state."
     ),
 )
 async def retry_job(
     job_id: str,
+    background_tasks: BackgroundTasks,
     service: JobService = Depends(get_job_service),
 ) -> JobResponse:
     try:
         job = await service.retry(job_id)
-        return JobResponse.from_job(job)
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Job not found")
     except ValidationError as e:
         raise HTTPException(status_code=409, detail=str(e))
+
+    background_tasks.add_task(_run_pipeline_for_job, job, service)
+    return JobResponse.from_job(job)
 
 
 @router.post(
     "/{job_id}/complete",
     response_model=JobResponse,
     summary="Mark a job as completed",
-    description=(
-        "Called internally by the Celery worker when processing succeeds. "
-        "Not intended for direct client use."
-    ),
+    description="Called internally when processing succeeds.",
 )
 async def complete_job(
     job_id: str,
@@ -203,10 +225,7 @@ async def complete_job(
     "/{job_id}/fail",
     response_model=JobResponse,
     summary="Mark a job as failed",
-    description=(
-        "Called internally by the Celery worker when processing fails. "
-        "Requires an error message explaining the failure."
-    ),
+    description="Called internally when processing fails.",
 )
 async def fail_job(
     job_id: str,
@@ -238,7 +257,7 @@ async def get_jobs_by_repo(
     "/stats/summary",
     response_model=dict,
     summary="Job counts by status",
-    description="Returns total job counts grouped by status. Used by the health dashboard.",
+    description="Returns total job counts grouped by status.",
 )
 async def get_stats(
     service: JobService = Depends(get_job_service),
@@ -250,9 +269,9 @@ async def get_stats(
 @router.post(
     "/{job_id}/analyze",
     response_model=JobResponse,
-    summary="Run the full analysis pipeline for a job",
-    description="Fetches the repo, parses code, builds graph, "
-    "generates artifacts. Updates job status automatically.",
+    summary="Run the full analysis pipeline for a job synchronously",
+    description="Runs the pipeline inline and waits for completion. "
+    "Used for testing. For production, use POST /jobs instead.",
 )
 async def analyze_job(
     job_id: str,
@@ -270,22 +289,28 @@ async def analyze_job(
         )
 
     try:
-        from cortex.pipeline.application.orchestrator import (
-            build_default_pipeline,
-        )
-        await service.mark_running(job_id)
+        from cortex.pipeline.application.orchestrator import build_default_pipeline
 
+        await service.mark_running(job_id)
         pipeline = build_default_pipeline()
         context = await pipeline.run(job)
 
-        await service.mark_completed(job_id)
+        content = (
+            context.artifact_content
+            or "# No content generated\n\nThe pipeline completed but produced no output."
+        )
+        content_type = context.artifact_content_type or ArtifactContentType.MARKDOWN
 
-        updated_job = await service.get(job_id)
-        return JobResponse.from_job(updated_job)
+        await _artifact_service.create(
+            job_id=job.id,
+            artifact_type=job.artifact_type.value,
+            content_type=content_type,
+            content_inline=content,
+        )
+
+        await service.mark_completed(job_id)
+        return JobResponse.from_job(await service.get(job_id))
 
     except Exception as e:
         await service.mark_failed(job_id, str(e))
-        raise HTTPException(
-            status_code=500,
-            detail=f"Pipeline failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Pipeline failed: {str(e)}")

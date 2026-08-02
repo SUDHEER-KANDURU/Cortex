@@ -95,7 +95,16 @@ export default function KnowledgeGraph() {
     <div className="w-full h-full min-h-[600px] bg-onyx/20 rounded-3xl overflow-hidden border border-white/5 relative group">
       <div className="absolute inset-0 z-0 opacity-20 pointer-events-none bg-[radial-gradient(circle_at_center,_var(--electric-blue)_0%,_transparent_70%)]" />
       {/* dpr capped at 1.5 — full 2x on retina is unnecessary for a decorative scene */}
-      <Canvas camera={{ position: [0, 0, 8], fov: 45 }} dpr={[1, 1.5]}>
+      <Canvas
+        camera={{ position: [0, 0, 8], fov: 45 }}
+        dpr={[1, 1.5]}
+        onCreated={({ gl }) => {
+          // Allow the browser to restore the WebGL context after GPU eviction
+          gl.domElement.addEventListener('webglcontextlost', (e) => {
+            e.preventDefault();
+          }, false);
+        }}
+      >
         <GraphScene />
       </Canvas>
       <div className="absolute bottom-8 left-8 z-10 p-6 backdrop-blur-md border border-white/5 rounded-xl max-w-xs">

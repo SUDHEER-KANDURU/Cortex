@@ -145,14 +145,14 @@ export function PortfolioHero() {
                 <span style={{
                   fontSize: "11px", fontWeight: 600, letterSpacing: "0.1em",
                   textTransform: "uppercase", color: "var(--cx-pill-text)",
-                  fontFamily: "var(--font-mono,'Geist Mono',monospace)",
+                  fontFamily: "var(--font-mono,'JetBrains Mono',monospace)",
                 }}>
                   Engineering Reasoning Engine
                 </span>
               </div>
 
               <h1 className="text-[42px] sm:text-[54px] lg:text-[68px] font-semibold tracking-tight leading-[1.04] text-balance"
-                style={{ fontFamily: "var(--font-sans,'Geist',system-ui,sans-serif)", letterSpacing: "-0.045em", color: "var(--text)" }}>
+                style={{ fontFamily: "var(--font-sans,'Inter',system-ui,sans-serif)", letterSpacing: "-0.045em", color: "var(--text)" }}>
                 {words.map((word, index) => (
                   <span
                     key={index}
@@ -181,7 +181,7 @@ export function PortfolioHero() {
                   className="hero-cta-primary cta-shimmer inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold rounded-full"
                   style={{
                     background: "linear-gradient(135deg, var(--primary) 0%, #00c9a7 100%)",
-                    color: "#07090d",
+                    color: "#060810",
                     boxShadow: "0 4px 20px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.22)",
                     transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s ease, filter 0.2s ease",
                   }}
@@ -249,7 +249,7 @@ export function PortfolioHero() {
                           textTransform: "uppercase", whiteSpace: "nowrap",
                           color: isActive ? "var(--text)" : "var(--text-muted)",
                           transition: "color 0.3s",
-                          fontFamily: "var(--font-mono,'Geist Mono',monospace)",
+                          fontFamily: "var(--font-mono,'JetBrains Mono',monospace)",
                         }}>{step.label}</span>
                       </div>
                       {i < PIPELINE_STEPS.length - 1 && (
@@ -320,7 +320,7 @@ export function PortfolioHero() {
                   <span style={{
                     fontSize: "10px", fontWeight: 600, letterSpacing: "0.14em",
                     textTransform: "uppercase", color: "rgba(255,255,255,0.5)",
-                    fontFamily: "var(--font-mono,'Fira Code',monospace)",
+                    fontFamily: "var(--font-mono,'JetBrains Mono',monospace)",
                   }}>
                     Live Repository Graph
                   </span>
@@ -343,3 +343,4 @@ export function PortfolioHero() {
     </>
   )
 }
+

@@ -1,13 +1,13 @@
 import type { Metadata, Viewport } from 'next';
-import { Syne, DM_Sans, Fira_Code } from 'next/font/google';
+import { Syne, Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 
 // =============================================================================
-// Fonts — all available in next/font/google for Next.js 14.2.x
+// Fonts — Premium Liquid Glass type system
 //
-// --font-display : Syne     — geometric, precise, used for headings
-// --font-sans    : DM Sans  — clean body font
-// --font-mono    : Fira Code — ligature mono for code/terminals
+// --font-display : Syne          — geometric, precise, used for hero headings
+// --font-sans    : Inter         — highly legible body + UI font (Apple-grade)
+// --font-mono    : JetBrains Mono — clear, readable monospace for code & terminals
 // =============================================================================
 
 const syne = Syne({
@@ -17,14 +17,14 @@ const syne = Syne({
   display: 'swap',
 });
 
-const dmSans = DM_Sans({
+const inter = Inter({
   subsets: ['latin'],
   variable: '--font-sans',
-  weight: ['300', '400', '500', '600'],
+  weight: ['300', '400', '500', '600', '700'],
   display: 'swap',
 });
 
-const firaCode = Fira_Code({
+const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
   weight: ['400', '500', '600'],
@@ -32,7 +32,7 @@ const firaCode = Fira_Code({
 });
 
 export const viewport: Viewport = {
-  themeColor: '#07090d',
+  themeColor: '#060810',
 };
 
 export const metadata: Metadata = {
@@ -46,7 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       data-theme="dark"
-      className={`${syne.variable} ${dmSans.variable} ${firaCode.variable} dark`}
+      className={`${syne.variable} ${inter.variable} ${jetbrainsMono.variable} dark`}
       suppressHydrationWarning
     >
       {/*
@@ -69,10 +69,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body
         className="min-h-screen antialiased"
-        style={{ background: 'var(--bg, #07090d)', color: 'var(--text, #FFFFFF)' }}
+        style={{ background: 'var(--bg, #060810)', color: 'var(--text, #FFFFFF)' }}
+        suppressHydrationWarning
       >
         {children}
       </body>
     </html>
   );
 }
+

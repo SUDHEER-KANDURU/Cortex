@@ -1,14 +1,13 @@
 """Pipeline stages — each stage does one job in the analysis pipeline.
 
 Stage order:
-  1. GitHubFetchStage    — fetches file tree + raw file contents
-  2. ASTParseStage       — parses fetched files → context.parsed_files
-  3. VibeDetectStage     — runs vibe detection  → context.vibe_report
-  4. GraphBuildStage     — builds knowledge graph → context.graph_result
-  5. ArtifactGenerateStage — generates artifact content
+  1. GitHubFetchStage       — fetches file tree + raw file contents
+  2. ASTParseStage          — parses fetched files → context.parsed_files
+  3. VibeDetectStage        — runs vibe detection  → context.vibe_report
+  4. GraphBuildStage        — builds knowledge graph → context.graph_result
+  5. ArtifactGenerateStage  — generates artifact content
 
-Every stage reads from PipelineContext typed fields and writes back
-to typed fields. No private _attrs anywhere.
+Every stage reads from and writes to typed PipelineContext fields only.
 """
 
 import structlog
@@ -16,23 +15,16 @@ import structlog
 from cortex.pipeline.application.orchestrator import PipelineContext
 from cortex.pipeline.domain.interfaces import AbstractPipelineStage
 from cortex.pipeline.infrastructure.graph_builder import GraphBuilder
-from cortex.graph.domain.entities import NodeType, RelationshipType
 from cortex.artifacts.domain.entities import ArtifactContentType
 
 logger = structlog.get_logger()
 
 
 class GitHubFetchStage(AbstractPipelineStage):
-    """Stage 1 — Fetches repository file tree and raw file contents.
-
-    Delegates to GitHubAnalyzer which wraps GitHubClient.
-    Populates: context.file_tree, context.file_contents.
-    """
+    """Stage 1 — Fetches repository file tree and raw file contents."""
 
     def __init__(self) -> None:
-        from cortex.pipeline.infrastructure.github_analyzer import (
-            GitHubAnalyzer,
-        )
+        from cortex.pipeline.infrastructure.github_analyzer import GitHubAnalyzer
         self._analyzer = GitHubAnalyzer()
 
     async def execute(self, context: PipelineContext) -> PipelineContext:
@@ -43,11 +35,7 @@ class GitHubFetchStage(AbstractPipelineStage):
                 repo_url=context.repo_url,
             )
 
-            # Use the analyzer only for fetching — parse/vibe are separate stages
-            result = await self._analyzer.fetch(
-                context.repo_url,
-                max_files=60,
-            )
+            result = await self._analyzer.fetch(context.repo_url, max_files=60)
 
             context.file_tree = [
                 {"path": f.path, "type": "blob", "size": f.size}
@@ -71,11 +59,7 @@ class GitHubFetchStage(AbstractPipelineStage):
 
 
 class ASTParseStage(AbstractPipelineStage):
-    """Stage 2 — Parses all fetched code files using the AST parser.
-
-    Reads:   context.file_contents
-    Writes:  context.parsed_files
-    """
+    """Stage 2 — Parses all fetched code files using the AST parser."""
 
     def __init__(self) -> None:
         from cortex.pipeline.infrastructure.ast_parser import ASTParser
@@ -113,9 +97,7 @@ class ASTParseStage(AbstractPipelineStage):
                 successful=len(successful),
                 failed=len(failed),
                 total_classes=sum(len(p.classes) for p in successful),
-                total_functions=sum(
-                    len(p.all_functions()) for p in successful
-                ),
+                total_functions=sum(len(p.all_functions()) for p in successful),
             )
 
         except Exception as e:
@@ -125,12 +107,7 @@ class ASTParseStage(AbstractPipelineStage):
 
 
 class VibeDetectStage(AbstractPipelineStage):
-    """Stage 3 — Runs vibe code detection on parsed files.
-
-    Reads:   context.parsed_files
-    Writes:  context.vibe_report
-    Non-fatal — pipeline continues even if this stage fails.
-    """
+    """Stage 3 — Runs vibe code detection. Non-fatal."""
 
     def __init__(self) -> None:
         from cortex.pipeline.infrastructure.vibe_detector import VibeDetector
@@ -138,13 +115,11 @@ class VibeDetectStage(AbstractPipelineStage):
 
     async def execute(self, context: PipelineContext) -> PipelineContext:
         if not context.parsed_files:
-            # No parsed files — skip silently, not fatal
-            return context
+            return context  # skip silently — not fatal
 
         try:
             context.vibe_report = self._detector.analyze(
-                context.parsed_files,
-                context.repo_url,
+                context.parsed_files, context.repo_url
             )
             logger.info(
                 "vibe_detect_stage_completed",
@@ -153,7 +128,6 @@ class VibeDetectStage(AbstractPipelineStage):
                 health_score=context.vibe_report.health_score,
             )
         except Exception as e:
-            # Non-fatal — pipeline continues without vibe data
             logger.warning(
                 "vibe_detect_stage_failed",
                 job_id=context.job.id,
@@ -164,12 +138,7 @@ class VibeDetectStage(AbstractPipelineStage):
 
 
 class GraphBuildStage(AbstractPipelineStage):
-    """Stage 4 — Builds the knowledge graph from parsed files.
-
-    Reads:   context.parsed_files
-    Writes:  context.graph_result, context.node_count, context.edge_count
-    Also persists nodes and edges to SQLite (non-fatal if it fails).
-    """
+    """Stage 4 — Builds the knowledge graph from parsed files."""
 
     async def execute(self, context: PipelineContext) -> PipelineContext:
         if not context.parsed_files:
@@ -186,27 +155,23 @@ class GraphBuildStage(AbstractPipelineStage):
                 parsed_file_count=len(context.parsed_files),
             )
 
-            builder = GraphBuilder(
-                job_id=context.job.id,
-                repo_url=context.repo_url,
-            )
+            builder = GraphBuilder(job_id=context.job.id, repo_url=context.repo_url)
             graph_result = builder.build(context.parsed_files)
 
             context.graph_result = graph_result
             context.node_count = graph_result.node_count()
             context.edge_count = graph_result.edge_count()
 
-            # Persist to SQLite — non-fatal
+            # Fix 9 — persist to SQLite with engine disposal to prevent resource leak
             try:
-                from cortex.graph.infrastructure.sqlite_repository import (
-                    SQLiteGraphRepository,
-                )
+                from cortex.graph.infrastructure.sqlite_repository import SQLiteGraphRepository
                 from cortex.config import get_settings
                 graph_repo = SQLiteGraphRepository(get_settings().database_url)
                 for node in graph_result.nodes:
                     await graph_repo.save_node(node)
                 for edge in graph_result.edges:
                     await graph_repo.save_edge(edge)
+                await graph_repo._engine.dispose()
                 logger.info(
                     "graph_persisted_to_sqlite",
                     job_id=context.job.id,
@@ -234,11 +199,7 @@ class GraphBuildStage(AbstractPipelineStage):
 
 
 class ArtifactGenerateStage(AbstractPipelineStage):
-    """Stage 5 — Generates artifact content from the knowledge graph.
-
-    Reads:   context.graph_result, context.vibe_report, context.artifact_type
-    Writes:  context.artifact_content, context.artifact_content_type
-    """
+    """Stage 5 — Generates artifact content from the knowledge graph."""
 
     async def execute(self, context: PipelineContext) -> PipelineContext:
         if not context.graph_result:
@@ -265,34 +226,35 @@ class ArtifactGenerateStage(AbstractPipelineStage):
                 content_type = ArtifactContentType.MERMAID
 
             elif artifact_type == "module_breakdown":
-                content = markdown_gen.generate_module_breakdown(
-                    graph_result, repo_name
-                )
+                content = markdown_gen.generate_module_breakdown(graph_result, repo_name)
                 content_type = ArtifactContentType.MARKDOWN
 
             elif artifact_type == "learning_path":
-                content = markdown_gen.generate_learning_path(
-                    graph_result, repo_name
-                )
+                content = markdown_gen.generate_learning_path(graph_result, repo_name)
                 content_type = ArtifactContentType.MARKDOWN
 
             elif artifact_type == "api_spec":
-                content = markdown_gen.generate_api_spec(
-                    graph_result, repo_name
-                )
+                content = markdown_gen.generate_api_spec(graph_result, repo_name)
                 content_type = ArtifactContentType.MARKDOWN
 
             elif artifact_type == "interview_questions":
-                content = markdown_gen.generate_interview_questions(
-                    graph_result, repo_name
-                )
+                content = markdown_gen.generate_interview_questions(graph_result, repo_name)
                 content_type = ArtifactContentType.MARKDOWN
 
             elif artifact_type == "vibe_code_detection":
                 if context.vibe_report:
                     content = context.vibe_report.to_markdown()
                 else:
-                    content = "# Vibe Code Detection\n\nNo data available."
+                    content = "# Vibe Code Detection\n\nNo vibe data available."
+                content_type = ArtifactContentType.MARKDOWN
+
+            elif artifact_type == "folder_structure":
+                content = markdown_gen.generate_module_breakdown(graph_result, repo_name)
+                content_type = ArtifactContentType.MARKDOWN
+
+            elif artifact_type == "database_schema":
+                # Fix 6 — was incorrectly calling generate_api_spec
+                content = markdown_gen.generate_database_schema(graph_result, repo_name)
                 content_type = ArtifactContentType.MARKDOWN
 
             else:

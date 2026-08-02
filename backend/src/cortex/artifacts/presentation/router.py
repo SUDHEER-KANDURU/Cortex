@@ -18,12 +18,16 @@ def get_artifact_service() -> ArtifactService:
     return ArtifactService(artifact_repository)
 
 
+# Backwards-compatible alias — kept so any cached import still resolves.
+def get_shared_artifact_repository() -> ArtifactService:
+    return get_artifact_service()
+
+
 @router.post(
     "",
     response_model=ArtifactResponse,
     status_code=201,
     summary="Create a new artifact",
-    description="Creates and stores an artifact for a completed job.",
 )
 async def create_artifact(
     request: ArtifactCreateRequest,
@@ -46,7 +50,6 @@ async def create_artifact(
     "/job/{job_id}",
     response_model=ArtifactListResponse,
     summary="List artifacts for a job",
-    description="Returns all artifacts generated for a specific job.",
 )
 async def list_artifacts_for_job(
     job_id: str,
@@ -60,7 +63,6 @@ async def list_artifacts_for_job(
     "/{artifact_id}",
     response_model=ArtifactResponse,
     summary="Get an artifact by ID",
-    description="Returns a single artifact by its UUID.",
 )
 async def get_artifact(
     artifact_id: str,
@@ -73,11 +75,24 @@ async def get_artifact(
         raise HTTPException(status_code=404, detail="Artifact not found")
 
 
+# Fix 8 — DELETE /job/{job_id} must be defined BEFORE DELETE /{artifact_id}
+# to prevent FastAPI routing /job/... as an artifact_id match.
+@router.delete(
+    "/job/{job_id}",
+    summary="Delete all artifacts for a job",
+)
+async def delete_artifacts_for_job(
+    job_id: str,
+    service: ArtifactService = Depends(get_artifact_service),
+) -> dict:
+    count = await service.delete_all_for_job(job_id)
+    return {"deleted": count, "job_id": job_id}
+
+
 @router.delete(
     "/{artifact_id}",
     status_code=204,
     summary="Delete an artifact",
-    description="Permanently deletes a single artifact.",
 )
 async def delete_artifact(
     artifact_id: str,
@@ -87,16 +102,3 @@ async def delete_artifact(
         await service.delete(artifact_id)
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Artifact not found")
-
-
-@router.delete(
-    "/job/{job_id}",
-    summary="Delete all artifacts for a job",
-    description="Permanently deletes all artifacts for a given job.",
-)
-async def delete_artifacts_for_job(
-    job_id: str,
-    service: ArtifactService = Depends(get_artifact_service),
-) -> dict:
-    count = await service.delete_all_for_job(job_id)
-    return {"deleted": count, "job_id": job_id}

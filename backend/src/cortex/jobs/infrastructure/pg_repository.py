@@ -1,10 +1,12 @@
-"""PostgreSQL job repository — replaces InMemoryJobRepository.
-Uses SQLAlchemy async engine. Swap in main.py when Docker is running."""
+"""SQLite/PostgreSQL job repository using SQLAlchemy async engine."""
 
-from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import select, update
+from datetime import datetime, timezone
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    create_async_engine,
+    async_sessionmaker,
+)
+from sqlalchemy import select, update, func
 from cortex.jobs.domain.entities import Job, JobStatus, ArtifactType
 from cortex.jobs.domain.interfaces import AbstractJobRepository
 from cortex.schema.models import JobModel
@@ -15,7 +17,6 @@ logger = structlog.get_logger()
 
 
 def _model_to_entity(model: JobModel) -> Job:
-    """Convert a SQLAlchemy model to a domain entity."""
     return Job(
         id=model.id,
         repo_url=model.repo_url,
@@ -29,7 +30,6 @@ def _model_to_entity(model: JobModel) -> Job:
 
 
 def _entity_to_model(job: Job) -> JobModel:
-    """Convert a domain entity to a SQLAlchemy model."""
     return JobModel(
         id=job.id,
         repo_url=job.repo_url,
@@ -43,22 +43,11 @@ def _entity_to_model(job: Job) -> JobModel:
 
 
 class PostgresJobRepository(AbstractJobRepository):
-    """PostgreSQL implementation of AbstractJobRepository.
-
-    Requires a running PostgreSQL instance.
-    Configure DATABASE_URL in .env before using this.
-
-    To switch from in-memory to PostgreSQL:
-    1. Start Docker: docker compose -f docker/docker-compose.yml up
-    2. Run migrations: alembic upgrade head
-    3. In jobs/presentation/router.py change:
-       _repository = InMemoryJobRepository()
-       to:
-       _repository = PostgresJobRepository(database_url)
-    """
+    """Works with both SQLite (dev) and PostgreSQL (production).
+    Set DATABASE_URL in .env to switch backends."""
 
     def __init__(self, database_url: str) -> None:
-        connect_args = {}
+        connect_args: dict = {}
         if "sqlite" in database_url:
             connect_args = {"check_same_thread": False}
 
@@ -67,9 +56,9 @@ class PostgresJobRepository(AbstractJobRepository):
             echo=False,
             connect_args=connect_args,
         )
-        self._session_factory = sessionmaker(
+        # Fix 2 — use async_sessionmaker instead of deprecated sessionmaker
+        self._session_factory = async_sessionmaker(
             self._engine,
-            class_=AsyncSession,
             expire_on_commit=False,
         )
 
@@ -80,13 +69,11 @@ class PostgresJobRepository(AbstractJobRepository):
                 session.add(model)
                 await session.commit()
                 await session.refresh(model)
-                logger.info("job_saved_to_postgres", job_id=job.id)
+                logger.info("job_saved", job_id=job.id)
                 return _model_to_entity(model)
             except Exception as e:
                 await session.rollback()
-                raise InfrastructureError(
-                    f"Failed to save job {job.id}: {e}"
-                )
+                raise InfrastructureError(f"Failed to save job {job.id}: {e}")
 
     async def get_by_id(self, job_id: str) -> Job | None:
         async with self._session_factory() as session:
@@ -99,52 +86,36 @@ class PostgresJobRepository(AbstractJobRepository):
     async def get_all(self) -> list[Job]:
         async with self._session_factory() as session:
             result = await session.execute(
-                select(JobModel).order_by(
-                    JobModel.created_at.desc()
-                )
+                select(JobModel).order_by(JobModel.created_at.desc())
             )
-            return [
-                _model_to_entity(m)
-                for m in result.scalars().all()
-            ]
+            return [_model_to_entity(m) for m in result.scalars().all()]
 
     async def get_by_status(self, status: JobStatus) -> list[Job]:
         async with self._session_factory() as session:
             result = await session.execute(
-                select(JobModel).where(
-                    JobModel.status == status.value
-                ).order_by(JobModel.created_at.desc())
+                select(JobModel)
+                .where(JobModel.status == status.value)
+                .order_by(JobModel.created_at.desc())
             )
-            return [
-                _model_to_entity(m)
-                for m in result.scalars().all()
-            ]
+            return [_model_to_entity(m) for m in result.scalars().all()]
 
     async def get_by_repo_url(self, repo_url: str) -> list[Job]:
         async with self._session_factory() as session:
             result = await session.execute(
-                select(JobModel).where(
-                    JobModel.repo_url == repo_url
-                ).order_by(JobModel.created_at.desc())
+                select(JobModel)
+                .where(JobModel.repo_url == repo_url)
+                .order_by(JobModel.created_at.desc())
             )
-            return [
-                _model_to_entity(m)
-                for m in result.scalars().all()
-            ]
+            return [_model_to_entity(m) for m in result.scalars().all()]
 
-    async def get_by_artifact_type(
-        self, artifact_type: ArtifactType
-    ) -> list[Job]:
+    async def get_by_artifact_type(self, artifact_type: ArtifactType) -> list[Job]:
         async with self._session_factory() as session:
             result = await session.execute(
                 select(JobModel).where(
                     JobModel.artifact_type == artifact_type.value
                 )
             )
-            return [
-                _model_to_entity(m)
-                for m in result.scalars().all()
-            ]
+            return [_model_to_entity(m) for m in result.scalars().all()]
 
     async def update_status(
         self,
@@ -156,15 +127,13 @@ class PostgresJobRepository(AbstractJobRepository):
             try:
                 values: dict = {
                     "status": status.value,
-                    "updated_at": datetime.utcnow(),
+                    "updated_at": datetime.now(timezone.utc),  # Fix 1
                 }
                 if error_message is not None:
                     values["error_message"] = error_message
 
                 await session.execute(
-                    update(JobModel)
-                    .where(JobModel.id == job_id)
-                    .values(**values)
+                    update(JobModel).where(JobModel.id == job_id).values(**values)
                 )
                 await session.commit()
 
@@ -180,9 +149,7 @@ class PostgresJobRepository(AbstractJobRepository):
                 raise
             except Exception as e:
                 await session.rollback()
-                raise InfrastructureError(
-                    f"Failed to update job {job_id}: {e}"
-                )
+                raise InfrastructureError(f"Failed to update job {job_id}: {e}")
 
     async def delete(self, job_id: str) -> None:
         async with self._session_factory() as session:
@@ -199,17 +166,16 @@ class PostgresJobRepository(AbstractJobRepository):
                 raise
             except Exception as e:
                 await session.rollback()
-                raise InfrastructureError(
-                    f"Failed to delete job {job_id}: {e}"
-                )
+                raise InfrastructureError(f"Failed to delete job {job_id}: {e}")
 
     async def count_by_status(self) -> dict[JobStatus, int]:
+        """Fix 3 — proper GROUP BY COUNT query instead of full table scan."""
         async with self._session_factory() as session:
-            result = await session.execute(select(JobModel))
-            all_jobs = result.scalars().all()
-            counts: dict[JobStatus, int] = {
-                s: 0 for s in JobStatus
-            }
-            for job in all_jobs:
-                counts[JobStatus(job.status)] += 1
+            result = await session.execute(
+                select(JobModel.status, func.count(JobModel.id))
+                .group_by(JobModel.status)
+            )
+            counts: dict[JobStatus, int] = {s: 0 for s in JobStatus}
+            for status_val, count in result.all():
+                counts[JobStatus(status_val)] = count
             return counts

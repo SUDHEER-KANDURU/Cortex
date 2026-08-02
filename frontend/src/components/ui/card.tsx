@@ -2,7 +2,7 @@ import * as React from 'react';
 import { cn } from '@/lib/utils/cn';
 
 // =============================================================================
-// Card — Premium glass-morphic card using design system tokens
+// Card — Premium layered glass card with specular edge highlights
 // =============================================================================
 
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
@@ -11,10 +11,12 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
       ref={ref}
       className={cn(
         'rounded-[var(--radius)] border border-[var(--border)]',
-        'bg-[var(--card)] text-[var(--text)]',
-        'shadow-[var(--shadow-md)]',
+        'bg-[var(--glass-card)] text-[var(--text)]',
+        'shadow-[var(--shadow-md),var(--edge-top)]',
         'transition-all duration-200 ease-out',
-        'hover:border-[var(--border-hover)] hover:shadow-[var(--shadow-lg)]',
+        'hover:border-[var(--border-hover)]',
+        'hover:shadow-[var(--shadow-lg),var(--edge-top)]',
+        'hover:-translate-y-px',
         className
       )}
       {...props}
@@ -25,11 +27,7 @@ Card.displayName = 'Card';
 
 const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn('flex flex-col gap-1.5 p-6', className)}
-      {...props}
-    />
+    <div ref={ref} className={cn('flex flex-col gap-1.5 p-6', className)} {...props} />
   )
 );
 CardHeader.displayName = 'CardHeader';
@@ -39,7 +37,7 @@ const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTML
     <h3
       ref={ref}
       className={cn(
-        'text-xl font-semibold leading-tight tracking-[-0.02em]',
+        'text-xl font-semibold leading-tight tracking-[-0.022em]',
         'text-[var(--text)]',
         className
       )}
@@ -83,18 +81,20 @@ const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 );
 CardFooter.displayName = 'CardFooter';
 
-// Glass variant card
+// Glass variant — maximum depth with backdrop blur
 const GlassCard = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
         'rounded-[var(--radius)]',
-        'bg-[var(--glass)] border border-[var(--border)]',
-        'backdrop-blur-[18px] saturate-150',
-        'shadow-[var(--shadow-lg),inset_0_1px_0_rgba(255,255,255,0.06)]',
+        'bg-[var(--glass-card)] border border-[var(--border)]',
+        'backdrop-blur-[20px] saturate-150',
+        'shadow-[var(--shadow-lg),var(--edge-top),var(--edge-inner)]',
         'transition-all duration-200 ease-out',
-        'hover:border-[var(--border-hover)] hover:shadow-[var(--shadow-xl)]',
+        'hover:border-[var(--border-hover)]',
+        'hover:shadow-[var(--shadow-xl),var(--edge-top)]',
+        'hover:-translate-y-px',
         className
       )}
       {...props}

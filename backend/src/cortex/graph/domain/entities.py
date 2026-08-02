@@ -2,7 +2,7 @@
 Zero dependencies on Neo4j, FastAPI, or any framework."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 
@@ -24,23 +24,22 @@ class RelationshipType(str, Enum):
     INHERITS = "INHERITS"
 
 
+def _now() -> datetime:
+    return datetime.now(timezone.utc)  # Fix 1
+
+
 @dataclass
 class GraphNode:
     id: str
     label: str
     node_type: NodeType
     job_id: str
-    properties: dict[str, str | int | float | bool] = field(
-        default_factory=dict
-    )
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    properties: dict[str, str | int | float | bool] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=_now)
 
     def is_entry_point(self) -> bool:
         """Returns True if this node is a top-level entry point."""
-        return self.node_type in {
-            NodeType.REPOSITORY,
-            NodeType.MODULE,
-        }
+        return self.node_type in {NodeType.REPOSITORY, NodeType.MODULE}
 
     def display_label(self) -> str:
         """Returns a human-readable label for UI display."""
@@ -54,10 +53,8 @@ class GraphEdge:
     target_id: str
     relationship: RelationshipType
     job_id: str
-    properties: dict[str, str | int | float | bool] = field(
-        default_factory=dict
-    )
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    properties: dict[str, str | int | float | bool] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=_now)
 
     def is_dependency(self) -> bool:
         """Returns True if this edge represents a dependency."""

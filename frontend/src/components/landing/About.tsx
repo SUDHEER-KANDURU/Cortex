@@ -62,12 +62,12 @@ function ParsingAnimation({ active }: { active: boolean }) {
         <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#FF5F57", display: "block" }} />
         <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#FFBD2E", display: "block" }} />
         <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#28C840", display: "block" }} />
-        <span style={{ marginLeft: "auto", fontSize: "10px", fontFamily: "var(--font-mono,'Geist Mono',monospace)", color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em" }}>repository.py</span>
+        <span style={{ marginLeft: "auto", fontSize: "10px", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em" }}>repository.py</span>
       </div>
       <div style={{ padding: "16px 20px" }}>
         {lines.map((line, i) => (
           <div key={i} style={{
-            fontFamily: "var(--font-mono,'Fira Code',monospace)", fontSize: "12px", lineHeight: "1.9",
+            fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", fontSize: "12px", lineHeight: "1.9",
             color: i === activeLine ? line.color : "rgba(255,255,255,0.2)",
             background: i === activeLine ? "rgba(255,255,255,0.04)" : "transparent",
             borderRadius: "4px", padding: "1px 6px", transition: "all 0.3s ease",
@@ -80,7 +80,7 @@ function ParsingAnimation({ active }: { active: boolean }) {
       </div>
       <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", padding: "8px 16px", display: "flex", alignItems: "center", gap: "12px", background: "#0d0d0d" }}>
         <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#28C840", display: "inline-block", boxShadow: "0 0 6px #28C840" }} />
-        <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.35)", fontFamily: "var(--font-mono,'Fira Code',monospace)", letterSpacing: "0.06em" }}>AST parsing active · 241 nodes mapped</span>
+        <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.35)", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", letterSpacing: "0.06em" }}>AST parsing active · 241 nodes mapped</span>
       </div>
     </div>
   )
@@ -102,7 +102,7 @@ export function PortfolioAbout() {
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 mb-16 md:mb-24">
           <div data-reveal="up">
-            <p className="cx-eyebrow" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", fontFamily: "var(--font-mono,'Fira Code',monospace)", marginBottom: "10px" }}>About</p>
+            <p className="cx-eyebrow" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", marginBottom: "10px" }}>About</p>
             <SectionTitle className="text-3xl md:text-4xl lg:text-[52px] font-semibold tracking-tight text-balance">
               Bridging Static Code &amp; Structural Understanding
             </SectionTitle>

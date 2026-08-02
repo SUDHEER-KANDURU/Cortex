@@ -111,7 +111,7 @@ export function SectionTitle({
       className={className}
       data-section-title
       style={{
-        fontFamily: "var(--font-sans, 'Geist', system-ui, sans-serif)",
+        fontFamily: "var(--font-sans, 'Inter', system-ui, sans-serif)",
         color: "var(--text)",
         letterSpacing: "-0.04em",
         lineHeight: 1.06,

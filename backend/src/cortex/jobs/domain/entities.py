@@ -2,7 +2,7 @@
 Zero dependencies on frameworks, databases, or HTTP."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 import uuid
 
@@ -23,6 +23,7 @@ class ArtifactType(str, Enum):
     API_SPEC = "api_spec"
     LEARNING_PATH = "learning_path"
     INTERVIEW_QUESTIONS = "interview_questions"
+    VIBE_CODE_DETECTION = "vibe_code_detection"  # Fix 7
 
 
 TERMINAL_STATUSES = {
@@ -30,6 +31,10 @@ TERMINAL_STATUSES = {
     JobStatus.FAILED,
     JobStatus.CANCELLED,
 }
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 @dataclass
@@ -40,8 +45,8 @@ class Job:
     status: JobStatus = JobStatus.PENDING
     error_message: str | None = None
     options: dict[str, str] | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=_now)
+    updated_at: datetime = field(default_factory=_now)
 
     def is_terminal(self) -> bool:
         """Returns True if this job can no longer change status."""
@@ -58,20 +63,20 @@ class Job:
     def mark_running(self) -> None:
         """Transition to RUNNING state."""
         self.status = JobStatus.RUNNING
-        self.updated_at = datetime.utcnow()
+        self.updated_at = _now()
 
     def mark_completed(self) -> None:
         """Transition to COMPLETED state."""
         self.status = JobStatus.COMPLETED
-        self.updated_at = datetime.utcnow()
+        self.updated_at = _now()
 
     def mark_failed(self, error_message: str) -> None:
         """Transition to FAILED state with an error message."""
         self.status = JobStatus.FAILED
         self.error_message = error_message
-        self.updated_at = datetime.utcnow()
+        self.updated_at = _now()
 
     def mark_cancelled(self) -> None:
         """Transition to CANCELLED state."""
         self.status = JobStatus.CANCELLED
-        self.updated_at = datetime.utcnow()
+        self.updated_at = _now()

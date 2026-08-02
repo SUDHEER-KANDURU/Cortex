@@ -21,7 +21,7 @@ const STEP_COLORS = {
   inactive: "var(--text-muted)",
   line:     "var(--border)",
   dot:      "var(--primary)",
-  dotText:  "#07090d",
+  dotText:  "#060810",
   border:   "var(--border)",
   panelBg:  "var(--cx-section-bg, rgba(15,17,23,0.60))",
   scanCurrent: "var(--text)",
@@ -145,7 +145,7 @@ function ASTVisual({ active }: { active: boolean }) {
             <g key={i} style={{ opacity: show ? 1 : 0, transition: "opacity 0.25s ease" }}>
               <rect x={n.x} y={n.y} width={56} height={22} rx={5} fill={fill} />
               <text x={n.x + 28} y={n.y + 14} textAnchor="middle"
-                fontSize="7.5" fontWeight="700" fill={show ? "#07090d" : "rgba(255,255,255,0.15)"}
+                fontSize="7.5" fontWeight="700" fill={show ? "#060810" : "rgba(255,255,255,0.15)"}
                 style={{ fontFamily: "var(--font-mono)" }}>
                 {n.label}
               </text>
@@ -908,7 +908,7 @@ export function PortfolioHowItWorks() {
                         }}>
                           <span style={{
                             fontSize: "10px", fontWeight: 700,
-                            color: (isActive || isDone) ? (isActive ? "#07090d" : "#fff") : "var(--text-muted)",
+                            color: (isActive || isDone) ? (isActive ? "#060810" : "#fff") : "var(--text-muted)",
                             fontFamily: "var(--font-mono)",
                             transition: "color 0.3s ease",
                           }}>
@@ -1007,7 +1007,7 @@ export function PortfolioHowItWorks() {
                   }}>
                     <span style={{
                       fontSize: "10px", fontWeight: 700,
-                      color: i === activeStep ? "#07090d" : "var(--text-muted)",
+                      color: i === activeStep ? "#060810" : "var(--text-muted)",
                       fontFamily: "var(--font-mono)",
                     }}>{step.number}</span>
                   </div>
@@ -1030,3 +1030,4 @@ export function PortfolioHowItWorks() {
     </div>
   )
 }
+

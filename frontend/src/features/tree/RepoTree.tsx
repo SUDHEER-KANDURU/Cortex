@@ -317,6 +317,12 @@ export default function RepoTree({ progress }: { progress: React.MutableRefObjec
         style={{ background: 'transparent' }}
         gl={{ antialias: true, alpha: true }}
         dpr={[1, 1.5]}
+        onCreated={({ gl }) => {
+          // Allow the browser to restore the WebGL context after GPU eviction
+          gl.domElement.addEventListener('webglcontextlost', (e) => {
+            e.preventDefault();
+          }, false);
+        }}
       >
         <TreeScene progress={progress} />
       </Canvas>

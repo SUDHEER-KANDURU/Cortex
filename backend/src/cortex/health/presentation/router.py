@@ -2,8 +2,7 @@
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from datetime import datetime
-from cortex.config import get_settings
+from datetime import datetime, timezone
 
 router = APIRouter(prefix="/health", tags=["health"])
 
@@ -27,17 +26,16 @@ class ReadinessResponse(BaseModel):
     "",
     response_model=HealthResponse,
     summary="Liveness probe",
-    description="Returns 200 when the API is running. "
-    "Used by Docker and load balancers to check if the "
-    "service is alive.",
+    description="Returns 200 when the API is running.",
 )
 async def health() -> HealthResponse:
     """Liveness probe — always returns 200 if the server is up."""
-    settings = get_settings()
+    # Fix 14 — removed unused settings = get_settings()
+    # Fix 1  — use timezone.utc instead of deprecated utcnow()
     return HealthResponse(
         status="ok",
         version="0.1.0",
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
         environment="development",
     )
 
@@ -46,16 +44,14 @@ async def health() -> HealthResponse:
     "/ready",
     response_model=ReadinessResponse,
     summary="Readiness probe",
-    description="Returns detailed status of all modules and "
-    "registered endpoints. Use this to verify the full "
-    "API is wired correctly.",
+    description="Returns detailed status of all modules and registered endpoints.",
 )
 async def readiness() -> ReadinessResponse:
     """Readiness probe — checks all modules are loaded."""
     return ReadinessResponse(
         status="ready",
         version="0.1.0",
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
         modules={
             "jobs": "loaded",
             "artifacts": "loaded",
@@ -65,9 +61,9 @@ async def readiness() -> ReadinessResponse:
         },
         endpoints={
             "health": 2,
-            "jobs": 9,
+            "jobs": 8,
             "artifacts": 5,
             "graph": 6,
-            "total": 22,
+            "total": 21,
         },
     )

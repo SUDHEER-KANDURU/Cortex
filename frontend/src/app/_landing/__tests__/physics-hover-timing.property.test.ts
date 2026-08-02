@@ -29,10 +29,13 @@ describe('Property 7: Physics_Hover Timing (Req 14.6)', () => {
   })
 
   it('enter phase duration is positive', () => {
+    // Use the same fround ceiling as the generator's max so the comparison
+    // stays in 32-bit float space and avoids the 0.30000001192092896 edge case.
+    const MAX = Math.fround(0.3)
     fc.assert(
       fc.property(
-        fc.float({ min: Math.fround(0.01), max: Math.fround(0.3), noNaN: true }),
-        (enterDuration) => enterDuration > 0 && enterDuration <= 0.3
+        fc.float({ min: Math.fround(0.01), max: MAX, noNaN: true }),
+        (enterDuration) => enterDuration > 0 && enterDuration <= MAX
       )
     )
   })
