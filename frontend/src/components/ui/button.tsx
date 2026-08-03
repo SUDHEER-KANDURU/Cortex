@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils/cn';
+import { ButtonSpinner } from '@/components/shared/BrandedLoader';
 
 // =============================================================================
 // Button — Premium Liquid Glass button system
@@ -112,10 +113,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {loading ? (
           <>
-            <span
-              className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin"
-              aria-hidden="true"
-            />
+            <ButtonSpinner size={14} />
             <span>{children}</span>
           </>
         ) : children}

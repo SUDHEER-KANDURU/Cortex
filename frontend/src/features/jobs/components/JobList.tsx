@@ -8,7 +8,7 @@ import React, { useEffect, useState } from 'react';
 import type { Job } from '@/types';
 import { listJobs } from '@/lib/api/jobs.api';
 import JobCard from './JobCard';
-import LoadingSpinner from '@/components/shared/LoadingSpinner';
+import { InlineLoader } from '@/components/shared/BrandedLoader';
 import ErrorAlert from '@/components/shared/ErrorAlert';
 
 export interface JobListProps {
@@ -57,7 +57,7 @@ export default function JobList({ selectedJobId, onJobSelected, jobs: externalJo
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
-        <LoadingSpinner label="Loading jobs…" />
+        <InlineLoader stage="loading" message="Loading Jobs…" size={28} />
       </div>
     );
   }

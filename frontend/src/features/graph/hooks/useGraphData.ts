@@ -1,12 +1,9 @@
-// =============================================================================
-// useGraphData — Fetches nodes and edges in parallel for a given job's graph
-// =============================================================================
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import type { GraphNode, GraphEdge } from '@/types';
 import { getGraphNodes, getGraphEdges } from '@/lib/api/graph.api';
+import { sessionCache, cacheKey, TTL } from '@/lib/cache';
 
 export interface UseGraphDataReturn {
   nodes: GraphNode[];
@@ -15,15 +12,17 @@ export interface UseGraphDataReturn {
   error: string | null;
 }
 
-/**
- * Fetch graph nodes and edges in parallel for a specific job.
- * Re-fetches whenever jobId changes.
- *
- * @param jobId - UUID of the job whose graph to fetch, or null to skip
- */
+interface GraphData { nodes: GraphNode[]; edges: GraphEdge[] }
+
 export function useGraphData(jobId: string | null): UseGraphDataReturn {
-  const [nodes, setNodes] = useState<GraphNode[]>([]);
-  const [edges, setEdges] = useState<GraphEdge[]>([]);
+  const [nodes, setNodes] = useState<GraphNode[]>(() => {
+    if (!jobId) return [];
+    return sessionCache.get<GraphData>(cacheKey.graph(jobId))?.nodes ?? [];
+  });
+  const [edges, setEdges] = useState<GraphEdge[]>(() => {
+    if (!jobId) return [];
+    return sessionCache.get<GraphData>(cacheKey.graph(jobId))?.edges ?? [];
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,36 +34,37 @@ export function useGraphData(jobId: string | null): UseGraphDataReturn {
       return;
     }
 
+    const cached = sessionCache.get<GraphData>(cacheKey.graph(jobId));
+    if (cached) {
+      setNodes(cached.nodes);
+      setEdges(cached.edges);
+      return;
+    }
+
     let isActive = true;
 
     const fetchGraph = async (): Promise<void> => {
       setIsLoading(true);
       setError(null);
-
       try {
         const [fetchedNodes, fetchedEdges] = await Promise.all([
           getGraphNodes(jobId),
           getGraphEdges(jobId),
         ]);
-        if (isActive) {
-          setNodes(fetchedNodes);
-          setEdges(fetchedEdges);
-        }
+        if (!isActive) return;
+        setNodes(fetchedNodes);
+        setEdges(fetchedEdges);
+        sessionCache.set(cacheKey.graph(jobId), { nodes: fetchedNodes, edges: fetchedEdges }, TTL.GRAPH);
       } catch (err: unknown) {
         if (!isActive) return;
-        const message =
-          err instanceof Error ? err.message : 'Failed to fetch graph data.';
-        setError(message);
+        setError(err instanceof Error ? err.message : 'Failed to fetch graph data.');
       } finally {
         if (isActive) setIsLoading(false);
       }
     };
 
     void fetchGraph();
-
-    return () => {
-      isActive = false;
-    };
+    return () => { isActive = false; };
   }, [jobId]);
 
   return { nodes, edges, isLoading, error };

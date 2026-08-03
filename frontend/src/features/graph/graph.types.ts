@@ -24,9 +24,9 @@ export interface GraphDataState {
 /** Color mapping from node type to Tailwind/hex color */
 export const NODE_TYPE_COLORS: Record<string, string> = {
   Repository: '#7c3aed', // purple-700
-  Module: '#2563eb',     // blue-600
-  File: '#16a34a',       // green-600
-  Function: '#ca8a04',   // yellow-600
-  Class: '#ea580c',      // orange-600
-  Pattern: '#dc2626',    // red-600
+  Module:     '#2563eb', // blue-600
+  File:       '#16a34a', // green-600
+  Function:   '#ca8a04', // yellow-600
+  Class:      '#ea580c', // orange-600
+  Pattern:    '#dc2626', // red-600
 };

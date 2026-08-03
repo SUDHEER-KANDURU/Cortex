@@ -1,10 +1,4 @@
-// =============================================================================
-// loading.tsx — Next.js App Router route-level loading UI
-//
-// Replaces the generic spinner with the Cortex branded loader.
-// Shown automatically during route transitions and page hydration.
-// =============================================================================
-
+// App-level route loading — shown by Next.js App Router during any page transition
 import { PageLoader } from '@/components/shared/BrandedLoader';
 
 export default function Loading() {

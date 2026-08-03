@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { ArrowDown, GitBranch, Cpu, Database, FileCode } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
+import { DashboardLink } from "@/components/shared/DashboardLink"
 import dynamic from "next/dynamic"
 
 // Lazy-load the heavy 3D RepoTree only after the page has painted.
@@ -176,7 +177,7 @@ export function PortfolioHero() {
               {/* CTAs */}
               <div className="flex flex-row flex-wrap items-center gap-3 mt-8">
                 {/* Primary — brand gradient */}
-                <Link href="/dashboard"
+                <DashboardLink
                   data-magnetic
                   className="hero-cta-primary cta-shimmer inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold rounded-full"
                   style={{
@@ -185,14 +186,10 @@ export function PortfolioHero() {
                     boxShadow: "0 4px 20px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.22)",
                     transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s ease, filter 0.2s ease",
                   }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.filter = "brightness(1.1)"
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.filter = ""
-                  }}>
+                  onMouseEnter={e => { e.currentTarget.style.filter = "brightness(1.1)" }}
+                  onMouseLeave={e => { e.currentTarget.style.filter = "" }}>
                   Analyze a Repository
-                </Link>
+                </DashboardLink>
 
                 {/* Secondary — glass */}
                 <Link href="#works"

@@ -4,6 +4,7 @@ import type React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { X, LayoutDashboard } from "lucide-react"
+import { DashboardLink } from "@/components/shared/DashboardLink"
 
 // =============================================================================
 // PortfolioHeader — Cyber-Aurora Liquid Glass pill navbar
@@ -402,8 +403,7 @@ export function PortfolioHeader() {
           </button>
 
           {/* ── CTA ───────────────────────────────────────────────────── */}
-          <Link
-            href="/dashboard"
+          <DashboardLink
             className="hidden md:inline-flex items-center justify-center"
             style={{
               marginLeft: "4px",
@@ -427,15 +427,11 @@ export function PortfolioHeader() {
               position: "relative",
               transition: "all 0.25s ease",
             }}
-            onMouseEnter={e => {
-              e.currentTarget.style.filter = "brightness(1.15)"
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.filter = ""
-            }}
+            onMouseEnter={e => { e.currentTarget.style.filter = "brightness(1.15)" }}
+            onMouseLeave={e => { e.currentTarget.style.filter = "" }}
           >
             Launch App
-          </Link>
+          </DashboardLink>
 
           {/* ── Mobile burger ────────────────────────────────────────── */}
           <button
@@ -534,8 +530,7 @@ export function PortfolioHeader() {
           </nav>
 
           <div className="px-4 pb-10 pt-4">
-            <Link
-              href="/dashboard"
+            <DashboardLink
               onClick={() => setMobileOpen(false)}
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center",
@@ -554,7 +549,7 @@ export function PortfolioHeader() {
               }}
             >
               Launch App
-            </Link>
+            </DashboardLink>
           </div>
         </div>
       )}

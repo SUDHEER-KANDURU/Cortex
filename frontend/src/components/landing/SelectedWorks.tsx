@@ -4,6 +4,7 @@ import type React from "react"
 import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 import { SectionTitle } from "@/components/ui/section-title"
+import { DashboardLink } from "@/components/shared/DashboardLink"
 import { useEffect, useRef, useState } from "react"
 
 // ── Visuals — ink palette only, zero blue/purple ──────────────────────────────
@@ -308,7 +309,7 @@ function WorkCard({ work, index }: { work: Work; index: number }) {
   }, [])
   return (
     <div ref={cardRef} className="sticky" style={{ top: `${72 + index * 8}px`, zIndex: index + 1 }}>
-      <Link href="/dashboard" className="group block pt-6">
+      <DashboardLink className="group block pt-6">
         <article
           ref={articleRef as React.RefObject<HTMLElement>}
           data-spotlight
@@ -354,7 +355,7 @@ function WorkCard({ work, index }: { work: Work; index: number }) {
             </div>
           </div>
         </article>
-      </Link>
+      </DashboardLink>
     </div>
   )
 }
@@ -397,20 +398,20 @@ export function PortfolioSelectedWorks() {
               Capabilities
             </SectionTitle>
           </div>
-          <Link href="/dashboard"
+          <DashboardLink
             className="cx-link hidden md:inline-flex items-center gap-2 text-sm font-medium transition-all duration-200 hover:gap-3">
             Launch App
             <ArrowUpRight className="w-4 h-4" />
-          </Link>
+          </DashboardLink>
         </div>
         <div className="relative">
           {works.map((work, index) => <WorkCard key={work.id} work={work} index={index} />)}
         </div>
         <div className="md:hidden mt-8 text-center">
-          <Link href="/dashboard"
+          <DashboardLink
             className="cx-link cx-row inline-flex items-center gap-2 px-6 py-3 text-sm font-medium rounded-full transition-colors">
             Launch App <ArrowUpRight className="w-4 h-4" />
-          </Link>
+          </DashboardLink>
         </div>
       </div>
     </section>

@@ -13,17 +13,22 @@ import { useArtifact } from '@/features/artifacts/hooks/useArtifact';
 import { useSubmitJob } from '@/features/jobs/hooks/useSubmitJob';
 import StatusBadge from '@/components/shared/StatusBadge';
 import { listJobs } from '@/lib/api/jobs.api';
+import { sessionCache, cacheKey, TTL } from '@/lib/cache';
 import { ARTIFACT_TYPE_LABELS } from '@/features/jobs/jobs.types';
-import { InlineLoader } from '@/components/shared/BrandedLoader';
+import { InlineLoader, ButtonSpinner } from '@/components/shared/BrandedLoader';
+import { SidebarJobsSkeleton, ArtifactSkeleton, InsightsSkeleton } from '@/components/shared/Skeletons';
 import {
   Github, ChevronDown, Sparkles, Code2, LayoutDashboard,
   GitBranch, ExternalLink, Clock, AlertCircle, CheckCircle2,
-  Loader2, XCircle, ArrowLeft, Sun, Moon, Check,
+  XCircle, ArrowLeft, Sun, Moon, Check,
 } from 'lucide-react';
 import AnimatedPipelineComponent from '@/components/pipeline/AnimatedPipeline';
 import * as Select from '@radix-ui/react-select';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import { useInsights } from '@/features/insights/hooks/useInsights';
+import InsightsDashboard from '@/features/insights/components/InsightsDashboard';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const ArtifactViewer = dynamic(
   () => import('@/features/artifacts/components/ArtifactViewer'),
@@ -254,7 +259,7 @@ function SidebarForm({ isDark, onJobSubmitted }: SidebarFormProps) {
         onMouseEnter={e => { if (!isSubmitting && repoUrl.trim()) e.currentTarget.style.filter = 'brightness(1.08)'; }}
         onMouseLeave={e => { e.currentTarget.style.filter = ''; }}>
         {isSubmitting
-          ? <><Loader2 style={{ width: 13, height: 13, animation: 'spin 1s linear infinite' }} />Analyzing…</>
+          ? <><ButtonSpinner size={13} />Analyzing…</>
           : <><Sparkles style={{ width: 13, height: 13 }} />Analyze Repository</>}
       </button>
     </form>
@@ -329,7 +334,7 @@ function Sidebar({ isDark, jobs, jobsLoading, jobsError, selectedJobId, onJobSel
       </div>
       <div className="dash-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 10px 12px' }}>
         <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10, paddingLeft: 4, fontFamily: 'var(--font-mono)' }}>Recent Jobs</p>
-        {jobsLoading && <InlineLoader stage="loading" message="Loading Jobs…" size={24} />}
+        {jobsLoading && <SidebarJobsSkeleton count={5} />}
         {jobsError && <p style={{ fontSize: 12, color: 'var(--danger)', padding: '8px 4px' }}>Could not load jobs</p>}
         {!jobsLoading && jobs.length === 0 && !jobsError && (
           <div style={{ textAlign: 'center', padding: '32px 16px' }}>
@@ -405,7 +410,7 @@ function PanelHeader({ activeJob, isDark }: { activeJob: Job; isDark: boolean })
   const bdr = tintBorder(isDark);
   const statusIcon = {
     completed: <CheckCircle2 style={{ width: 14, height: 14, color: 'var(--success)' }} />,
-    running:   <Loader2 style={{ width: 14, height: 14, color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />,
+    running:   <ButtonSpinner size={14} />,
     failed:    <XCircle style={{ width: 14, height: 14, color: 'var(--danger)' }} />,
     pending:   <Clock style={{ width: 14, height: 14, color: 'var(--text-muted)' }} />,
     cancelled: <XCircle style={{ width: 14, height: 14, color: 'var(--text-muted)' }} />,
@@ -440,6 +445,35 @@ function PanelHeader({ activeJob, isDark }: { activeJob: Job; isDark: boolean })
   );
 }
 
+// ── Insights tab — lazy-loaded inside the right panel ────────────────────────
+function InsightsTab({ jobId, isDark }: { jobId: string; isDark: boolean }) {
+  const { report, isLoading, error } = useInsights(jobId);
+
+  if (isLoading) {
+    return <InsightsSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div style={{
+        padding: '20px 24px', borderRadius: 'var(--radius-md)',
+        background: 'var(--danger-dim)', border: '1px solid rgba(239,83,80,0.22)',
+      }}>
+        <p style={{ fontSize: 13, color: 'var(--danger)', margin: 0 }}>
+          Could not load insights: {error}
+        </p>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6, margin: 0 }}>
+          Make sure the analysis completed successfully and graph data was saved.
+        </p>
+      </div>
+    );
+  }
+
+  if (!report) return null;
+
+  return <InsightsDashboard report={report} isDark={isDark} />;
+}
+
 // ── Right panel ───────────────────────────────────────────────────────────────
 interface RightPanelProps {
   isDark: boolean; activeJob: Job | null;
@@ -448,12 +482,52 @@ interface RightPanelProps {
 }
 
 function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsError }: RightPanelProps) {
+  const [activeTab, setActiveTab] = useState<'artifact' | 'insights'>('artifact');
+
   if (!activeJob) return <EmptyState isDark={isDark} />;
   const bdr = tintBorder(isDark);
+  const isCompleted = activeJob.status === 'completed';
+
+  // Reset tab to artifact when job changes
+  React.useEffect(() => { setActiveTab('artifact'); }, [activeJob.id]);
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
       <PanelHeader activeJob={activeJob} isDark={isDark} />
+
+      {/* Tab bar — only show when job is completed */}
+      {isCompleted && (
+        <div style={{
+          display: 'flex', gap: 2, padding: '0 24px',
+          borderBottom: `1px solid ${bdr}`,
+          background: tint(isDark, 'xs'),
+          flexShrink: 0,
+        }}>
+          {(['artifact', 'insights'] as const).map(tab => {
+            const isActive = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  padding: '10px 18px',
+                  fontSize: 12, fontWeight: isActive ? 700 : 500,
+                  color: isActive ? 'var(--primary)' : 'var(--text-muted)',
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  borderBottom: `2px solid ${isActive ? 'var(--primary)' : 'transparent'}`,
+                  marginBottom: -1, transition: 'color 0.15s, border-color 0.15s',
+                  letterSpacing: '0.02em', fontFamily: 'var(--font-sans)',
+                }}
+                onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = 'var(--text)'; }}
+                onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = 'var(--text-muted)'; }}
+              >
+                {tab === 'artifact' ? '📄 Artifact' : '📊 Engineering Insights'}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="dash-scroll" style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
 
         {/* Pending */}
@@ -479,9 +553,7 @@ function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsE
         )}
 
         {/* Artifacts loading */}
-        {artifactsLoading && (
-          <InlineLoader stage="generating_artifact" message="Loading Artifacts…" size={32} />
-        )}
+        {artifactsLoading && <ArtifactSkeleton />}
 
         {/* Error */}
         {artifactsError && (
@@ -497,26 +569,41 @@ function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsE
 
         {/* Artifact cards */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {artifacts.map(artifact => (
-            <div key={artifact.id} style={{
-              borderRadius: 'var(--radius-lg)', overflow: 'hidden',
-              background: tint(isDark, 'xs'), border: `1px solid ${bdr}`,
-              boxShadow: isDark ? 'var(--shadow-md)' : '0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)',
-              transition: 'background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
-            }}>
-              <div style={{ padding: '12px 18px', borderBottom: `1px solid ${bdr}`, background: tint(isDark, 'xs'), display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--primary)', padding: '3px 10px', borderRadius: 100, background: 'var(--primary-dim)', border: '1px solid rgba(0,229,168,0.22)', fontFamily: 'var(--font-mono)' }}>
-                  {artifact.content_type}
-                </span>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {artifact.id}
-                </span>
-              </div>
-              <div style={{ padding: '16px 18px' }}>
-                <ArtifactViewer artifact={artifact} />
-              </div>
-            </div>
-          ))}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 6, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.99 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
+            >
+              {activeTab === 'insights' && isCompleted ? (
+                <InsightsTab jobId={activeJob.id} isDark={isDark} />
+              ) : (
+                artifacts.map(artifact => (
+                  <div key={artifact.id} style={{
+                    borderRadius: 'var(--radius-lg)', overflow: 'hidden',
+                    background: tint(isDark, 'xs'), border: `1px solid ${bdr}`,
+                    boxShadow: isDark ? 'var(--shadow-md)' : '0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)',
+                    transition: 'background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
+                  }}>
+                    <div style={{ padding: '12px 18px', borderBottom: `1px solid ${bdr}`, background: tint(isDark, 'xs'), display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--primary)', padding: '3px 10px', borderRadius: 100, background: 'var(--primary-dim)', border: '1px solid rgba(0,229,168,0.22)', fontFamily: 'var(--font-mono)' }}>
+                        {artifact.content_type}
+                      </span>
+                      <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {artifact.id}
+                      </span>
+                    </div>
+                    <div style={{ padding: '16px 18px' }}>
+                      <ArtifactViewer artifact={artifact} />
+                    </div>
+                  </div>
+                ))
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
     </div>
@@ -539,12 +626,24 @@ export default function DashboardPage() {
     try { localStorage.setItem('cortex-theme', theme); } catch {}
   }, [isDark]);
 
-  // Initial jobs fetch
+  // Initial jobs fetch — serve from session cache first to avoid blank sidebar
   React.useEffect(() => {
+    const cached = sessionCache.get<Job[]>(cacheKey.jobsList());
+    if (cached) {
+      setJobs(cached);
+      setJobsLoading(false);
+      // Still refresh in background after 10s
+    }
+
     let active = true;
-    setJobsLoading(true);
+    setJobsLoading(prev => cached ? false : prev);
     listJobs()
-      .then(data => { if (active) setJobs(data); })
+      .then(data => {
+        if (active) {
+          setJobs(data);
+          sessionCache.set(cacheKey.jobsList(), data, TTL.JOBS_LIST);
+        }
+      })
       .catch(err => { if (active) setJobsError(err instanceof Error ? err.message : 'Failed'); })
       .finally(() => { if (active) setJobsLoading(false); });
     return () => { active = false; };

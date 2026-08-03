@@ -15,7 +15,8 @@ export type ArtifactType =
   | 'database_schema'
   | 'api_spec'
   | 'learning_path'
-  | 'interview_questions';
+  | 'interview_questions'
+  | 'vibe_code_detection';  // added to match backend ArtifactType enum
 
 // Job — maps to the backend jobs table
 export interface Job {
@@ -23,9 +24,11 @@ export interface Job {
   status: JobStatus;
   artifact_type: ArtifactType;
   repo_url: string;
+  error_message?: string | null;
   options?: Record<string, unknown>;
   created_at: string;           // ISO 8601
   updated_at: string;           // ISO 8601
+  is_terminal: boolean;
 }
 
 // JobCreateRequest — POST /api/v1/jobs body
@@ -39,6 +42,7 @@ export interface JobCreateRequest {
 export interface Artifact {
   id: string;                   // UUID
   job_id: string;               // UUID FK
+  artifact_type: string;        // added — present in backend response
   content_type: string;
   content_inline: string | null;
   storage_path: string | null;
@@ -49,20 +53,88 @@ export interface Artifact {
 export interface GraphNode {
   id: string;
   label: string;
-  type: 'Repository' | 'Module' | 'File' | 'Function' | 'Class' | 'Pattern';
+  node_type: 'Repository' | 'Module' | 'File' | 'Function' | 'Class' | 'Pattern';
+  job_id: string;
   properties: Record<string, unknown>;
+  created_at: string;
 }
 
-// Graph edge — from GET /api/v1/graph/relationships
+// Graph edge — backend returns source_id/target_id (fixed mismatch)
 export interface GraphEdge {
   id: string;
-  source: string;
-  target: string;
-  relationship: 'CONTAINS' | 'IMPORTS' | 'DEPENDS_ON' | 'EXHIBITS' | 'CALLS';
+  source_id: string;
+  target_id: string;
+  relationship: 'CONTAINS' | 'IMPORTS' | 'DEPENDS_ON' | 'EXHIBITS' | 'CALLS' | 'INHERITS';
+  job_id: string;
+  properties: Record<string, unknown>;
+  created_at: string;
 }
 
 // API error shape returned by the FastAPI backend
 export interface ApiError {
   detail: string;
   correlation_id?: string;
+}
+
+// ── Insights types ────────────────────────────────────────────────────────────
+
+export type IssueSeverity = 'high' | 'medium' | 'low' | 'info';
+export type IssueCategory =
+  | 'complexity'
+  | 'coupling'
+  | 'duplication'
+  | 'naming'
+  | 'documentation'
+  | 'error_handling'
+  | 'architecture'
+  | 'size';
+
+export interface MetricScore {
+  label: string;
+  score: number;        // 0–100
+  raw_value: number;
+  unit: string;
+  description: string;
+}
+
+export interface HealthDimension {
+  name: string;
+  score: number;        // 0–100
+  grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  summary: string;
+  metrics: MetricScore[];
+}
+
+export interface CodeIssue {
+  category: IssueCategory;
+  severity: IssueSeverity;
+  title: string;
+  description: string;
+  suggestion: string;
+  file_path: string;
+  line: number;
+  affected_symbol: string;
+}
+
+export interface InsightsReport {
+  job_id: string;
+  repo_url: string;
+  repo_name: string;
+  overall_score: number;
+  overall_grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  dimensions: HealthDimension[];
+  issues: CodeIssue[];
+  stats: {
+    total_nodes: number;
+    total_edges: number;
+    repositories: number;
+    modules: number;
+    files: number;
+    classes: number;
+    functions: number;
+    total_issues: number;
+    high_issues: number;
+    medium_issues: number;
+    low_issues: number;
+  };
 }

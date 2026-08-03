@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cn } from '@/lib/utils/cn';
+import { ButtonSpinner } from '@/components/shared/BrandedLoader';
 
 // =============================================================================
 // IconButton — Square/round icon-only button with all interactive states
@@ -89,10 +90,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
         {...props}
       >
         {loading ? (
-          <span
-            className="rounded-full border-2 border-current border-t-transparent animate-spin w-4 h-4"
-            aria-hidden="true"
-          />
+          <ButtonSpinner size={14} />
         ) : (
           children
         )}

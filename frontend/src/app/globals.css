@@ -956,3 +956,16 @@
   background: rgba(0,0,0,0.03) !important;
   border-color: rgba(0,0,0,0.09) !important;
 }
+
+/* ── Graph progressive node fade-in ────────────────────────────────────────── */
+@keyframes cortex-node-in {
+  from { opacity: 0; transform: scale(0.88); }
+  to   { opacity: 1; transform: scale(1); }
+}
+/* Respect reduced-motion: skip animation, show immediately */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes cortex-node-in {
+    from { opacity: 1; transform: none; }
+    to   { opacity: 1; transform: none; }
+  }
+}

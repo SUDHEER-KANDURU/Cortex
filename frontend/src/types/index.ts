@@ -12,4 +12,10 @@ export type {
   GraphNode,
   GraphEdge,
   ApiError,
+  IssueSeverity,
+  IssueCategory,
+  MetricScore,
+  HealthDimension,
+  CodeIssue,
+  InsightsReport,
 } from './api.types';

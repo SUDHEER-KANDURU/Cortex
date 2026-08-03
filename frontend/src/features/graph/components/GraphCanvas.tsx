@@ -69,7 +69,10 @@ function themeTokens() {
 
 // ── Node factory ──────────────────────────────────────────────────────────────
 function toFlowNode(node: GraphNode, index: number, dark: boolean): Node<GraphNode> {
-  const color = NODE_TYPE_COLORS[node.type] ?? '#64748b';
+  const color = NODE_TYPE_COLORS[node.node_type] ?? '#64748b';
+  // Progressive fade-in: each node staggered by 18ms, capped at 600ms total.
+  // GPU-only animation (opacity) — no layout cost on large graphs.
+  const delayMs = Math.min(index * 18, 600);
   return {
     id: node.id,
     position: { x: (index % 5) * 220, y: Math.floor(index / 5) * 120 },
@@ -79,11 +82,13 @@ function toFlowNode(node: GraphNode, index: number, dark: boolean): Node<GraphNo
       border: `1px solid ${color}`,
       borderRadius: '8px',
       padding: '8px 12px',
-      // Node text: always readable against the node bg
       color: dark ? '#e2e8f0' : '#1e293b',
       fontSize: '12px',
       fontFamily: 'ui-monospace, monospace',
       minWidth: '120px',
+      opacity: 0,
+      animation: 'cortex-node-in 0.35s ease forwards',
+      animationDelay: `${delayMs}ms`,
     },
   };
 }
@@ -92,8 +97,8 @@ function toFlowNode(node: GraphNode, index: number, dark: boolean): Node<GraphNo
 function toFlowEdge(edge: GraphEdge, t: ReturnType<typeof themeTokens>): Edge {
   return {
     id: edge.id,
-    source: edge.source,
-    target: edge.target,
+    source: edge.source_id,   // backend returns source_id, not source
+    target: edge.target_id,   // backend returns target_id, not target
     label: edge.relationship,
     labelStyle: { fill: t.edgeLabelFill, fontSize: 10 },
     style: { stroke: t.edgeStroke, strokeWidth: 1 },
@@ -107,7 +112,7 @@ function NodeDetailPanel({ node, onClose, t }: {
   onClose: () => void;
   t: ReturnType<typeof themeTokens>;
 }) {
-  const color = NODE_TYPE_COLORS[node.type] ?? '#64748b';
+  const color = NODE_TYPE_COLORS[node.node_type] ?? '#64748b';
   return (
     <aside
       aria-label={`Node details: ${node.label}`}
@@ -237,7 +242,7 @@ export default function GraphCanvas({ nodes: rawNodes, edges: rawEdges }: GraphC
           '--xy-controls-button-color': t.controlBtnText,
         } as React.CSSProperties} />
         <MiniMap
-          nodeColor={node => NODE_TYPE_COLORS[(node as Node<GraphNode>).data?.type] ?? '#64748b'}
+          nodeColor={node => NODE_TYPE_COLORS[(node as Node<GraphNode>).data?.node_type] ?? '#64748b'}
           style={{
             background: t.minimapBg,
             border: `1px solid ${t.minimapBorder}`,

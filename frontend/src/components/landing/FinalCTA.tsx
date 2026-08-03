@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { ArrowUpRight, Github } from "lucide-react"
+import { DashboardLink } from "@/components/shared/DashboardLink"
 
 export function PortfolioFinalCTA() {
   return (
@@ -50,7 +51,7 @@ export function PortfolioFinalCTA() {
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
-            <Link href="/dashboard"
+            <DashboardLink
               className="group inline-flex items-center justify-center gap-2 px-9 py-4 text-base font-semibold rounded-full"
               style={{
                 background: "linear-gradient(135deg, var(--primary) 0%, #00c9a7 100%)",
@@ -58,11 +59,11 @@ export function PortfolioFinalCTA() {
                 boxShadow: "0 8px 32px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.22)",
                 transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s ease, filter 0.2s ease",
               }}
-              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.filter = "brightness(1.1)"; el.style.boxShadow = "0 16px 48px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.22)" }}
-              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.filter = ""; el.style.boxShadow = "0 8px 32px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.22)" }}>
+              onMouseEnter={e => { const el = e.currentTarget as HTMLAnchorElement; el.style.filter = "brightness(1.1)"; el.style.boxShadow = "0 16px 48px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.22)" }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLAnchorElement; el.style.filter = ""; el.style.boxShadow = "0 8px 32px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.22)" }}>
               Analyze a Repository
               <ArrowUpRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </Link>
+            </DashboardLink>
 
             <Link href="https://github.com/SUDHEER-KANDURU/cortex" target="_blank" rel="noopener noreferrer"
               className="cx-row cx-link inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-medium rounded-full"
