@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     neo4j_user: str = "neo4j"
     neo4j_password: str = "cortexpass"
     github_token: str = ""
-    gemini_api_key: str = ""
+    nim_api_key: str = ""
     cors_origins: list[str] = ["http://localhost:3000"]
     log_level: str = "INFO"
 

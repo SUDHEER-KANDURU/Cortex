@@ -253,9 +253,16 @@ class ArtifactGenerateStage(AbstractPipelineStage):
                 content_type = ArtifactContentType.MARKDOWN
 
             elif artifact_type == "database_schema":
-                # Fix 6 — was incorrectly calling generate_api_spec
-                content = markdown_gen.generate_database_schema(graph_result, repo_name)
-                content_type = ArtifactContentType.MARKDOWN
+                from cortex.pipeline.infrastructure.database_schema_generator import (
+                    DatabaseSchemaGenerator,
+                )
+                schema_gen = DatabaseSchemaGenerator()
+                content = schema_gen.generate(
+                    context.parsed_files or [],
+                    graph_result,
+                    repo_name,
+                )
+                content_type = ArtifactContentType.MERMAID
 
             else:
                 content = mermaid_gen.generate(graph_result, repo_name)
