@@ -3,11 +3,12 @@
 import Link from "next/link"
 import { ArrowDown, GitBranch, Cpu, Database, FileCode } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
+import { motion, useReducedMotion, AnimatePresence } from "framer-motion"
 import { DashboardLink } from "@/components/shared/DashboardLink"
 import dynamic from "next/dynamic"
+import { fadeUp, heroWord, staggerContainer, staggerChild, DURATION, EASE, SPRING } from "@/lib/utils/motion"
 
 // Lazy-load the heavy 3D RepoTree only after the page has painted.
-// A CSS skeleton placeholder is shown until then — no layout shift.
 const RepoTree = dynamic(() => import("@/features/tree/RepoTree"), {
   ssr: false,
   loading: () => (
@@ -16,7 +17,6 @@ const RepoTree = dynamic(() => import("@/features/tree/RepoTree"), {
       display: "flex", flexDirection: "column",
       justifyContent: "flex-end", padding: "24px",
     }}>
-      {/* Skeleton lines — mimic a tree structure */}
       {[80, 60, 70, 45, 55, 38, 65].map((w, i) => (
         <div key={i} style={{
           height: "10px", borderRadius: "5px", marginBottom: "10px",
@@ -31,7 +31,6 @@ const RepoTree = dynamic(() => import("@/features/tree/RepoTree"), {
   ),
 })
 
-// Delay-mount the heavy component until idle to not block first paint
 function LazyRepoTree({ progress }: { progress: React.MutableRefObject<number> }) {
   const [mounted, setMounted] = useState(false)
 
@@ -39,13 +38,11 @@ function LazyRepoTree({ progress }: { progress: React.MutableRefObject<number> }
     if (typeof window === "undefined") return
     let idleId: number | undefined
     let timeoutId: ReturnType<typeof setTimeout> | undefined
-
     if (typeof requestIdleCallback !== "undefined") {
       idleId = requestIdleCallback(() => setMounted(true), { timeout: 2000 })
     } else {
       timeoutId = setTimeout(() => setMounted(true), 400)
     }
-
     return () => {
       if (idleId !== undefined) cancelIdleCallback(idleId)
       if (timeoutId !== undefined) clearTimeout(timeoutId)
@@ -68,7 +65,6 @@ function LazyRepoTree({ progress }: { progress: React.MutableRefObject<number> }
       </div>
     )
   }
-
   return <RepoTree progress={progress} />
 }
 
@@ -82,6 +78,7 @@ const PIPELINE_STEPS = [
 export function PortfolioHero() {
   const titleText = "Understand any codebase with AI reasoning"
   const words = titleText.split(" ")
+  const prefersReducedMotion = useReducedMotion()
 
   const progressRef = useRef(0)
   const spacerRef   = useRef<HTMLDivElement>(null)
@@ -101,9 +98,9 @@ export function PortfolioHero() {
       const raw    = (window.scrollY - top) / height
       progressRef.current = Math.max(0, Math.min(1, raw))
     }
-
     handleScroll()
     window.addEventListener("scroll", handleScroll, { passive: true })
+
     const interval = setInterval(() => {
       if (document.visibilityState === 'hidden') return
       setActiveStep(s => (s + 1) % PIPELINE_STEPS.length)
@@ -127,9 +124,15 @@ export function PortfolioHero() {
           <div className="max-w-[1280px] mx-auto px-6 md:px-12 h-full grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
 
             {/* ── Left: hero copy ── */}
-            <div>
-              {/* Eyebrow badge — liquid glass */}
-              <div className="hero-eyebrow inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full"
+            <motion.div
+              variants={prefersReducedMotion ? undefined : staggerContainer}
+              initial={prefersReducedMotion ? false : "hidden"}
+              animate="visible"
+            >
+              {/* Eyebrow badge */}
+              <motion.div
+                variants={prefersReducedMotion ? undefined : fadeUp}
+                className="hero-eyebrow inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full"
                 style={{
                   background: "var(--cx-pill-bg)",
                   backdropFilter: "blur(8px) saturate(200%)",
@@ -150,83 +153,131 @@ export function PortfolioHero() {
                 }}>
                   Engineering Reasoning Engine
                 </span>
-              </div>
+              </motion.div>
 
+              {/* Hero headline — word-by-word reveal */}
               <h1 className="text-[42px] sm:text-[54px] lg:text-[68px] font-semibold tracking-tight leading-[1.04] text-balance"
                 style={{ fontFamily: "var(--font-sans,'Inter',system-ui,sans-serif)", letterSpacing: "-0.045em", color: "var(--text)" }}>
                 {words.map((word, index) => (
-                  <span
-                    key={index}
-                    className="hero-word py-1 font-semibold"
-                    style={{
-                      display: "inline-block",
-                      animationDelay: `${index * 0.08}s`,
-                      marginRight: index < words.length - 1 ? "0.22em" : "0",
-                      color: "var(--text)",
-                    }}
-                  >
-                    {word}
-                  </span>
+                  prefersReducedMotion ? (
+                    <span key={index} style={{ display: "inline-block", marginRight: index < words.length - 1 ? "0.22em" : "0" }}>
+                      {word}
+                    </span>
+                  ) : (
+                    <motion.span
+                      key={index}
+                      custom={index}
+                      variants={heroWord}
+                      initial="hidden"
+                      animate="visible"
+                      style={{
+                        display: "inline-block",
+                        marginRight: index < words.length - 1 ? "0.22em" : "0",
+                        color: "var(--text)",
+                      }}
+                    >
+                      {word}
+                    </motion.span>
+                  )
                 ))}
               </h1>
 
-              <p className="mt-5 max-w-[400px] leading-[1.65] text-[15px]" style={{ color: "var(--text-secondary)" }}>
+              {/* Subtitle */}
+              <motion.p
+                variants={prefersReducedMotion ? undefined : {
+                  hidden: { opacity: 0, y: 16 },
+                  visible: { opacity: 1, y: 0, transition: { duration: DURATION.reveal, delay: words.length * 0.085 + 0.1, ease: EASE.out } },
+                }}
+                className="mt-5 max-w-[400px] leading-[1.65] text-[15px]"
+                style={{ color: "var(--text-secondary)" }}>
                 Paste any GitHub URL. Cortex parses your repository at the AST level, constructs a Neo4j knowledge graph, and generates architecture diagrams, learning paths, and interview prep — fully offline, zero API keys.
-              </p>
+              </motion.p>
 
               {/* CTAs */}
-              <div className="flex flex-row flex-wrap items-center gap-3 mt-8">
-                {/* Primary — brand gradient */}
-                <DashboardLink
-                  data-magnetic
-                  className="hero-cta-primary cta-shimmer inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold rounded-full"
-                  style={{
-                    background: "linear-gradient(135deg, var(--primary) 0%, #00c9a7 100%)",
-                    color: "#060810",
-                    boxShadow: "0 4px 20px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.22)",
-                    transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s ease, filter 0.2s ease",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.filter = "brightness(1.1)" }}
-                  onMouseLeave={e => { e.currentTarget.style.filter = "" }}>
-                  Analyze a Repository
-                </DashboardLink>
+              <motion.div
+                variants={prefersReducedMotion ? undefined : {
+                  hidden: { opacity: 0, y: 18 },
+                  visible: { opacity: 1, y: 0, transition: { duration: DURATION.reveal, delay: words.length * 0.085 + 0.22, ease: EASE.out } },
+                }}
+                className="flex flex-row flex-wrap items-center gap-3 mt-8"
+              >
+                {/* Primary CTA — spring lift on hover */}
+                <motion.div
+                  whileHover={prefersReducedMotion ? {} : { y: -3, transition: SPRING.snappy }}
+                  whileTap={prefersReducedMotion ? {} : { scale: 0.96, transition: { duration: DURATION.micro } }}
+                >
+                  <DashboardLink
+                    data-magnetic
+                    className="hero-cta-primary cta-shimmer inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold rounded-full"
+                    style={{
+                      background: "linear-gradient(135deg, var(--primary) 0%, #00c9a7 100%)",
+                      color: "#060810",
+                      boxShadow: "0 4px 20px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.22)",
+                    }}>
+                    Analyze a Repository
+                  </DashboardLink>
+                </motion.div>
 
-                {/* Secondary — glass */}
-                <Link href="#works"
-                  data-magnetic
-                  className="inline-flex items-center gap-2 px-5 py-3 text-sm font-medium rounded-full"
-                  style={{
-                    color: "var(--text-secondary)",
-                    background: "var(--cx-pill-bg)",
-                    backdropFilter: "blur(12px) saturate(180%)",
-                    WebkitBackdropFilter: "blur(12px) saturate(180%)",
-                    border: "1px solid var(--cx-pill-border)",
-                    boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
-                    transition: "background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease",
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = "var(--cx-arrow-bg)"
-                    e.currentTarget.style.color = "var(--text)"
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = "var(--cx-pill-bg)"
-                    e.currentTarget.style.color = "var(--text-secondary)"
-                  }}>
-                  See Capabilities
-                  <ArrowDown className="w-3.5 h-3.5" />
-                </Link>
-              </div>
+                {/* Secondary CTA */}
+                <motion.div
+                  whileHover={prefersReducedMotion ? {} : { y: -2, transition: SPRING.snappy }}
+                  whileTap={prefersReducedMotion ? {} : { scale: 0.97, transition: { duration: DURATION.micro } }}
+                >
+                  <Link href="#works"
+                    data-magnetic
+                    className="inline-flex items-center gap-2 px-5 py-3 text-sm font-medium rounded-full"
+                    style={{
+                      color: "var(--text-secondary)",
+                      background: "var(--cx-pill-bg)",
+                      backdropFilter: "blur(12px) saturate(180%)",
+                      WebkitBackdropFilter: "blur(12px) saturate(180%)",
+                      border: "1px solid var(--cx-pill-border)",
+                      boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+                      transition: "background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease",
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = "var(--cx-arrow-bg)"
+                      e.currentTarget.style.color = "var(--text)"
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = "var(--cx-pill-bg)"
+                      e.currentTarget.style.color = "var(--text-secondary)"
+                    }}>
+                    See Capabilities
+                    <motion.span
+                      animate={prefersReducedMotion ? {} : { y: [0, 3, 0] }}
+                      transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                    >
+                      <ArrowDown className="w-3.5 h-3.5" />
+                    </motion.span>
+                  </Link>
+                </motion.div>
+              </motion.div>
 
-              {/* Pipeline mini-preview — monochrome */}
-              <div className="mt-10 flex items-center gap-0" aria-label="How Cortex works">
+              {/* Pipeline mini-preview */}
+              <motion.div
+                variants={prefersReducedMotion ? undefined : {
+                  hidden: { opacity: 0, y: 20 },
+                  visible: { opacity: 1, y: 0, transition: { duration: DURATION.reveal, delay: words.length * 0.085 + 0.35, ease: EASE.out } },
+                }}
+                className="mt-10 flex items-center gap-0"
+                aria-label="How Cortex works"
+              >
                 {PIPELINE_STEPS.map((step, i) => {
                   const Icon = step.icon
                   const isActive = i === activeStep
                   return (
                     <div key={step.label} className="flex items-center">
-                      <div className="hero-pipeline-step flex flex-col items-center gap-1.5"
-                        style={{ transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)" }}>
-                        <div className="flex items-center justify-center w-9 h-9 rounded-full"
+                      <div className="hero-pipeline-step flex flex-col items-center gap-1.5">
+                        <motion.div
+                          animate={prefersReducedMotion ? {} : {
+                            scale: isActive ? 1.12 : 1,
+                            boxShadow: isActive
+                              ? "0 0 14px var(--primary-glow)"
+                              : "none",
+                          }}
+                          transition={SPRING.snappy}
+                          className="flex items-center justify-center w-9 h-9 rounded-full"
                           style={{
                             background: isActive ? "var(--primary-dim)" : "var(--cx-pill-bg)",
                             backdropFilter: "blur(8px) saturate(160%)",
@@ -234,13 +285,15 @@ export function PortfolioHero() {
                             border: isActive
                               ? "1px solid rgba(0,229,168,0.35)"
                               : "1px solid var(--cx-pill-border)",
-                            boxShadow: isActive ? "0 0 14px var(--primary-glow)" : "none",
-                            transform: isActive ? "scale(1.12)" : "scale(1)",
-                            transition: "all 0.35s cubic-bezier(0.16,1,0.3,1)",
                           }}>
-                          <Icon className="w-3.5 h-3.5"
-                            style={{ color: isActive ? "var(--primary)" : "var(--text-muted)", transition: "color 0.3s" }} />
-                        </div>
+                          <motion.div
+                            animate={prefersReducedMotion ? {} : { rotate: isActive ? [0, 8, -8, 0] : 0 }}
+                            transition={{ duration: 0.5, ease: EASE.out }}
+                          >
+                            <Icon className="w-3.5 h-3.5"
+                              style={{ color: isActive ? "var(--primary)" : "var(--text-muted)", transition: "color 0.3s" }} />
+                          </motion.div>
+                        </motion.div>
                         <span style={{
                           fontSize: "9px", fontWeight: 600, letterSpacing: "0.08em",
                           textTransform: "uppercase", whiteSpace: "nowrap",
@@ -249,6 +302,7 @@ export function PortfolioHero() {
                           fontFamily: "var(--font-mono,'JetBrains Mono',monospace)",
                         }}>{step.label}</span>
                       </div>
+
                       {i < PIPELINE_STEPS.length - 1 && (
                         <div aria-hidden="true" style={{
                           width: "28px", height: "1.5px",
@@ -263,22 +317,29 @@ export function PortfolioHero() {
                     </div>
                   )
                 })}
-              </div>
+              </motion.div>
 
-              <p className="mt-6 text-xs tracking-widest uppercase" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+              <motion.p
+                variants={prefersReducedMotion ? undefined : {
+                  hidden: { opacity: 0 },
+                  visible: { opacity: 1, transition: { duration: DURATION.medium, delay: words.length * 0.085 + 0.55 } },
+                }}
+                className="mt-6 text-xs tracking-widest uppercase"
+                style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
                 Scroll to grow the repository tree ↓
-              </p>
-            </div>
+              </motion.p>
+            </motion.div>
 
-            {/* ── Right: 3D repository tree (dark panel) ── */}
-            <div
+            {/* ── Right: 3D repo tree — slides in from right ── */}
+            <motion.div
+              initial={prefersReducedMotion ? false : { opacity: 0, x: 40 }}
+              animate={{ opacity: isDesktop ? 1 : 0, x: 0 }}
+              transition={{ duration: DURATION.major, delay: 0.3, ease: EASE.out }}
               data-hero-panel
               style={{
-              height: "100%", position: "relative",
-              opacity: isDesktop ? 1 : 0,
-              pointerEvents: isDesktop ? "auto" : "none",
-              transition: "opacity 0.6s ease",
-            }}>
+                height: "100%", position: "relative",
+                pointerEvents: isDesktop ? "auto" : "none",
+              }}>
               <div style={{
                 position: "absolute", inset: "16px 0",
                 borderRadius: "24px",
@@ -296,7 +357,7 @@ export function PortfolioHero() {
                   <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#28C840", display: "block" }} />
                 </div>
 
-                {/* Label — liquid glass dark pill */}
+                {/* Label */}
                 <div style={{
                   position: "absolute", top: "12px", left: "50%",
                   transform: "translateX(-50%)",
@@ -331,8 +392,9 @@ export function PortfolioHero() {
                   height: "80px",
                   background: "linear-gradient(to top,#0a0a0a 0%,transparent 100%)",
                   pointerEvents: "none", zIndex: 5,
-                }} />              </div>
-            </div>
+                }} />
+              </div>
+            </motion.div>
 
           </div>
         </div>
@@ -340,4 +402,3 @@ export function PortfolioHero() {
     </>
   )
 }
-

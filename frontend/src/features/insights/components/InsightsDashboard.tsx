@@ -6,8 +6,10 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import type { InsightsReport, HealthDimension, CodeIssue, IssueSeverity } from '@/types';
 import { exportInsightsMarkdown } from '@/lib/api/insights.api';
+import { staggerFastContainer, staggerFastChild, SPRING } from '@/lib/utils/motion';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -244,6 +246,7 @@ type SeverityFilter = 'all' | IssueSeverity;
 export default function InsightsDashboard({ report, isDark }: Props) {
   const [issueFilter, setIssueFilter] = useState<SeverityFilter>('all');
   const [exporting, setExporting] = useState(false);
+  const prefersReduced = useReducedMotion();
 
   const filteredIssues = issueFilter === 'all'
     ? report.issues
@@ -338,11 +341,18 @@ export default function InsightsDashboard({ report, isDark }: Props) {
         <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
           Health Dimensions
         </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 10 }}>
+        <motion.div
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 10 }}
+          variants={prefersReduced ? undefined : staggerFastContainer}
+          initial={prefersReduced ? false : 'hidden'}
+          animate="visible"
+        >
           {report.dimensions.map(dim => (
-            <DimensionCard key={dim.name} dim={dim} />
+            <motion.div key={dim.name} variants={prefersReduced ? undefined : staggerFastChild}>
+              <DimensionCard dim={dim} />
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </div>
 
       {/* ── Issues ── */}
@@ -387,16 +397,23 @@ export default function InsightsDashboard({ report, isDark }: Props) {
             </p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <motion.div
+            style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+            variants={prefersReduced ? undefined : staggerFastContainer}
+            initial={prefersReduced ? false : 'hidden'}
+            animate="visible"
+          >
             {filteredIssues.slice(0, 30).map((issue, i) => (
-              <IssueRow key={`${issue.title}-${i}`} issue={issue} />
+              <motion.div key={`${issue.title}-${i}`} variants={prefersReduced ? undefined : staggerFastChild}>
+                <IssueRow issue={issue} />
+              </motion.div>
             ))}
             {filteredIssues.length > 30 && (
               <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', margin: '8px 0 0' }}>
                 + {filteredIssues.length - 30} more issues — export the report to see all.
               </p>
             )}
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

@@ -969,3 +969,205 @@
     to   { opacity: 1; transform: none; }
   }
 }
+
+/* =============================================================================
+   CORTEX MOTION SYSTEM — CSS Layer
+   All interaction states that live purely in CSS (no Framer Motion needed).
+   Referenced by globals and component styles.
+   ============================================================================= */
+
+/* ── Button press / active compression ─────────────────────────────────────── */
+.btn-primary:active:not(:disabled),
+.hero-cta-primary:active,
+[data-magnetic]:active {
+  transform: scale(0.96) !important;
+  transition: transform 0.08s cubic-bezier(0.16,1,0.3,1) !important;
+}
+
+/* ── CTA hover — lift + brightness ─────────────────────────────────────────── */
+.btn-primary:hover:not(:disabled),
+.hero-cta-primary:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+  transition:
+    transform 0.18s cubic-bezier(0.16,1,0.3,1),
+    filter    0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+/* ── Nav link underline expansion ──────────────────────────────────────────── */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 1.5px;
+  background: var(--primary);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.3s cubic-bezier(0.16,1,0.3,1);
+  border-radius: 1px;
+}
+.nav-link:hover::after,
+.nav-link[aria-current="page"]::after {
+  transform: scaleX(1);
+}
+
+/* ── Card spotlight tilt — GPU-only properties ──────────────────────────────── */
+[data-spotlight] {
+  transform-style: preserve-3d;
+  will-change: transform;
+  transition:
+    transform 0.6s cubic-bezier(0.16,1,0.3,1),
+    box-shadow 0.3s ease;
+}
+
+/* ── Input focus glow ───────────────────────────────────────────────────────── */
+.input-premium:focus,
+input:focus,
+textarea:focus {
+  box-shadow: 0 0 0 3px var(--primary-dim);
+  border-color: var(--primary) !important;
+  transition:
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+
+/* ── Tab slide indicator ────────────────────────────────────────────────────── */
+.tab-indicator {
+  transition:
+    transform 0.45s cubic-bezier(0.16,1,0.3,1),
+    width     0.45s cubic-bezier(0.16,1,0.3,1),
+    opacity   0.25s ease;
+}
+
+/* ── Loading morph shimmer ──────────────────────────────────────────────────── */
+@keyframes morph-shimmer {
+  0%   { border-radius: 60% 40% 70% 30% / 50% 60% 40% 50%; }
+  33%  { border-radius: 40% 60% 30% 70% / 60% 40% 60% 40%; }
+  66%  { border-radius: 70% 30% 50% 50% / 40% 60% 40% 60%; }
+  100% { border-radius: 60% 40% 70% 30% / 50% 60% 40% 50%; }
+}
+.morph-blob {
+  animation: morph-shimmer 6s ease-in-out infinite;
+  will-change: border-radius;
+}
+
+/* ── Scroll progress micro-interaction ─────────────────────────────────────── */
+.scroll-progress-bar {
+  transition: transform 0.08s linear;
+  will-change: transform;
+}
+
+/* ── Hero eyebrow badge subtle pulse ───────────────────────────────────────── */
+@keyframes eyebrow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0,229,168,0.15); }
+  50%       { box-shadow: 0 0 0 6px rgba(0,229,168,0); }
+}
+.hero-eyebrow {
+  animation: eyebrow-pulse 3s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-eyebrow { animation: none; }
+}
+
+/* ── Graph edge draw-on ─────────────────────────────────────────────────────── */
+.graph-edge-enter {
+  stroke-dasharray: 300;
+  stroke-dashoffset: 300;
+  animation: graph-edge-draw 0.6s cubic-bezier(0.16,1,0.3,1) forwards;
+}
+@keyframes graph-edge-draw {
+  to { stroke-dashoffset: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .graph-edge-enter {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ── Section entrance — for non-FM components ────────────────────────────────  */
+@keyframes section-enter {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0px);
+  }
+}
+.section-enter {
+  animation: section-enter 0.7s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+/* ── Icon hover rotate ───────────────────────────────────────────────────────  */
+.icon-hover-rotate {
+  transition: transform 0.25s cubic-bezier(0.16,1,0.3,1);
+}
+.icon-hover-rotate:hover {
+  transform: rotate(12deg) scale(1.1);
+}
+
+/* ── Dashboard main panel slide-in ─────────────────────────────────────────── */
+@keyframes panel-slide-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.panel-slide-in {
+  animation: panel-slide-in 0.45s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+/* ── Artifact viewer content fade ───────────────────────────────────────────── */
+@keyframes artifact-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.artifact-fade-in {
+  animation: artifact-fade-in 0.5s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+/* ── Reduce all motion when system preference is set ─────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  /* Remove all CSS animations and transitions */
+  .hero-word,
+  .morph-blob,
+  .section-enter,
+  .panel-slide-in,
+  .artifact-fade-in,
+  .icon-hover-rotate,
+  .graph-edge-enter,
+  .btn-primary:hover:not(:disabled),
+  .hero-cta-primary:hover,
+  [data-spotlight],
+  .nav-link::after {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  /* Keep opacity transitions minimal for accessibility */
+  [data-reveal],
+  [data-stagger] > * {
+    transition: opacity 0.01s !important;
+    transform: none !important;
+    filter: none !important;
+    opacity: 1 !important;
+  }
+
+  /* Ensure revealed state is instantly visible */
+  [data-reveal].revealed,
+  [data-stagger].revealed > * {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}

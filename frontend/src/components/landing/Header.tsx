@@ -1,21 +1,26 @@
 "use client"
 
+/**
+ * PortfolioHeader — Liquid Glass pill navbar
+ *
+ * Motion upgrades (v2):
+ *  - Active nav pill: Framer Motion layoutId="nav-active-pill" → spring slides
+ *    between items instead of rAF-driven CSS transform
+ *  - CTA button: whileHover spring lift, whileTap compress
+ *  - Theme toggle: spring scale on hover
+ *  - Mobile menu: AnimatePresence fade+slide-up entrance
+ *  - prefers-reduced-motion: layoutId animation disabled, instant transitions
+ */
+
 import type React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { X, LayoutDashboard } from "lucide-react"
 import { DashboardLink } from "@/components/shared/DashboardLink"
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
+import { SPRING, DURATION, EASE } from "@/lib/utils/motion"
 
-// =============================================================================
-// PortfolioHeader — Cyber-Aurora Liquid Glass pill navbar
-//
-// Design from index_new.html:
-//  • Floating pill housing with glassmorphism backdrop
-//  • Active item slides a white pill underneath (animated via rAF)
-//  • Glare overlay tracks mouse position on hover
-//  • Theme toggle (light ↔ dark) with sun/moon crossfade
-//  • Animated blob background via CSS custom properties
-// =============================================================================
+// ── Nav items ──────────────────────────────────────────────────────────────
 
 const navItems = [
   { href: "#works",        label: "Capabilities", id: "works"        },
@@ -25,64 +30,39 @@ const navItems = [
   { href: "#insights",     label: "Insights",       id: "insights"     },
 ]
 
+// ── Motion presets ─────────────────────────────────────────────────────────
+
+const CTA_HOVER = { y: -2, filter: "brightness(1.12)", transition: SPRING.snappy }
+const CTA_TAP   = { scale: 0.96, y: 1, transition: { duration: DURATION.micro } }
+
+const MOBILE_OVERLAY_VARIANTS = {
+  hidden:  { opacity: 0, y: -8 },
+  visible: { opacity: 1, y: 0, transition: { duration: DURATION.medium, ease: EASE.out } },
+  exit:    { opacity: 0, y: -8, transition: { duration: DURATION.fast, ease: EASE.snap } },
+}
+
+// ── Component ──────────────────────────────────────────────────────────────
+
 export function PortfolioHeader() {
-  const [isMobileMenuOpen, setMobileOpen] = useState(false)
+  const [isMobileMenuOpen, setMobileOpen]  = useState(false)
   const [activeSection, setActiveSection]  = useState<string>("")
   const [isDark, setIsDark]                = useState(true)
   const [mounted, setMounted]              = useState(false)
 
-  const navRef       = useRef<HTMLElement>(null)
-  const glareRef     = useRef<HTMLDivElement>(null)
-  const activePillRef = useRef<HTMLDivElement>(null)
-  const btnRefs      = useRef<Map<string, HTMLButtonElement>>(new Map())
-  const headerRef    = useRef<HTMLElement>(null)
+  const navRef   = useRef<HTMLElement>(null)
+  const glareRef = useRef<HTMLDivElement>(null)
+  const prefersReduced = useReducedMotion()
 
-  // ── Mount guard (avoids SSR mismatch) ─────────────────────────────────────
+  // ── Mount guard ───────────────────────────────────────────────────────────
   useEffect(() => { setMounted(true) }, [])
 
-  // ── Theme: sync with html[data-theme] ─────────────────────────────────────
+  // ── Theme sync ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!mounted) return
-    const root = document.documentElement
-    root.setAttribute("data-theme", isDark ? "dark" : "light")
+    document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light")
   }, [isDark, mounted])
 
-  // ── Active-pill sliding animation ─────────────────────────────────────────
-  const updatePill = useCallback((id: string, animate = true) => {
-    const btn  = btnRefs.current.get(id)
-    const pill = activePillRef.current
-    if (!btn || !pill) return
-
-    if (!animate) {
-      pill.style.transition = "none"
-    } else {
-      pill.style.transition =
-        "transform 0.45s cubic-bezier(0.16,1,0.3,1), width 0.45s cubic-bezier(0.16,1,0.3,1)"
-    }
-
-    pill.style.width     = `${btn.offsetWidth}px`
-    pill.style.transform = `translateX(${btn.offsetLeft}px)`
-
-    // Re-enable transition after a forced reflow so the "no-animate" snap sticks
-    if (!animate) {
-      void pill.offsetWidth
-      pill.style.transition =
-        "transform 0.45s cubic-bezier(0.16,1,0.3,1), width 0.45s cubic-bezier(0.16,1,0.3,1)"
-    }
-  }, [])
-
-  // Initial pill position on mount (after refs are set)
-  useEffect(() => {
-    if (!mounted) return
-    const initial = activeSection || navItems[0]?.id
-    if (initial) setTimeout(() => updatePill(initial, false), 60)
-  }, [mounted, activeSection, updatePill])
-
-  useEffect(() => {
-    if (activeSection) updatePill(activeSection)
-  }, [activeSection, updatePill])
-
-  // ── Glare: radial light that follows the mouse ─────────────────────────────
+  // ── Glare follow ─────────────────────────────────────────────────────────
   const onMouseMove = useCallback((e: React.MouseEvent<HTMLElement>) => {
     const glare = glareRef.current
     const nav   = navRef.current
@@ -108,12 +88,8 @@ export function PortfolioHeader() {
     return () => observers.forEach(o => o.disconnect())
   }, [])
 
-  // ── Smooth scroll on nav click ────────────────────────────────────────────
-  const handleNavClick = (
-    e: React.MouseEvent<HTMLAnchorElement>,
-    href: string,
-    id: string,
-  ) => {
+  // ── Smooth scroll ─────────────────────────────────────────────────────────
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string, id: string) => {
     e.preventDefault()
     setActiveSection(id)
     const el = document.querySelector(href)
@@ -124,17 +100,7 @@ export function PortfolioHeader() {
     setMobileOpen(false)
   }
 
-  // ── Resize: re-snap pill ─────────────────────────────────────────────────
-  useEffect(() => {
-    const onResize = () => {
-      const id = activeSection || navItems[0]?.id
-      if (id) updatePill(id, false)
-    }
-    window.addEventListener("resize", onResize)
-    return () => window.removeEventListener("resize", onResize)
-  }, [activeSection, updatePill])
-
-  // ── Theme-aware pill & icon colors ────────────────────────────────────────
+  // ── Theme tokens ──────────────────────────────────────────────────────────
   const glass = isDark
     ? {
         bg:         "rgba(10, 13, 22, 0.72)",
@@ -167,7 +133,6 @@ export function PortfolioHeader() {
     <>
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <header
-        ref={headerRef}
         className="fixed top-0 left-0 right-0 z-[200] flex justify-center"
         style={{ pointerEvents: "none", paddingTop: "18px" }}
       >
@@ -176,65 +141,54 @@ export function PortfolioHeader() {
           aria-label="Main navigation"
           onMouseMove={onMouseMove}
           style={{
-            pointerEvents: "auto",
-            position: "relative",
-            display: "flex",
-            alignItems: "center",
-            padding: "8px 12px",
-            borderRadius: "24px",
-            background: glass.bg,
-            backdropFilter: "blur(40px) saturate(220%)",
+            pointerEvents:     "auto",
+            position:          "relative",
+            display:           "flex",
+            alignItems:        "center",
+            padding:           "8px 12px",
+            borderRadius:      "24px",
+            background:        glass.bg,
+            backdropFilter:    "blur(40px) saturate(220%)",
             WebkitBackdropFilter: "blur(40px) saturate(220%)",
-            boxShadow: glass.shadow,
-            border: `1px solid ${glass.border}`,
-            transition: "background 0.5s ease, box-shadow 0.5s ease, border-color 0.5s ease",
-            overflow: "visible",
+            boxShadow:         glass.shadow,
+            border:            `1px solid ${glass.border}`,
+            transition:        "background 0.5s ease, box-shadow 0.5s ease, border-color 0.5s ease",
+            overflow:          "visible",
           }}
         >
-          {/* ── Top reflection sheen ──────────────────────────────────── */}
+          {/* Top reflection sheen */}
           <div style={{
-            position: "absolute",
-            top: 1, left: 1, right: 1, height: "40%",
+            position: "absolute", top: 1, left: 1, right: 1, height: "40%",
             borderRadius: "23px 23px 12px 12px",
             background: glass.reflection,
-            pointerEvents: "none",
-            zIndex: 6,
+            pointerEvents: "none", zIndex: 6,
             transition: "background 0.5s ease",
           }} />
 
-          {/* ── Mouse-follow glare ────────────────────────────────────── */}
-          <div style={{
-            position: "absolute", inset: 0, borderRadius: 24,
-            overflow: "hidden", pointerEvents: "none", zIndex: 5,
-          }}>
+          {/* Mouse-follow glare */}
+          <div style={{ position: "absolute", inset: 0, borderRadius: 24, overflow: "hidden", pointerEvents: "none", zIndex: 5 }}>
             <div
               ref={glareRef}
+              className="liquid-glare"
               style={{
                 position: "absolute", inset: 0,
                 background: `radial-gradient(circle 120px at var(--x,50%) var(--y,50%), ${glass.glare} 0%, transparent 100%)`,
-                mixBlendMode: "overlay",
-                opacity: 0,
+                mixBlendMode: "overlay", opacity: 0,
                 transition: "opacity 0.3s ease",
               }}
-              className="liquid-glare"
             />
           </div>
 
-          {/* ── Logo ─────────────────────────────────────────────────── */}
+          {/* Logo */}
           <Link
             href="#"
-            onClick={e => {
-              e.preventDefault()
-              setActiveSection("")
-              window.scrollTo({ top: 0, behavior: "smooth" })
-            }}
+            onClick={e => { e.preventDefault(); setActiveSection(""); window.scrollTo({ top: 0, behavior: "smooth" }) }}
             aria-label="Cortex — back to top"
             style={{
               position: "relative", zIndex: 3,
               display: "flex", alignItems: "center", gap: "8px",
               padding: "6px 14px 6px 8px",
-              borderRadius: "16px",
-              textDecoration: "none",
+              borderRadius: "16px", textDecoration: "none",
               transition: "background 0.2s ease",
             }}
             onMouseEnter={e => (e.currentTarget.style.background = "rgba(0,0,0,0.06)")}
@@ -255,8 +209,7 @@ export function PortfolioHeader() {
             </span>
             <span style={{
               fontFamily: "var(--font-display,'Syne',sans-serif)",
-              fontSize: "14px", fontWeight: 700,
-              letterSpacing: "-0.03em",
+              fontSize: "14px", fontWeight: 700, letterSpacing: "-0.03em",
               color: isDark ? "rgba(255,255,255,0.9)" : "#0a0a0a",
               transition: "color 0.4s ease",
             }}>
@@ -264,30 +217,12 @@ export function PortfolioHeader() {
             </span>
           </Link>
 
-          {/* ── Desktop nav items with sliding pill ───────────────────── */}
+          {/* ── Desktop nav — Framer Motion layoutId pill ─────────────── */}
           <div
             className="hidden md:flex items-center"
             role="list"
-            style={{ position: "relative", display: "flex", gap: "6px", zIndex: 3 }}
+            style={{ position: "relative", display: "flex", gap: "2px", zIndex: 3 }}
           >
-            {/* The sliding active pill */}
-            <div
-              ref={activePillRef}
-              style={{
-                position: "absolute",
-                top: 0, left: 0,
-                height: "44px",
-                background: glass.pill,
-                borderRadius: "16px",
-                boxShadow: glass.pillShadow,
-                transition: "transform 0.45s cubic-bezier(0.16,1,0.3,1), width 0.45s cubic-bezier(0.16,1,0.3,1)",
-                zIndex: 1,
-                pointerEvents: "none",
-                backdropFilter: "blur(8px)",
-                WebkitBackdropFilter: "blur(8px)",
-              }}
-            />
-
             {navItems.map(({ href, label, id }) => {
               const isActive = activeSection === id
               return (
@@ -297,59 +232,76 @@ export function PortfolioHeader() {
                   role="listitem"
                   onClick={e => handleNavClick(e, href, id)}
                   style={{
-                    position: "relative", zIndex: 2,
+                    position: "relative",
                     display: "flex", alignItems: "center",
-                    padding: "0 18px",
-                    height: "44px",
-                    borderRadius: "16px",
-                    fontSize: "14px",
-                    fontWeight: 500,
+                    padding: "0 16px",
+                    height: "40px",
+                    borderRadius: "14px",
+                    fontSize: "14px", fontWeight: 500,
                     letterSpacing: "0.3px",
                     color: isActive ? glass.iconActive : glass.iconColor,
                     textDecoration: "none",
                     whiteSpace: "nowrap",
                     fontFamily: "var(--font-sans,'Inter',system-ui,sans-serif)",
-                    transition: "color 0.3s ease",
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                  }}
-                  ref={el => {
-                    if (el) btnRefs.current.set(id, el as unknown as HTMLButtonElement)
+                    transition: "color 0.25s ease",
+                    zIndex: 2,
                   }}
                 >
-                  <span style={{
-                    display: "flex", alignItems: "center", gap: "8px",
-                    transition: "transform 0.2s cubic-bezier(0.32,0.72,0,1)",
-                  }}>
-                    {label}
-                  </span>
+                  {/* Spring-animated active background pill */}
+                  {isActive && !prefersReduced && (
+                    <motion.span
+                      layoutId="nav-active-pill"
+                      style={{
+                        position: "absolute", inset: 0,
+                        borderRadius: "14px",
+                        background: glass.pill,
+                        boxShadow: glass.pillShadow,
+                        backdropFilter: "blur(8px)",
+                        WebkitBackdropFilter: "blur(8px)",
+                        zIndex: -1,
+                      }}
+                      transition={SPRING.gentle}
+                      aria-hidden
+                    />
+                  )}
+                  {/* CSS-only fallback for reduced-motion */}
+                  {isActive && prefersReduced && (
+                    <span
+                      style={{
+                        position: "absolute", inset: 0,
+                        borderRadius: "14px",
+                        background: glass.pill,
+                        boxShadow: glass.pillShadow,
+                        zIndex: -1,
+                      }}
+                      aria-hidden
+                    />
+                  )}
+                  {label}
                 </Link>
               )
             })}
           </div>
 
-          {/* ── Divider ──────────────────────────────────────────────── */}
+          {/* Divider */}
           <div style={{
             width: "1px", height: "22px",
             background: glass.divider,
-            margin: "0 8px",
-            zIndex: 3,
+            margin: "0 8px", zIndex: 3,
             transition: "background 0.5s ease",
           }} />
 
-          {/* ── Theme toggle ─────────────────────────────────────────── */}
-          <button
+          {/* Theme toggle */}
+          <motion.button
             onClick={() => setIsDark(d => !d)}
             aria-label="Toggle theme"
+            whileHover={prefersReduced ? {} : { scale: 1.08, transition: SPRING.snappy }}
+            whileTap={prefersReduced ? {} : { scale: 0.92 }}
             style={{
               position: "relative", zIndex: 3,
-              background: "transparent",
-              border: "none",
-              width: "42px", height: "42px",
-              borderRadius: "14px",
-              color: glass.iconColor,
-              cursor: "pointer",
+              background: "transparent", border: "none",
+              width: "42px", height: "42px", borderRadius: "14px",
+              color: glass.iconColor, cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
               transition: "color 0.3s ease, background 0.3s ease",
             }}
@@ -364,91 +316,73 @@ export function PortfolioHeader() {
           >
             <div style={{ position: "relative", width: 18, height: 18, pointerEvents: "none" }}>
               {/* Sun */}
-              <svg
-                style={{
-                  position: "absolute", top: 0, left: 0,
-                  transition: "transform 0.5s cubic-bezier(0.34,1.2,0.64,1), opacity 0.4s ease",
-                  opacity: isDark ? 0 : 1,
-                  transform: isDark ? "rotate(90deg) scale(0)" : "rotate(0deg) scale(1)",
-                  strokeWidth: 2.2,
-                }}
-                width="18" height="18" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"
-              >
+              <svg style={{
+                position: "absolute", top: 0, left: 0, strokeWidth: 2.2,
+                transition: "transform 0.5s cubic-bezier(0.34,1.2,0.64,1), opacity 0.4s ease",
+                opacity: isDark ? 0 : 1,
+                transform: isDark ? "rotate(90deg) scale(0)" : "rotate(0deg) scale(1)",
+              }} width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="5" />
-                <line x1="12" y1="1" x2="12" y2="3" />
-                <line x1="12" y1="21" x2="12" y2="23" />
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                <line x1="1" y1="12" x2="3" y2="12" />
-                <line x1="21" y1="12" x2="23" y2="12" />
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                <line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                <line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" />
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
               </svg>
               {/* Moon */}
-              <svg
-                style={{
-                  position: "absolute", top: 0, left: 0,
-                  transition: "transform 0.5s cubic-bezier(0.34,1.2,0.64,1), opacity 0.4s ease",
-                  opacity: isDark ? 1 : 0,
-                  transform: isDark ? "rotate(0deg) scale(1)" : "rotate(-90deg) scale(0)",
-                  strokeWidth: 2.2,
-                }}
-                width="18" height="18" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"
-              >
+              <svg style={{
+                position: "absolute", top: 0, left: 0, strokeWidth: 2.2,
+                transition: "transform 0.5s cubic-bezier(0.34,1.2,0.64,1), opacity 0.4s ease",
+                opacity: isDark ? 1 : 0,
+                transform: isDark ? "rotate(0deg) scale(1)" : "rotate(-90deg) scale(0)",
+              }} width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
               </svg>
             </div>
-          </button>
+          </motion.button>
 
-          {/* ── CTA ───────────────────────────────────────────────────── */}
-          <DashboardLink
-            className="hidden md:inline-flex items-center justify-center"
-            style={{
-              marginLeft: "4px",
-              padding: "8px 18px",
-              borderRadius: "16px",
-              background: isDark
-                ? "linear-gradient(135deg, var(--primary, #00E5A8) 0%, #00c9a7 100%)"
-                : "#0a0a0a",
-              color: isDark ? "#060810" : "#fff",
-              fontSize: "13px",
-              fontWeight: 600,
-              textDecoration: "none",
-              letterSpacing: "-0.01em",
-              border: "none",
-              boxShadow: isDark
-                ? "0 4px 16px rgba(0,229,168,0.25), inset 0 1px 0 rgba(255,255,255,0.22)"
-                : "0 1px 6px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.10)",
-              whiteSpace: "nowrap",
-              fontFamily: "var(--font-sans,'Inter',sans-serif)",
-              zIndex: 3,
-              position: "relative",
-              transition: "all 0.25s ease",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.filter = "brightness(1.15)" }}
-            onMouseLeave={e => { e.currentTarget.style.filter = "" }}
+          {/* CTA — spring lift on hover */}
+          <motion.div
+            style={{ position: "relative", zIndex: 3, marginLeft: "4px" }}
+            whileHover={prefersReduced ? {} : CTA_HOVER}
+            whileTap={prefersReduced ? {} : CTA_TAP}
+            className="hidden md:block"
           >
-            Launch App
-          </DashboardLink>
+            <DashboardLink
+              style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                padding: "8px 18px", borderRadius: "16px",
+                background: isDark
+                  ? "linear-gradient(135deg, var(--primary, #00E5A8) 0%, #00c9a7 100%)"
+                  : "#0a0a0a",
+                color: isDark ? "#060810" : "#fff",
+                fontSize: "13px", fontWeight: 600,
+                textDecoration: "none", letterSpacing: "-0.01em",
+                border: "none",
+                boxShadow: isDark
+                  ? "0 4px 16px rgba(0,229,168,0.25), inset 0 1px 0 rgba(255,255,255,0.22)"
+                  : "0 1px 6px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.10)",
+                whiteSpace: "nowrap",
+                fontFamily: "var(--font-sans,'Inter',sans-serif)",
+              }}
+            >
+              Launch App
+            </DashboardLink>
+          </motion.div>
 
-          {/* ── Mobile burger ────────────────────────────────────────── */}
-          <button
+          {/* Mobile burger */}
+          <motion.button
             onClick={() => setMobileOpen(true)}
             className="md:hidden flex items-center justify-center"
             aria-label="Open navigation menu"
+            whileTap={prefersReduced ? {} : { scale: 0.92 }}
             style={{
-              marginLeft: "4px",
-              width: 36, height: 36, borderRadius: "12px",
+              marginLeft: "4px", width: 36, height: 36, borderRadius: "12px",
               background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
               border: `1px solid ${glass.border}`,
-              cursor: "pointer",
-              color: glass.iconColor,
-              zIndex: 3,
-              position: "relative",
-              flexShrink: 0,
-              transition: "background 0.2s ease",
+              cursor: "pointer", color: glass.iconColor,
+              zIndex: 3, position: "relative", flexShrink: 0,
             }}
           >
             <svg width="14" height="10" viewBox="0 0 14 10" fill="none" aria-hidden="true">
@@ -456,103 +390,118 @@ export function PortfolioHeader() {
               <rect y="4.25" width="9" height="1.5" rx="0.75" fill="currentColor" />
               <rect y="8.5" width="14" height="1.5" rx="0.75" fill="currentColor" />
             </svg>
-          </button>
+          </motion.button>
         </nav>
       </header>
 
-      {/* ── CSS for glare hover ──────────────────────────────────────────── */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        nav:hover .liquid-glare { opacity: 1 !important; }
-      ` }} />
+      {/* Glare CSS */}
+      <style dangerouslySetInnerHTML={{ __html: `nav:hover .liquid-glare { opacity: 1 !important; }` }} />
 
-      {/* ── Mobile overlay ─────────────────────────────────────────────── */}
-      {isMobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-[300] md:hidden flex flex-col"
-          style={{
-            background: isDark ? "rgba(5,5,8,0.96)" : "rgba(249,249,249,0.96)",
-            backdropFilter: "saturate(180%) blur(28px)",
-            WebkitBackdropFilter: "saturate(180%) blur(28px)",
-          }}
-        >
-          <div className="flex items-center justify-between px-5 pt-5 pb-3">
-            <span style={{
-              fontFamily: "var(--font-display,'Syne',sans-serif)",
-              fontSize: "16px", fontWeight: 700,
-              letterSpacing: "-0.03em",
-              color: isDark ? "#fff" : "#0a0a0a",
-            }}>
-              Cortex
-            </span>
-            <button
-              onClick={() => setMobileOpen(false)}
-              aria-label="Close navigation menu"
-              style={{
-                width: 32, height: 32, borderRadius: "50%",
-                background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-                border: `1px solid ${glass.border}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer",
-              }}
-            >
-              <X style={{ width: 13, height: 13, color: isDark ? "#fff" : "#0a0a0a" }} />
-            </button>
-          </div>
+      {/* ── Mobile overlay — AnimatePresence enter/exit ──────────────────── */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            key="mobile-menu"
+            variants={MOBILE_OVERLAY_VARIANTS}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="fixed inset-0 z-[300] md:hidden flex flex-col"
+            style={{
+              background: isDark ? "rgba(5,5,8,0.97)" : "rgba(249,249,249,0.97)",
+              backdropFilter: "saturate(180%) blur(28px)",
+              WebkitBackdropFilter: "saturate(180%) blur(28px)",
+            }}
+          >
+            <div className="flex items-center justify-between px-5 pt-5 pb-3">
+              <span style={{
+                fontFamily: "var(--font-display,'Syne',sans-serif)",
+                fontSize: "16px", fontWeight: 700, letterSpacing: "-0.03em",
+                color: isDark ? "#fff" : "#0a0a0a",
+              }}>
+                Cortex
+              </span>
+              <motion.button
+                onClick={() => setMobileOpen(false)}
+                aria-label="Close navigation menu"
+                whileTap={prefersReduced ? {} : { scale: 0.88 }}
+                style={{
+                  width: 32, height: 32, borderRadius: "50%",
+                  background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                  border: `1px solid ${glass.border}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer",
+                }}
+              >
+                <X style={{ width: 13, height: 13, color: isDark ? "#fff" : "#0a0a0a" }} />
+              </motion.button>
+            </div>
 
-          <nav className="flex flex-col gap-1 px-4 mt-2 flex-1" aria-label="Mobile navigation">
-            {navItems.map(({ href, label, id }) => {
-              const isActive = activeSection === id
-              return (
-                <Link
-                  key={href} href={href}
-                  onClick={e => handleNavClick(e, href, id)}
+            <nav className="flex flex-col gap-1 px-4 mt-2 flex-1" aria-label="Mobile navigation">
+              {navItems.map(({ href, label, id }, i) => {
+                const isActive = activeSection === id
+                return (
+                  <motion.div
+                    key={href}
+                    initial={prefersReduced ? false : { opacity: 0, x: -16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: DURATION.medium, delay: i * 0.05, ease: EASE.out }}
+                  >
+                    <Link
+                      href={href}
+                      onClick={e => handleNavClick(e, href, id)}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "13px 16px", borderRadius: "14px",
+                        fontSize: "16px", fontWeight: isActive ? 600 : 400,
+                        color: isActive
+                          ? (isDark ? "var(--primary, #00E5A8)" : "#fff")
+                          : (isDark ? "rgba(240,244,255,0.50)" : "rgba(0,0,0,0.55)"),
+                        background: isActive
+                          ? (isDark ? "rgba(0,229,168,0.10)" : "#0a0a0a")
+                          : (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"),
+                        border: `1px solid ${isActive ? "rgba(0,229,168,0.25)" : glass.border}`,
+                        fontFamily: "var(--font-sans,'Inter',sans-serif)",
+                        textDecoration: "none",
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      {label}
+                      {isActive && <span style={{ fontSize: "11px", opacity: 0.5 }}>●</span>}
+                    </Link>
+                  </motion.div>
+                )
+              })}
+            </nav>
+
+            <div className="px-4 pb-10 pt-4">
+              <motion.div
+                whileHover={prefersReduced ? {} : CTA_HOVER}
+                whileTap={prefersReduced ? {} : CTA_TAP}
+              >
+                <DashboardLink
+                  onClick={() => setMobileOpen(false)}
                   style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "13px 16px", borderRadius: "14px",
-                    fontSize: "16px", fontWeight: isActive ? 600 : 400,
-                    color: isActive
-                      ? (isDark ? "var(--primary, #00E5A8)" : "#fff")
-                      : (isDark ? "rgba(240,244,255,0.50)" : "rgba(0,0,0,0.55)"),
-                    background: isActive
-                      ? (isDark ? "rgba(0,229,168,0.10)" : "#0a0a0a")
-                      : (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"),
-                    border: `1px solid ${isActive ? "rgba(0,229,168,0.25)" : glass.border}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    width: "100%", padding: "14px",
+                    fontSize: "15px", fontWeight: 600, borderRadius: "14px",
+                    background: isDark
+                      ? "linear-gradient(135deg, var(--primary, #00E5A8) 0%, #00c9a7 100%)"
+                      : "#0a0a0a",
+                    color: isDark ? "#060810" : "#fff",
+                    textDecoration: "none", border: "none",
+                    boxShadow: isDark ? "0 4px 20px rgba(0,229,168,0.25)" : "0 4px 16px rgba(0,0,0,0.16)",
+                    letterSpacing: "-0.01em",
                     fontFamily: "var(--font-sans,'Inter',sans-serif)",
-                    textDecoration: "none",
-                    transition: "all 0.2s ease",
                   }}
                 >
-                  {label}
-                  {isActive && <span style={{ fontSize: "11px", opacity: 0.5 }}>●</span>}
-                </Link>
-              )
-            })}
-          </nav>
-
-          <div className="px-4 pb-10 pt-4">
-            <DashboardLink
-              onClick={() => setMobileOpen(false)}
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                width: "100%", padding: "14px",
-                fontSize: "15px", fontWeight: 600,
-                borderRadius: "14px",
-                background: isDark
-                  ? "linear-gradient(135deg, var(--primary, #00E5A8) 0%, #00c9a7 100%)"
-                  : "#0a0a0a",
-                color: isDark ? "#060810" : "#fff",
-                textDecoration: "none",
-                border: "none",
-                boxShadow: isDark ? "0 4px 20px rgba(0,229,168,0.25)" : "0 4px 16px rgba(0,0,0,0.16)",
-                letterSpacing: "-0.01em",
-                fontFamily: "var(--font-sans,'Inter',sans-serif)",
-              }}
-            >
-              Launch App
-            </DashboardLink>
-          </div>
-        </div>
-      )}
+                  Launch App
+                </DashboardLink>
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   )
 }

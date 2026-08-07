@@ -155,6 +155,25 @@ async def get_job(
 
 @router.delete(
     "/{job_id}",
+    status_code=204,
+    summary="Hard delete a job",
+    description=(
+        "Permanently removes a job and all its artifacts from the database. "
+        "This cannot be undone."
+    ),
+)
+async def delete_job(
+    job_id: str,
+    service: JobService = Depends(get_job_service),
+) -> None:
+    try:
+        await service.delete(job_id)
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+
+@router.post(
+    "/{job_id}/cancel",
     response_model=JobCancelResponse,
     summary="Cancel a job",
     description=(

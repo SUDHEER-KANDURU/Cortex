@@ -1,55 +1,108 @@
+'use client';
+
+/**
+ * Input — Focus glow animation via Framer Motion spring ring.
+ *
+ * Motion behaviour:
+ *  - On focus: box-shadow ring springs in using motionValue
+ *  - On blur: ring springs out
+ *  - The ring is rendered as a sibling motion.div behind the input
+ *    (avoids repainting the input itself — stays on compositor thread)
+ *  - prefers-reduced-motion: plain CSS transitions only
+ */
+
 import * as React from 'react';
+import { motion, useReducedMotion, useSpring, useTransform } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
+
+// ── Base Input ──────────────────────────────────────────────────────────────
 
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
-// =============================================================================
-// Input — Premium input with design system tokens
-// Uses CSS variables — adapts to dark/light theme automatically
-// =============================================================================
-
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, ...props }, ref) => {
+  ({ className, type, onFocus, onBlur, ...props }, ref) => {
+    const prefersReduced = useReducedMotion();
+
+    // Spring-animated focus ring opacity (0 → 1)
+    const focusProgress = useSpring(0, { stiffness: 400, damping: 28, mass: 0.6 });
+    const ringOpacity   = useTransform(focusProgress, [0, 1], [0, 1]);
+    const ringScale     = useTransform(focusProgress, [0, 1], [0.97, 1]);
+
+    const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+      if (!prefersReduced) focusProgress.set(1);
+      onFocus?.(e);
+    };
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+      if (!prefersReduced) focusProgress.set(0);
+      onBlur?.(e);
+    };
+
     return (
-      <input
-        type={type}
-        className={cn(
-          // Layout
-          'flex h-10 w-full px-3 py-2',
-          // Shape
-          'rounded-[var(--radius-md)]',
-          // Colors — use design tokens
-          'bg-[rgba(255,255,255,0.05)] text-[var(--text)]',
-          'border border-[var(--border)]',
-          // Placeholder
-          'placeholder:text-[var(--text-muted)]',
-          // Focus
-          'focus:outline-none focus:border-[var(--primary)]',
-          'focus:shadow-[0_0_0_3px_var(--primary-dim)]',
-          'focus:bg-[rgba(255,255,255,0.07)]',
-          // Hover
-          'hover:border-[var(--border-hover)]',
-          // Transition
-          'transition-all duration-200 ease-out',
-          // Text
-          'text-sm font-normal',
-          // Disabled
-          'disabled:cursor-not-allowed disabled:opacity-45',
-          // File input
-          'file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-[var(--text)]',
-          // Light mode overrides via data-theme
-          '[data-theme="light"]_&:bg-white [data-theme="light"]_&:border-[rgba(0,0,0,0.10)]',
-          className
+      <span className="relative block w-full">
+        {/* Spring ring — sits behind the input, no layout cost */}
+        {!prefersReduced && (
+          <motion.span
+            aria-hidden
+            style={{
+              position:     'absolute',
+              inset:        -1,
+              borderRadius: 'var(--radius-md)',
+              boxShadow:    '0 0 0 3px var(--primary-dim)',
+              opacity:      ringOpacity,
+              scale:        ringScale,
+              pointerEvents:'none',
+              zIndex:       1,
+            }}
+          />
         )}
-        ref={ref}
-        {...props}
-      />
+        <input
+          type={type}
+          className={cn(
+            // Layout
+            'flex h-10 w-full px-3 py-2',
+            // Shape
+            'rounded-[var(--radius-md)]',
+            // Colors
+            'bg-[rgba(255,255,255,0.05)] text-[var(--text)]',
+            'border border-[var(--border)]',
+            // Placeholder
+            'placeholder:text-[var(--text-muted)]',
+            // Focus — CSS ring suppressed when Framer Motion ring is active
+            'focus:outline-none',
+            prefersReduced
+              ? [
+                  'focus:border-[var(--primary)]',
+                  'focus:shadow-[0_0_0_3px_var(--primary-dim)]',
+                  'focus:bg-[rgba(255,255,255,0.07)]',
+                ].join(' ')
+              : 'focus:border-[var(--primary)] focus:bg-[rgba(255,255,255,0.07)]',
+            // Hover
+            'hover:border-[var(--border-hover)]',
+            // Transition — only non-transform props
+            'transition-[border-color,background-color] duration-150 ease-out',
+            // Text
+            'text-sm font-normal',
+            // Disabled
+            'disabled:cursor-not-allowed disabled:opacity-45',
+            // File input reset
+            'file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-[var(--text)]',
+            // Relative z-index so it sits above the spring ring
+            'relative z-[2]',
+            className
+          )}
+          ref={ref}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          {...props}
+        />
+      </span>
     );
   }
 );
 Input.displayName = 'Input';
 
-// Premium input with floating label
+// ── FloatingInput ───────────────────────────────────────────────────────────
+
 interface FloatingInputProps extends InputProps {
   label: string;
   icon?: React.ReactNode;
@@ -57,10 +110,27 @@ interface FloatingInputProps extends InputProps {
 }
 
 const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
-  ({ label, icon, error, className, id, ...props }, ref) => {
+  ({ label, icon, error, className, id, onFocus, onBlur, ...props }, ref) => {
+    const prefersReduced = useReducedMotion();
     const inputId = id ?? `input-${label.toLowerCase().replace(/\s+/g, '-')}`;
+
+    // Spring ring — same pattern as Input
+    const focusProgress = useSpring(0, { stiffness: 400, damping: 28, mass: 0.6 });
+    const ringOpacity   = useTransform(focusProgress, [0, 1], [0, 1]);
+    const ringScale     = useTransform(focusProgress, [0, 1], [0.97, 1]);
+
+    const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+      if (!prefersReduced) focusProgress.set(1);
+      onFocus?.(e);
+    };
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+      if (!prefersReduced) focusProgress.set(0);
+      onBlur?.(e);
+    };
+
     return (
       <div className="relative w-full">
+        {/* Icon */}
         {icon && (
           <span
             className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none z-10"
@@ -69,6 +139,26 @@ const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
             {icon}
           </span>
         )}
+
+        {/* Spring ring */}
+        {!prefersReduced && (
+          <motion.span
+            aria-hidden
+            style={{
+              position:     'absolute',
+              inset:        -1,
+              borderRadius: 'var(--radius-md)',
+              boxShadow:    error
+                ? '0 0 0 3px var(--danger-dim)'
+                : '0 0 0 3px var(--primary-dim)',
+              opacity:      ringOpacity,
+              scale:        ringScale,
+              pointerEvents:'none',
+              zIndex:       1,
+            }}
+          />
+        )}
+
         <input
           ref={ref}
           id={inputId}
@@ -80,33 +170,42 @@ const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
             'text-sm font-normal',
             icon ? 'pl-10 pr-4 pt-5 pb-1' : 'px-4 pt-5 pb-1',
             'focus:outline-none focus:border-[var(--primary)]',
-            'focus:shadow-[0_0_0_3px_var(--primary-dim)]',
+            'focus:bg-[rgba(255,255,255,0.07)]',
             'hover:border-[var(--border-hover)]',
-            'transition-all duration-200 ease-out',
+            'transition-[border-color,background-color] duration-150 ease-out',
             'disabled:cursor-not-allowed disabled:opacity-45',
-            error && 'border-[var(--danger)] focus:shadow-[0_0_0_3px_var(--danger-dim)]',
+            'relative z-[2]',
+            error && 'border-[var(--danger)]',
             className
           )}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           {...props}
         />
+
+        {/* Floating label */}
         <label
           htmlFor={inputId}
           className={cn(
             'absolute pointer-events-none',
             'text-[var(--text-muted)] text-sm',
-            'transition-all duration-200 ease-out',
+            'transition-all duration-150 ease-out',
             icon ? 'left-10' : 'left-4',
-            // Float up when focused or has value
             'top-1/2 -translate-y-1/2',
-            'peer-focus:top-3 peer-focus:translate-y-0 peer-focus:text-[10px] peer-focus:text-[var(--primary)] peer-focus:font-medium',
+            'peer-focus:top-3 peer-focus:translate-y-0 peer-focus:text-[10px]',
+            'peer-focus:text-[var(--primary)] peer-focus:font-medium',
             'peer-[:not(:placeholder-shown)]:top-3 peer-[:not(:placeholder-shown)]:translate-y-0',
             'peer-[:not(:placeholder-shown)]:text-[10px] peer-[:not(:placeholder-shown)]:font-medium',
           )}
         >
           {label}
         </label>
+
         {error && (
-          <p className="mt-1 text-xs text-[var(--danger)] flex items-center gap-1" role="alert">
+          <p
+            className="mt-1 text-xs text-[var(--danger)] flex items-center gap-1"
+            role="alert"
+          >
             {error}
           </p>
         )}

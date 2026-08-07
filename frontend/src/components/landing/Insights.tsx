@@ -3,6 +3,9 @@
 import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 import { SectionTitle } from "@/components/ui/section-title"
+import { motion, useReducedMotion } from "framer-motion"
+import { SectionReveal } from "@/components/shared/PageTransition"
+import { SPRING, staggerFastContainer, staggerFastChild, DURATION, EASE } from "@/lib/utils/motion"
 
 const insights = [
   {
@@ -75,49 +78,70 @@ const insights = [
 ]
 
 export function PortfolioInsights() {
+  const prefersReduced = useReducedMotion()
+
   return (
     <section id="insights" className="py-20 md:py-32"
       style={{ borderTop: "1px solid var(--cx-card-border)", background: "var(--cx-section-bg)", backdropFilter: "blur(20px) saturate(200%)", WebkitBackdropFilter: "blur(20px) saturate(200%)" }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
         <div className="flex items-center justify-between mb-12 md:mb-16">
-          <div data-reveal="up">
+          <SectionReveal>
             <p className="cx-eyebrow" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", marginBottom: "10px" }}>Writing</p>
             <SectionTitle className="text-3xl md:text-4xl lg:text-[52px] font-semibold tracking-tight">Insights</SectionTitle>
-          </div>
+          </SectionReveal>
           <Link href="https://github.com/SUDHEER-KANDURU/cortex" target="_blank" rel="noopener noreferrer"
             className="cx-link hidden md:inline-flex items-center gap-2 text-sm font-medium transition-all duration-200 hover:gap-3">
             View on GitHub <ArrowUpRight className="w-4 h-4" />
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6" data-stagger>
+        {/* Cards — staggered entrance */}
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6"
+          variants={prefersReduced ? undefined : staggerFastContainer}
+          initial={prefersReduced ? false : "hidden"}
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.1 }}
+        >
           {insights.map((item) => (
-            <Link key={item.id} href="https://github.com/SUDHEER-KANDURU/cortex" target="_blank" rel="noopener noreferrer" className="group block">
-              <article className="cx-card h-full rounded-2xl overflow-hidden transition-all duration-400 hover:-translate-y-2"
-                data-spotlight
-                style={{ backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)" }}>
-                <div className="cx-visual-bg" style={{ height: "110px", overflow: "hidden", borderBottom: "1px solid var(--cx-card-border)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", padding: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {item.visual}
-                </div>
-                <div className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="cx-pill" style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 10px", borderRadius: "100px", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)" }}>
-                      {item.tag}
-                    </span>
-                    <div className="cx-text-muted flex items-center gap-2 text-xs">
-                      <span>{item.date}</span><span>·</span><span>{item.readTime}</span>
+            <motion.div
+              key={item.id}
+              variants={prefersReduced ? undefined : staggerFastChild}
+            >
+              <Link href="https://github.com/SUDHEER-KANDURU/cortex" target="_blank" rel="noopener noreferrer" className="group block h-full">
+                <motion.article
+                  className="cx-card h-full rounded-2xl overflow-hidden"
+                  data-spotlight
+                  style={{ backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)" }}
+                  whileHover={prefersReduced ? {} : {
+                    y: -6,
+                    boxShadow: "var(--shadow-lg), var(--edge-top)",
+                    transition: SPRING.snappy,
+                  }}
+                >
+                  <div className="cx-visual-bg" style={{ height: "110px", overflow: "hidden", borderBottom: "1px solid var(--cx-card-border)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", padding: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {item.visual}
+                  </div>
+                  <div className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="cx-pill" style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 10px", borderRadius: "100px", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)" }}>
+                        {item.tag}
+                      </span>
+                      <div className="cx-text-muted flex items-center gap-2 text-xs">
+                        <span>{item.date}</span><span>·</span><span>{item.readTime}</span>
+                      </div>
+                    </div>
+                    <h3 className="cx-text text-base font-semibold leading-snug transition-opacity duration-200 group-hover:opacity-60">{item.title}</h3>
+                    <p className="cx-text-muted text-sm mt-2 leading-relaxed">{item.excerpt}</p>
+                    <div className="cx-link flex items-center gap-1.5 mt-4 text-xs font-semibold transition-all duration-200 group-hover:gap-2.5">
+                      Read more <ArrowUpRight className="w-3 h-3" />
                     </div>
                   </div>
-                  <h3 className="cx-text text-base font-semibold leading-snug transition-opacity duration-200 group-hover:opacity-60">{item.title}</h3>
-                  <p className="cx-text-muted text-sm mt-2 leading-relaxed">{item.excerpt}</p>
-                  <div className="cx-link flex items-center gap-1.5 mt-4 text-xs font-semibold transition-all duration-200 group-hover:gap-2.5">
-                    Read more <ArrowUpRight className="w-3 h-3" />
-                  </div>
-                </div>
-              </article>
-            </Link>
+                </motion.article>
+              </Link>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
 
         <div className="md:hidden mt-8 text-center">
           <Link href="https://github.com/SUDHEER-KANDURU/cortex" target="_blank" rel="noopener noreferrer"

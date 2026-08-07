@@ -13,6 +13,7 @@ import { useArtifact } from '@/features/artifacts/hooks/useArtifact';
 import { useSubmitJob } from '@/features/jobs/hooks/useSubmitJob';
 import StatusBadge from '@/components/shared/StatusBadge';
 import { listJobs } from '@/lib/api/jobs.api';
+import { deleteJob } from '@/lib/api/jobs.api';
 import { sessionCache, cacheKey, TTL } from '@/lib/cache';
 import { ARTIFACT_TYPE_LABELS } from '@/features/jobs/jobs.types';
 import { InlineLoader, ButtonSpinner } from '@/components/shared/BrandedLoader';
@@ -50,13 +51,6 @@ function extractRepoName(url: string) {
 }
 function extractShortName(url: string) {
   return url.replace(/\/$/, '').split('/').pop() ?? url;
-}
-
-// ── Theme boot ────────────────────────────────────────────────────────────────
-function getInitialTheme(): boolean {
-  if (typeof window === 'undefined') return true;
-  try { const s = localStorage.getItem('cortex-theme'); return s ? s === 'dark' : true; }
-  catch { return true; }
 }
 
 // ── Theme-aware surface helpers ───────────────────────────────────────────────
@@ -157,7 +151,7 @@ function SidebarForm({ isDark, onJobSubmitted }: SidebarFormProps) {
   const { isSubmitting, error: apiError, submitJob, submittedJob } = useSubmitJob();
 
   React.useEffect(() => {
-    if (submittedJob) { onJobSubmitted(submittedJob); setRepoUrl(''); setArtifactType('architecture_diagram'); }
+    if (submittedJob) { onJobSubmitted(submittedJob); setRepoUrl(''); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submittedJob]);
 
@@ -267,55 +261,121 @@ function SidebarForm({ isDark, onJobSubmitted }: SidebarFormProps) {
 }
 
 // ── Job row ───────────────────────────────────────────────────────────────────
-interface JobRowProps { job: Job; isSelected: boolean; isDark: boolean; onClick: () => void }
+interface JobRowProps { job: Job; isSelected: boolean; isDark: boolean; onClick: () => void; onDelete: (id: string) => void }
 
-const JobRow = React.memo(function JobRow({ job, isSelected, isDark, onClick }: JobRowProps) {
+const JobRow = React.memo(function JobRow({ job, isSelected, isDark, onClick, onDelete }: JobRowProps) {
   const short = extractShortName(job.repo_url);
   const owner = extractRepoName(job.repo_url).split('/')[0] ?? '';
   const isRunning = job.status === 'running';
+  const [hovered, setHovered] = React.useState(false);
+  const [deleteVisible, setDeleteVisible] = React.useState(false);
+  const rowRef = React.useRef<HTMLDivElement>(null);
   const dot: Record<string, string> = {
     completed: 'var(--success)', running: 'var(--primary)',
     failed: 'var(--danger)', pending: 'var(--text-muted)', cancelled: 'var(--text-muted)',
   };
   const dotColor = dot[job.status] ?? 'var(--text-muted)';
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete(job.id);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!rowRef.current) return;
+    const { left, width } = rowRef.current.getBoundingClientRect();
+    const relativeX = e.clientX - left;
+    // Show delete button only when cursor is in the rightmost 30% of the row
+    setDeleteVisible(relativeX / width >= 0.70);
+  };
+
+  const handleMouseLeave = () => {
+    setHovered(false);
+    setDeleteVisible(false);
+  };
+
   return (
-    <button type="button" onClick={onClick} aria-pressed={isSelected}
-      aria-label={`Job: ${short}, status: ${job.status}`}
-      style={{
-        width: '100%', textAlign: 'left', cursor: 'pointer', borderRadius: 14, padding: '10px 12px',
-        border: 'none', background: isSelected ? selectedBg(isDark) : 'transparent',
-        borderLeft: `2px solid ${isSelected ? 'var(--primary)' : 'transparent'}`,
-        transition: 'background 0.2s ease, border-color 0.2s ease', boxSizing: 'border-box',
-      }}
-      onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = rowHoverBg(isDark); }}
-      onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{
-              width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0,
-              boxShadow: isRunning ? `0 0 6px ${dotColor}` : 'none',
-              animation: isRunning ? 'pulse-dot 1.8s ease-in-out infinite' : 'none',
-            }} aria-hidden="true" />
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{short}</span>
+    <div
+      ref={rowRef}
+      style={{ position: 'relative', overflow: 'hidden', borderRadius: 14 }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={handleMouseLeave}
+      onMouseMove={handleMouseMove}
+    >
+      {/* ── Main row button — slides left when delete zone is hovered ── */}
+      <button
+        type="button"
+        onClick={onClick}
+        aria-pressed={isSelected}
+        aria-label={`Job: ${short}, status: ${job.status}`}
+        style={{
+          width: '100%', textAlign: 'left', cursor: 'pointer', borderRadius: 14,
+          padding: '10px 12px', border: 'none',
+          background: isSelected ? selectedBg(isDark) : hovered ? rowHoverBg(isDark) : 'transparent',
+          borderLeft: `2px solid ${isSelected ? 'var(--primary)' : 'transparent'}`,
+          boxSizing: 'border-box',
+          // Slide left only when cursor is in the right 30% zone
+          transform: deleteVisible ? 'translateX(-32px)' : 'translateX(0)',
+          transition: 'transform 0.2s cubic-bezier(0.16,1,0.3,1), background 0.15s ease, border-color 0.15s ease',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{
+                width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0,
+                boxShadow: isRunning ? `0 0 6px ${dotColor}` : 'none',
+                animation: isRunning ? 'pulse-dot 1.8s ease-in-out infinite' : 'none',
+              }} aria-hidden="true" />
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {short}
+              </span>
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
+              {owner} · {ARTIFACT_TYPE_LABELS[job.artifact_type]}
+            </p>
           </div>
-          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
-            {owner} · {ARTIFACT_TYPE_LABELS[job.artifact_type]}
-          </p>
+          <StatusBadge status={job.status} />
         </div>
-        <StatusBadge status={job.status} />
-      </div>
-    </button>
+      </button>
+
+      {/* ── Delete button — fixed on the right edge, revealed only in the right 30% zone ── */}
+      <button
+        type="button"
+        onClick={handleDelete}
+        aria-label={`Remove ${short} from list`}
+        title="Remove from list"
+        style={{
+          position: 'absolute', right: 0, top: 0, bottom: 0,
+          width: 32,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          color: 'var(--danger)',
+          opacity: deleteVisible ? 1 : 0,
+          transform: deleteVisible ? 'scale(1)' : 'scale(0.7)',
+          transition: 'opacity 0.15s ease, transform 0.2s cubic-bezier(0.16,1,0.3,1)',
+          pointerEvents: deleteVisible ? 'auto' : 'none',
+          padding: 0,
+        }}
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+          <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+        </svg>
+      </button>
+    </div>
   );
 });
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 interface SidebarProps {
   isDark: boolean; jobs: Job[]; jobsLoading: boolean; jobsError: string | null;
-  selectedJobId: string | null; onJobSelected: (job: Job) => void; onJobSubmitted: (job: Job) => void;
+  selectedJobId: string | null; onJobSelected: (job: Job) => void;
+  onJobSubmitted: (job: Job) => void; onJobDeleted: (id: string) => void;
 }
 
-function Sidebar({ isDark, jobs, jobsLoading, jobsError, selectedJobId, onJobSelected, onJobSubmitted }: SidebarProps) {
+function Sidebar({ isDark, jobs, jobsLoading, jobsError, selectedJobId, onJobSelected, onJobSubmitted, onJobDeleted }: SidebarProps) {
   const bdr = tintBorder(isDark);
   return (
     <aside aria-label="Repository sidebar" style={{
@@ -345,11 +405,43 @@ function Sidebar({ isDark, jobs, jobsLoading, jobsError, selectedJobId, onJobSel
             <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, opacity: 0.65 }}>Submit a URL above</p>
           </div>
         )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {jobs.map(job => (
-            <JobRow key={job.id} job={job} isDark={isDark} isSelected={job.id === selectedJobId} onClick={() => onJobSelected(job)} />
-          ))}
-        </div>
+        <motion.div
+          style={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden:  {},
+            visible: { transition: { staggerChildren: 0.045, delayChildren: 0.05 } },
+          }}
+        >
+          <AnimatePresence initial={false}>
+            {jobs.map(job => (
+              <motion.div
+                key={job.id}
+                variants={{
+                  hidden:  { opacity: 0, y: 10, scale: 0.97 },
+                  visible: { opacity: 1, y: 0,  scale: 1,
+                    transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] } },
+                }}
+                exit={{
+                  opacity: 0,
+                  x: -24,
+                  scale: 0.95,
+                  transition: { duration: 0.18, ease: [0.16, 1, 0.3, 1] },
+                }}
+                layout
+              >
+                <JobRow
+                  job={job}
+                  isDark={isDark}
+                  isSelected={job.id === selectedJobId}
+                  onClick={() => onJobSelected(job)}
+                  onDelete={onJobDeleted}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </motion.div>
       </div>
     </aside>
   );
@@ -377,7 +469,12 @@ function AnimatedPipeline({ jobId, isDark, pipelineStatus, onCompletionEnd }: {
 // ── Empty state ───────────────────────────────────────────────────────────────
 function EmptyState({ isDark }: { isDark: boolean }) {
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24, padding: 48 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 24, filter: 'blur(4px)' }}
+      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+      transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+      style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24, padding: 48 }}
+    >
       <div style={{
         width: 80, height: 80, borderRadius: '50%', flexShrink: 0,
         background: isDark
@@ -399,7 +496,7 @@ function EmptyState({ isDark }: { isDark: boolean }) {
           <span key={label} style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', padding: '5px 14px', borderRadius: 100, background: tint(isDark, 'xs'), border: `1px solid ${tintBorder(isDark)}`, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{label}</span>
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -484,12 +581,15 @@ interface RightPanelProps {
 function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsError }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState<'artifact' | 'insights'>('artifact');
 
+  // Must be before any early return — Rules of Hooks
+  React.useEffect(() => {
+    setActiveTab('artifact');
+  }, [activeJob?.id]);
+
   if (!activeJob) return <EmptyState isDark={isDark} />;
+
   const bdr = tintBorder(isDark);
   const isCompleted = activeJob.status === 'completed';
-
-  // Reset tab to artifact when job changes
-  React.useEffect(() => { setActiveTab('artifact'); }, [activeJob.id]);
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
@@ -510,18 +610,31 @@ function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsE
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 style={{
+                  position: 'relative',
                   padding: '10px 18px',
                   fontSize: 12, fontWeight: isActive ? 700 : 500,
                   color: isActive ? 'var(--primary)' : 'var(--text-muted)',
                   background: 'transparent', border: 'none', cursor: 'pointer',
-                  borderBottom: `2px solid ${isActive ? 'var(--primary)' : 'transparent'}`,
-                  marginBottom: -1, transition: 'color 0.15s, border-color 0.15s',
+                  marginBottom: -1,
+                  transition: 'color 0.15s',
                   letterSpacing: '0.02em', fontFamily: 'var(--font-sans)',
                 }}
                 onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = 'var(--text)'; }}
                 onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = 'var(--text-muted)'; }}
               >
                 {tab === 'artifact' ? '📄 Artifact' : '📊 Engineering Insights'}
+                {/* Spring-animated active underline indicator */}
+                {isActive && (
+                  <motion.span
+                    layoutId="dash-tab-indicator"
+                    style={{
+                      position: 'absolute', bottom: -1, left: 0, right: 0,
+                      height: 2, borderRadius: 1,
+                      background: 'var(--primary)',
+                    }}
+                    transition={{ type: 'spring', stiffness: 260, damping: 26, mass: 1 }}
+                  />
+                )}
               </button>
             );
           })}
@@ -616,7 +729,19 @@ export default function DashboardPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jobsLoading, setJobsLoading] = useState(true);
   const [jobsError, setJobsError] = useState<string | null>(null);
-  const [isDark, setIsDark] = useState(getInitialTheme);
+  // Client-side hidden job IDs — jobs removed from the list without touching the DB
+  const [hiddenJobIds, setHiddenJobIds] = useState<Set<string>>(new Set());
+  // Always start dark (matches SSR), read localStorage after mount to avoid
+  // hydration mismatch — same pattern as the landing Header.
+  const [isDark, setIsDark] = useState(true);
+
+  // Hydration-safe theme init — runs only on client after first paint
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem('cortex-theme');
+      if (stored) setIsDark(stored === 'dark');
+    } catch { /* ignore */ }
+  }, []);
 
   // Sync theme to DOM — runs synchronously on first render via getInitialTheme to avoid flash
   React.useEffect(() => {
@@ -672,6 +797,22 @@ export default function DashboardPage() {
 
   const handleJobSelected = useCallback((job: Job) => { setSelectedJob(job); }, []);
 
+  const handleJobDeleted = useCallback((id: string) => {
+    // Optimistically remove from UI immediately
+    setHiddenJobIds(prev => new Set([...prev, id]));
+    setSelectedJob(prev => prev?.id === id ? null : prev);
+    // Fire-and-forget real DB delete — if it fails the job reappears on refresh
+    // which is acceptable; the optimistic removal already gave instant feedback
+    deleteJob(id).catch(() => {
+      // Restore if delete failed
+      setHiddenJobIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    });
+  }, []);
+
   return (
     <>
       <DashboardBackground isDark={isDark} />
@@ -682,9 +823,16 @@ export default function DashboardPage() {
         <div style={{ flex: 1, display: 'flex', paddingTop: 80, paddingBottom: 20, paddingLeft: 20, paddingRight: 20, gap: 16, overflow: 'hidden', boxSizing: 'border-box' }}>
           {/* Sidebar */}
           <div className="dash-scroll" style={{ display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'auto', height: '100%' }}>
-            <Sidebar isDark={isDark} jobs={jobs} jobsLoading={jobsLoading} jobsError={jobsError}
+            <Sidebar
+              isDark={isDark}
+              jobs={jobs.filter(j => !hiddenJobIds.has(j.id))}
+              jobsLoading={jobsLoading}
+              jobsError={jobsError}
               selectedJobId={selectedJob?.id ?? null}
-              onJobSelected={handleJobSelected} onJobSubmitted={handleJobSubmitted} />
+              onJobSelected={handleJobSelected}
+              onJobSubmitted={handleJobSubmitted}
+              onJobDeleted={handleJobDeleted}
+            />
           </div>
 
           {/* Main glass panel */}

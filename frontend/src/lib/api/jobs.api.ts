@@ -36,8 +36,16 @@ export async function getJob(jobId: string): Promise<Job> {
 
 /**
  * Cancel a running or pending job.
- * DELETE /api/v1/jobs/:jobId
+ * POST /api/v1/jobs/:jobId/cancel
  */
 export async function cancelJob(jobId: string): Promise<void> {
-  await apiClient.delete<{ id: string; status: 'cancelled' }>(`/jobs/${jobId}`);
+  await apiClient.post<{ id: string; status: 'cancelled' }>(`/jobs/${jobId}/cancel`);
+}
+
+/**
+ * Hard delete a job and all its artifacts from the database.
+ * DELETE /api/v1/jobs/:jobId
+ */
+export async function deleteJob(jobId: string): Promise<void> {
+  await apiClient.delete(`/jobs/${jobId}`);
 }

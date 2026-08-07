@@ -6,6 +6,8 @@ import { ArrowUpRight } from "lucide-react"
 import { SectionTitle } from "@/components/ui/section-title"
 import { DashboardLink } from "@/components/shared/DashboardLink"
 import { useEffect, useRef, useState } from "react"
+import { motion, useReducedMotion, useInView } from "framer-motion"
+import { fadeUp, staggerContainer, staggerChild, SPRING, DURATION, EASE } from "@/lib/utils/motion"
 
 // ── Visuals — ink palette only, zero blue/purple ──────────────────────────────
 
@@ -273,13 +275,12 @@ interface Work {
 
 function WorkCard({ work, index }: { work: Work; index: number }) {
   const cardRef = useRef<HTMLDivElement>(null)
-  const articleRef = useRef<HTMLElement>(null)
   const hasPlayed = useRef(false)
   const startAnimationRef = useRef<(() => (() => void) | void) | null>(null)
   const cleanupRef = useRef<(() => void) | null>(null)
   const [inView, setInView] = useState(false)
+  const prefersReduced = useReducedMotion()
 
-  // Register the startAnimation callback provided by the Visual component
   const handleRegisterStart = (startFn: (() => (() => void) | void)) => {
     startAnimationRef.current = startFn
   }
@@ -287,7 +288,6 @@ function WorkCard({ work, index }: { work: Work; index: number }) {
   useEffect(() => {
     const cardEl = cardRef.current
     if (!cardEl) return
-
     const obs = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && !hasPlayed.current) {
         hasPlayed.current = true
@@ -299,63 +299,76 @@ function WorkCard({ work, index }: { work: Work; index: number }) {
         obs.disconnect()
       }
     }, { threshold: 0.15 })
-
     obs.observe(cardEl)
     return () => {
       obs.disconnect()
-      // Clean up any intervals started by the Visual
       if (cleanupRef.current) { cleanupRef.current(); cleanupRef.current = null }
     }
   }, [])
+
   return (
     <div ref={cardRef} className="sticky" style={{ top: `${72 + index * 8}px`, zIndex: index + 1 }}>
-      <DashboardLink className="group block pt-6">
-        <article
-          ref={articleRef as React.RefObject<HTMLElement>}
-          data-spotlight
-          className="cx-card overflow-hidden rounded-2xl md:rounded-3xl transition-all duration-500 tilt-card"
-          style={{
-            backdropFilter: "blur(24px) saturate(200%)",
-            WebkitBackdropFilter: "blur(24px) saturate(200%)",
-          }}
-          onMouseEnter={_e => { /* hover handled by CSS cx-card */ }}
-          onMouseLeave={_e => { /* hover handled by CSS cx-card */ }}>
-
-          <div className="cx-visual-bg relative overflow-hidden"
-            style={{ height: "200px", borderBottom: "1px solid var(--cx-card-border)", backdropFilter: "blur(8px)" }}>
-            <work.Visual onStart={handleRegisterStart} active={inView} />
-            <div className="cx-pill" style={{
-              position: "absolute", top: "12px", left: "12px",
-              padding: "3px 10px", borderRadius: "100px",
-              fontSize: "9px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
-              backdropFilter: "blur(12px) saturate(180%)",
-              WebkitBackdropFilter: "blur(12px) saturate(180%)",
-              fontFamily: "var(--font-mono,'JetBrains Mono',monospace)",
-            }}>
-              {work.category}
-            </div>
-          </div>
-
-          <div className="p-5 md:p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="cx-text text-lg md:text-xl font-semibold">{work.title}</h3>
-                <p className="cx-text-muted text-sm mt-1.5 leading-relaxed">{work.description}</p>
-              </div>
-              <div className="cx-arrow-circle flex-shrink-0 mt-0.5 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:!bg-black group-hover:!border-black">
-                <ArrowUpRight className="cx-arrow-color w-4 h-4 transition-all duration-300 group-hover:!text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+      <motion.div
+        className="pt-6"
+        initial={prefersReduced ? false : { opacity: 0, y: 40 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.12 }}
+        transition={{ duration: DURATION.reveal, delay: index * 0.06, ease: EASE.out }}
+      >
+        <DashboardLink className="group block">
+          <motion.article
+            data-spotlight
+            className="cx-card overflow-hidden rounded-2xl md:rounded-3xl"
+            style={{
+              backdropFilter: "blur(24px) saturate(200%)",
+              WebkitBackdropFilter: "blur(24px) saturate(200%)",
+            }}
+            whileHover={prefersReduced ? {} : {
+              y: -6,
+              boxShadow: "0 24px 64px rgba(0,0,0,0.22), 0 4px 16px rgba(0,0,0,0.12)",
+              transition: SPRING.snappy,
+            }}
+          >
+            <div className="cx-visual-bg relative overflow-hidden"
+              style={{ height: "200px", borderBottom: "1px solid var(--cx-card-border)", backdropFilter: "blur(8px)" }}>
+              <work.Visual onStart={handleRegisterStart} active={inView} />
+              <div className="cx-pill" style={{
+                position: "absolute", top: "12px", left: "12px",
+                padding: "3px 10px", borderRadius: "100px",
+                fontSize: "9px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+                backdropFilter: "blur(12px) saturate(180%)",
+                WebkitBackdropFilter: "blur(12px) saturate(180%)",
+                fontFamily: "var(--font-mono,'JetBrains Mono',monospace)",
+              }}>
+                {work.category}
               </div>
             </div>
-            <div className="flex flex-wrap gap-2 mt-4">
-              {work.tags.map(tag => (
-                <span key={tag} className="cx-tag px-3 py-1 text-xs font-medium rounded-full">
-                  {tag}
-                </span>
-              ))}
+
+            <div className="p-5 md:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="cx-text text-lg md:text-xl font-semibold">{work.title}</h3>
+                  <p className="cx-text-muted text-sm mt-1.5 leading-relaxed">{work.description}</p>
+                </div>
+                {/* Arrow — rotates & shifts on group hover via CSS */}
+                <motion.div
+                  className="cx-arrow-circle flex-shrink-0 mt-0.5 w-8 h-8 rounded-full flex items-center justify-center"
+                  whileHover={prefersReduced ? {} : { scale: 1.15, backgroundColor: "#000", transition: SPRING.snappy }}
+                >
+                  <ArrowUpRight className="cx-arrow-color w-4 h-4 transition-all duration-300 group-hover:!text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                </motion.div>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-4">
+                {work.tags.map(tag => (
+                  <span key={tag} className="cx-tag px-3 py-1 text-xs font-medium rounded-full">
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
-        </article>
-      </DashboardLink>
+          </motion.article>
+        </DashboardLink>
+      </motion.div>
     </div>
   )
 }

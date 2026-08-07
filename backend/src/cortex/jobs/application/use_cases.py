@@ -176,6 +176,13 @@ class JobService(AbstractJobService):
         logger.error("job_failed", job_id=job_id, error=error)
         return updated
 
+    async def delete(self, job_id: str) -> None:
+        """Hard delete a job and all its artifacts from the database."""
+        # Verify it exists first so we raise a clean NotFoundError
+        await self.get(job_id)
+        await self._repo.delete(job_id)
+        logger.info("job_deleted", job_id=job_id)
+
     async def get_stats(self) -> dict[JobStatus, int]:
         """Return job counts by status for the health dashboard."""
         return await self._repo.count_by_status()
