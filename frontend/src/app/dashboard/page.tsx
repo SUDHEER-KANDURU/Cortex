@@ -11,6 +11,7 @@ import type { Job, ArtifactType } from '@/types';
 import { useJobPolling } from '@/features/jobs/hooks/useJobPolling';
 import { useArtifact } from '@/features/artifacts/hooks/useArtifact';
 import { useSubmitJob } from '@/features/jobs/hooks/useSubmitJob';
+import { useRetryJob } from '@/features/jobs/hooks/useRetryJob';
 import StatusBadge from '@/components/shared/StatusBadge';
 import { listJobs } from '@/lib/api/jobs.api';
 import { deleteJob } from '@/lib/api/jobs.api';
@@ -21,7 +22,7 @@ import { SidebarJobsSkeleton, ArtifactSkeleton, InsightsSkeleton } from '@/compo
 import {
   Github, ChevronDown, Sparkles, Code2, LayoutDashboard,
   GitBranch, ExternalLink, Clock, AlertCircle, CheckCircle2,
-  XCircle, ArrowLeft, Sun, Moon, Check,
+  XCircle, ArrowLeft, Sun, Moon, Check, RotateCcw,
 } from 'lucide-react';
 import AnimatedPipelineComponent from '@/components/pipeline/AnimatedPipeline';
 import * as Select from '@radix-ui/react-select';
@@ -67,20 +68,7 @@ function selectedBg(d: boolean) { return d ? 'rgba(0,229,168,0.08)'   : 'rgba(0,
 function rowHoverBg(d: boolean) { return d ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'; }
 
 // ── Dashboard background ──────────────────────────────────────────────────────
-function DashboardBackground({ isDark }: { isDark: boolean }) {
-  return (
-    <div aria-hidden="true" style={{
-      position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-      background: isDark
-        ? `radial-gradient(ellipse 65% 40% at 80% 0%, rgba(108,124,255,0.09) 0%, transparent 55%),
-           radial-gradient(ellipse 50% 35% at 0% 100%, rgba(0,229,168,0.06) 0%, transparent 50%),
-           var(--bg, #060810)`
-        : `radial-gradient(ellipse 65% 40% at 80% 0%, rgba(93,107,255,0.05) 0%, transparent 55%),
-           radial-gradient(ellipse 50% 35% at 0% 100%, rgba(0,158,107,0.04) 0%, transparent 50%),
-           var(--bg, #F4F6FB)`,
-    }} />
-  );
-}
+// Removed — the global liquid-blob background in layout.tsx covers all pages.
 
 // ── Navbar ────────────────────────────────────────────────────────────────────
 interface NavbarProps { isDark: boolean; onToggleTheme: () => void }
@@ -96,7 +84,7 @@ function DashboardNavbar({ isDark, onToggleTheme }: NavbarProps) {
       <nav aria-label="Dashboard navigation" style={{
         pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 4,
         padding: '7px 10px', borderRadius: 9999, width: '100%', maxWidth: 960,
-        background: 'var(--glass-nav, rgba(10,13,22,0.72))',
+        background: isDark ? 'rgba(10,13,22,0.55)' : 'rgba(250,252,255,0.62)',
         backdropFilter: 'blur(44px) saturate(220%)', WebkitBackdropFilter: 'blur(44px) saturate(220%)',
         border: `1px solid ${bdr}`,
         boxShadow: 'var(--shadow-nav)',
@@ -105,7 +93,7 @@ function DashboardNavbar({ isDark, onToggleTheme }: NavbarProps) {
         {/* Logo */}
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', borderRadius: 16, textDecoration: 'none', flexShrink: 0, transition: 'background 0.2s ease' }}
           onMouseEnter={e => (e.currentTarget.style.background = hov)}
-          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0)')}>
           <span style={{ width: 24, height: 24, borderRadius: 7, flexShrink: 0, background: 'var(--primary-dim)', border: '1px solid rgba(0,229,168,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <LayoutDashboard style={{ width: 12, height: 12, color: 'var(--primary)' }} />
           </span>
@@ -119,20 +107,21 @@ function DashboardNavbar({ isDark, onToggleTheme }: NavbarProps) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           <Link href="/" style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', padding: '6px 14px', borderRadius: 14, textDecoration: 'none', transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', gap: 6 }}
             onMouseEnter={e => { e.currentTarget.style.background = hov; e.currentTarget.style.color = 'var(--text)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
             <ArrowLeft style={{ width: 13, height: 13 }} /> Home
           </Link>
           <a href="https://github.com/SUDHEER-KANDURU/cortex" target="_blank" rel="noopener noreferrer"
             style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', padding: '6px 14px', borderRadius: 14, textDecoration: 'none', transition: 'all 0.2s ease' }}
             onMouseEnter={e => { e.currentTarget.style.background = hov; e.currentTarget.style.color = 'var(--text)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
             GitHub
           </a>
           <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
           <button onClick={onToggleTheme} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            style={{ width: 36, height: 36, borderRadius: 12, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', transition: 'all 0.2s ease' }}
+            suppressHydrationWarning
+            style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(0,0,0,0)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', transition: 'all 0.2s ease' }}
             onMouseEnter={e => { e.currentTarget.style.background = hov; e.currentTarget.style.color = 'var(--primary)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
             {isDark ? <Sun style={{ width: 16, height: 16 }} /> : <Moon style={{ width: 16, height: 16 }} />}
           </button>
         </div>
@@ -197,7 +186,9 @@ function SidebarForm({ isDark, onJobSubmitted }: SidebarFormProps) {
 
       {/* Artifact type select */}
       <Select.Root value={artifactType} onValueChange={v => setArtifactType(v as ArtifactType)} disabled={isSubmitting}>
-        <Select.Trigger aria-label="Artifact type"
+        <Select.Trigger
+          aria-label="Artifact type"
+          suppressHydrationWarning
           style={{ ...inputStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
           onFocus={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--primary-dim)'; }}
           onBlur={e => { e.currentTarget.style.borderColor = bdr; e.currentTarget.style.boxShadow = 'none'; }}>
@@ -226,9 +217,9 @@ function SidebarForm({ isDark, onJobSubmitted }: SidebarFormProps) {
                   fontFamily: 'var(--font-sans)', userSelect: 'none',
                 }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = hoverBg(isDark); (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
                   onFocus={e => { (e.currentTarget as HTMLElement).style.background = hoverBg(isDark); (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
-                  onBlur={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
+                  onBlur={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
                 >
                   <Select.ItemText>{ARTIFACT_TYPE_LABELS[t]}</Select.ItemText>
                   <Select.ItemIndicator><Check style={{ width: 13, height: 13, color: 'var(--primary)', flexShrink: 0 }} /></Select.ItemIndicator>
@@ -261,15 +252,24 @@ function SidebarForm({ isDark, onJobSubmitted }: SidebarFormProps) {
 }
 
 // ── Job row ───────────────────────────────────────────────────────────────────
-interface JobRowProps { job: Job; isSelected: boolean; isDark: boolean; onClick: () => void; onDelete: (id: string) => void }
+interface JobRowProps { job: Job; isSelected: boolean; isDark: boolean; onClick: () => void; onDelete: (id: string) => void; onRetried: (newJob: Job) => void }
 
-const JobRow = React.memo(function JobRow({ job, isSelected, isDark, onClick, onDelete }: JobRowProps) {
+const JobRow = React.memo(function JobRow({ job, isSelected, isDark, onClick, onDelete, onRetried }: JobRowProps) {
   const short = extractShortName(job.repo_url);
   const owner = extractRepoName(job.repo_url).split('/')[0] ?? '';
   const isRunning = job.status === 'running';
+  const isFailed = job.status === 'failed';
   const [hovered, setHovered] = React.useState(false);
   const [deleteVisible, setDeleteVisible] = React.useState(false);
   const rowRef = React.useRef<HTMLDivElement>(null);
+  const { retriedJob, isRetrying, error: retryError, retry } = useRetryJob();
+
+  // Bubble new job up to parent when retry succeeds
+  React.useEffect(() => {
+    if (retriedJob) onRetried(retriedJob);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retriedJob]);
+
   const dot: Record<string, string> = {
     completed: 'var(--success)', running: 'var(--primary)',
     failed: 'var(--danger)', pending: 'var(--text-muted)', cancelled: 'var(--text-muted)',
@@ -281,12 +281,17 @@ const JobRow = React.memo(function JobRow({ job, isSelected, isDark, onClick, on
     onDelete(job.id);
   };
 
+  const handleRetry = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await retry(job.id);
+  };
+
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!rowRef.current) return;
     const { left, width } = rowRef.current.getBoundingClientRect();
     const relativeX = e.clientX - left;
-    // Show delete button only when cursor is in the rightmost 30% of the row
-    setDeleteVisible(relativeX / width >= 0.70);
+    // Show delete button only when cursor is in the rightmost 20% of the row
+    setDeleteVisible(relativeX / width >= 0.80);
   };
 
   const handleMouseLeave = () => {
@@ -295,75 +300,106 @@ const JobRow = React.memo(function JobRow({ job, isSelected, isDark, onClick, on
   };
 
   return (
-    <div
-      ref={rowRef}
-      style={{ position: 'relative', overflow: 'hidden', borderRadius: 14 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={handleMouseLeave}
-      onMouseMove={handleMouseMove}
-    >
-      {/* ── Main row button — slides left when delete zone is hovered ── */}
-      <button
-        type="button"
-        onClick={onClick}
-        aria-pressed={isSelected}
-        aria-label={`Job: ${short}, status: ${job.status}`}
-        style={{
-          width: '100%', textAlign: 'left', cursor: 'pointer', borderRadius: 14,
-          padding: '10px 12px', border: 'none',
-          background: isSelected ? selectedBg(isDark) : hovered ? rowHoverBg(isDark) : 'transparent',
-          borderLeft: `2px solid ${isSelected ? 'var(--primary)' : 'transparent'}`,
-          boxSizing: 'border-box',
-          // Slide left only when cursor is in the right 30% zone
-          transform: deleteVisible ? 'translateX(-32px)' : 'translateX(0)',
-          transition: 'transform 0.2s cubic-bezier(0.16,1,0.3,1), background 0.15s ease, border-color 0.15s ease',
-        }}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div
+        ref={rowRef}
+        style={{ position: 'relative', overflow: 'hidden', borderRadius: 14 }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={handleMouseLeave}
+        onMouseMove={handleMouseMove}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{
-                width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0,
-                boxShadow: isRunning ? `0 0 6px ${dotColor}` : 'none',
-                animation: isRunning ? 'pulse-dot 1.8s ease-in-out infinite' : 'none',
-              }} aria-hidden="true" />
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {short}
-              </span>
+        {/* ── Main row button — slides left when delete zone is hovered ── */}
+        <button
+          type="button"
+          onClick={onClick}
+          aria-pressed={isSelected}
+          aria-label={`Job: ${short}, status: ${job.status}`}
+          style={{
+            width: '100%', textAlign: 'left', cursor: 'pointer', borderRadius: 14,
+            padding: '10px 12px', border: 'none',
+            background: isSelected ? selectedBg(isDark) : hovered ? rowHoverBg(isDark) : 'rgba(0,0,0,0)',
+            borderLeft: `2px solid ${isSelected ? 'var(--primary)' : 'rgba(0,0,0,0)'}`,
+            boxSizing: 'border-box',
+            // Slide left only when cursor is in the right 30% zone
+            transform: deleteVisible ? 'translateX(-32px)' : 'translateX(0)',
+            transition: 'transform 0.2s cubic-bezier(0.16,1,0.3,1), background 0.15s ease, border-color 0.15s ease',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{
+                  width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0,
+                  boxShadow: isRunning ? `0 0 6px ${dotColor}` : 'none',
+                  animation: isRunning ? 'pulse-dot 1.8s ease-in-out infinite' : 'none',
+                }} aria-hidden="true" />
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {short}
+                </span>
+              </div>
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
+                {owner} · {ARTIFACT_TYPE_LABELS[job.artifact_type]}
+              </p>
             </div>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
-              {owner} · {ARTIFACT_TYPE_LABELS[job.artifact_type]}
-            </p>
+            <StatusBadge status={job.status} />
           </div>
-          <StatusBadge status={job.status} />
-        </div>
-      </button>
+        </button>
 
-      {/* ── Delete button — fixed on the right edge, revealed only in the right 30% zone ── */}
-      <button
-        type="button"
-        onClick={handleDelete}
-        aria-label={`Remove ${short} from list`}
-        title="Remove from list"
-        style={{
-          position: 'absolute', right: 0, top: 0, bottom: 0,
-          width: 32,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          color: 'var(--danger)',
-          opacity: deleteVisible ? 1 : 0,
-          transform: deleteVisible ? 'scale(1)' : 'scale(0.7)',
-          transition: 'opacity 0.15s ease, transform 0.2s cubic-bezier(0.16,1,0.3,1)',
-          pointerEvents: deleteVisible ? 'auto' : 'none',
-          padding: 0,
-        }}
-      >
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-          <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
-        </svg>
-      </button>
+        {/* ── Delete button — fixed on the right edge, revealed only in the right 30% zone ── */}
+        <button
+          type="button"
+          onClick={handleDelete}
+          aria-label={`Remove ${short} from list`}
+          title="Remove from list"
+          style={{
+            position: 'absolute', right: 0, top: 0, bottom: 0,
+            width: 32,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,0)',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--danger)',
+            opacity: deleteVisible ? 1 : 0,
+            transform: deleteVisible ? 'scale(1)' : 'scale(0.7)',
+            transition: 'opacity 0.15s ease, transform 0.2s cubic-bezier(0.16,1,0.3,1)',
+            pointerEvents: deleteVisible ? 'auto' : 'none',
+            padding: 0,
+          }}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+            <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      {/* ── Retry button — shown only when this failed job is selected ── */}
+      {isFailed && isSelected && (
+        <div style={{ paddingLeft: 6, paddingRight: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <button
+            type="button"
+            onClick={handleRetry}
+            disabled={isRetrying}
+            aria-busy={isRetrying}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+              padding: '5px 10px', borderRadius: 10, border: '1px solid rgba(239,68,68,0.3)',
+              background: 'rgba(239,68,68,0.07)', color: 'var(--danger)',
+              fontSize: 11, fontWeight: 600, cursor: isRetrying ? 'not-allowed' : 'pointer',
+              opacity: isRetrying ? 0.6 : 1,
+              transition: 'background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease',
+              fontFamily: 'var(--font-sans)',
+            }}
+            onMouseEnter={e => { if (!isRetrying) { e.currentTarget.style.background = 'rgba(239,68,68,0.14)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.5)'; }}}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.07)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)'; }}
+          >
+            <RotateCcw style={{ width: 10, height: 10, flexShrink: 0, animation: isRetrying ? 'spin 0.8s linear infinite' : 'none' }} aria-hidden="true" />
+            {isRetrying ? 'Retrying…' : 'Retry Job'}
+          </button>
+          {retryError && (
+            <p style={{ fontSize: 10, color: 'var(--danger)', margin: 0, paddingLeft: 2 }}>{retryError}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 });
@@ -373,21 +409,23 @@ interface SidebarProps {
   isDark: boolean; jobs: Job[]; jobsLoading: boolean; jobsError: string | null;
   selectedJobId: string | null; onJobSelected: (job: Job) => void;
   onJobSubmitted: (job: Job) => void; onJobDeleted: (id: string) => void;
+  onJobRetried: (newJob: Job) => void;
 }
 
-function Sidebar({ isDark, jobs, jobsLoading, jobsError, selectedJobId, onJobSelected, onJobSubmitted, onJobDeleted }: SidebarProps) {
+function Sidebar({ isDark, jobs, jobsLoading, jobsError, selectedJobId, onJobSelected, onJobSubmitted, onJobDeleted, onJobRetried }: SidebarProps) {
   const bdr = tintBorder(isDark);
   return (
     <aside aria-label="Repository sidebar" style={{
-      background: 'var(--glass-card, rgba(14,18,28,0.88))',
-      backdropFilter: 'blur(28px) saturate(200%)', WebkitBackdropFilter: 'blur(28px) saturate(200%)',
+      background: isDark ? 'rgba(14,18,28,0.55)' : 'rgba(255,255,255,0.62)',
+      backdropFilter: 'blur(40px) saturate(180%)',
+      WebkitBackdropFilter: 'blur(40px) saturate(180%)',
       border: `1px solid ${bdr}`,
       boxShadow: isDark
         ? 'var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.07)'
         : 'var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.85)',
       width: 300, minWidth: 300, maxWidth: 300,
       display: 'flex', flexDirection: 'column', borderRadius: 20, overflow: 'hidden', flexShrink: 0,
-      transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+      transition: 'border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease',
     }}>
       <div style={{ padding: '20px 18px', borderBottom: `1px solid ${bdr}` }}>
         <SidebarForm isDark={isDark} onJobSubmitted={onJobSubmitted} />
@@ -437,6 +475,7 @@ function Sidebar({ isDark, jobs, jobsLoading, jobsError, selectedJobId, onJobSel
                   isSelected={job.id === selectedJobId}
                   onClick={() => onJobSelected(job)}
                   onDelete={onJobDeleted}
+                  onRetried={onJobRetried}
                 />
               </motion.div>
             ))}
@@ -514,7 +553,7 @@ function PanelHeader({ activeJob, isDark }: { activeJob: Job; isDark: boolean })
   }[activeJob.status] ?? null;
 
   return (
-    <div style={{ padding: '16px 24px', borderBottom: `1px solid ${bdr}`, background: tint(isDark, 'xs'), display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexShrink: 0, transition: 'background 0.3s ease, border-color 0.3s ease' }}>
+    <div style={{ padding: '16px 24px', borderBottom: `1px solid ${bdr}`, background: 'rgba(0,0,0,0)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexShrink: 0, transition: 'border-color 0.3s ease' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
         <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'var(--primary-dim)', border: '1px solid rgba(0,229,168,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <GitBranch style={{ width: 15, height: 15, color: 'var(--primary)' }} />
@@ -576,10 +615,18 @@ interface RightPanelProps {
   isDark: boolean; activeJob: Job | null;
   artifacts: ReturnType<typeof useArtifact>['artifacts'];
   artifactsLoading: boolean; artifactsError: string | null;
+  onJobRetried: (newJob: Job) => void;
 }
 
-function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsError }: RightPanelProps) {
+function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsError, onJobRetried }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState<'artifact' | 'insights'>('artifact');
+  const { retriedJob, isRetrying, error: retryError, retry } = useRetryJob();
+
+  // Bubble retried job up to page level
+  React.useEffect(() => {
+    if (retriedJob) onJobRetried(retriedJob);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retriedJob]);
 
   // Must be before any early return — Rules of Hooks
   React.useEffect(() => {
@@ -600,7 +647,7 @@ function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsE
         <div style={{
           display: 'flex', gap: 2, padding: '0 24px',
           borderBottom: `1px solid ${bdr}`,
-          background: tint(isDark, 'xs'),
+          background: 'rgba(0,0,0,0)',
           flexShrink: 0,
         }}>
           {(['artifact', 'insights'] as const).map(tab => {
@@ -614,7 +661,7 @@ function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsE
                   padding: '10px 18px',
                   fontSize: 12, fontWeight: isActive ? 700 : 500,
                   color: isActive ? 'var(--primary)' : 'var(--text-muted)',
-                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  background: 'rgba(0,0,0,0)', border: 'none', cursor: 'pointer',
                   marginBottom: -1,
                   transition: 'color 0.15s',
                   letterSpacing: '0.02em', fontFamily: 'var(--font-sans)',
@@ -657,7 +704,48 @@ function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsE
 
         {/* Failed — show pipeline frozen at failure point */}
         {activeJob.status === 'failed' && (
-          <AnimatedPipeline jobId={activeJob.id} isDark={isDark} pipelineStatus="failed" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <AnimatedPipeline jobId={activeJob.id} isDark={isDark} pipelineStatus="failed" />
+
+            {/* Error message from backend */}
+            {activeJob.error_message && (
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: 10,
+                padding: '12px 16px', borderRadius: 'var(--radius-sm)',
+                background: 'var(--danger-dim)', border: '1px solid rgba(239,83,80,0.22)',
+              }}>
+                <AlertCircle style={{ width: 14, height: 14, color: 'var(--danger)', flexShrink: 0, marginTop: 1 }} />
+                <p style={{ fontSize: 12, color: 'var(--danger)', margin: 0, fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
+                  {activeJob.error_message}
+                </p>
+              </div>
+            )}
+
+            {/* Retry button */}
+            <button
+              type="button"
+              onClick={() => retry(activeJob.id)}
+              disabled={isRetrying}
+              aria-busy={isRetrying}
+              style={{
+                alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 7,
+                padding: '9px 20px', borderRadius: 12, border: '1px solid rgba(239,68,68,0.35)',
+                background: 'rgba(239,68,68,0.08)', color: 'var(--danger)',
+                fontSize: 13, fontWeight: 600, cursor: isRetrying ? 'not-allowed' : 'pointer',
+                opacity: isRetrying ? 0.6 : 1,
+                transition: 'background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease',
+                fontFamily: 'var(--font-sans)',
+              }}
+              onMouseEnter={e => { if (!isRetrying) { e.currentTarget.style.background = 'rgba(239,68,68,0.16)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.55)'; }}}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.35)'; }}
+            >
+              <RotateCcw style={{ width: 13, height: 13, flexShrink: 0, animation: isRetrying ? 'spin 0.8s linear infinite' : 'none' }} aria-hidden="true" />
+              {isRetrying ? 'Retrying…' : 'Retry Job'}
+            </button>
+            {retryError && (
+              <p style={{ fontSize: 12, color: 'var(--danger)', margin: 0 }}>{retryError}</p>
+            )}
+          </div>
         )}
 
         {/* Cancelled */}
@@ -777,6 +865,15 @@ export default function DashboardPage() {
   const { job: polledJob } = useJobPolling(selectedJob?.id ?? null);
   const activeJob = polledJob ?? selectedJob;
 
+  // Keep the sidebar list in sync with live poll results —
+  // whenever the selected job's status changes, patch it in the jobs array
+  useEffect(() => {
+    if (!polledJob) return;
+    setJobs(prev =>
+      prev.map(j => j.id === polledJob.id ? { ...j, ...polledJob } : j)
+    );
+  }, [polledJob]);
+
   const { artifacts, isLoading: artifactsLoading, error: artifactsError, refetch } = useArtifact(
     activeJob?.status === 'completed' ? (selectedJob?.id ?? null) : null
   );
@@ -815,14 +912,12 @@ export default function DashboardPage() {
 
   return (
     <>
-      <DashboardBackground isDark={isDark} />
-
       <div style={{ position: 'fixed', inset: 0, zIndex: 1, display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-sans)' }}>
         <DashboardNavbar isDark={isDark} onToggleTheme={() => setIsDark(d => !d)} />
 
-        <div style={{ flex: 1, display: 'flex', paddingTop: 80, paddingBottom: 20, paddingLeft: 20, paddingRight: 20, gap: 16, overflow: 'hidden', boxSizing: 'border-box' }}>
+        <div style={{ flex: 1, display: 'flex', paddingTop: 80, paddingBottom: 20, paddingLeft: 20, paddingRight: 20, gap: 16, overflow: 'clip', boxSizing: 'border-box' }}>
           {/* Sidebar */}
-          <div className="dash-scroll" style={{ display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'auto', height: '100%' }}>
+          <div className="dash-scroll" style={{ display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto', overflowX: 'clip', height: '100%' }}>
             <Sidebar
               isDark={isDark}
               jobs={jobs.filter(j => !hiddenJobIds.has(j.id))}
@@ -832,22 +927,25 @@ export default function DashboardPage() {
               onJobSelected={handleJobSelected}
               onJobSubmitted={handleJobSubmitted}
               onJobDeleted={handleJobDeleted}
+              onJobRetried={handleJobSubmitted}
             />
           </div>
 
           {/* Main glass panel */}
           <main className="dash-content" style={{
-            background: 'var(--glass-card, rgba(14,18,28,0.88))',
-            backdropFilter: 'blur(28px) saturate(200%)', WebkitBackdropFilter: 'blur(28px) saturate(200%)',
+            background: isDark ? 'rgba(14,18,28,0.65)' : 'rgba(255,255,255,0.72)',
+            backdropFilter: 'blur(40px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
             border: `1px solid ${tintBorder(isDark)}`,
             boxShadow: isDark
               ? 'var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.07)'
               : 'var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.85)',
             flex: 1, borderRadius: 20, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0,
-            transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+            transition: 'border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease',
           }}>
             <RightPanel isDark={isDark} activeJob={activeJob}
-              artifacts={artifacts} artifactsLoading={artifactsLoading} artifactsError={artifactsError} />
+              artifacts={artifacts} artifactsLoading={artifactsLoading} artifactsError={artifactsError}
+              onJobRetried={handleJobSubmitted} />
           </main>
         </div>
       </div>

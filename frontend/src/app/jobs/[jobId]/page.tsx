@@ -5,11 +5,12 @@
 
 'use client';
 
-import React from 'react';
-import { useParams } from 'next/navigation';
+import React, { useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ExternalLink, RotateCcw } from 'lucide-react';
 import { useJobPolling } from '@/features/jobs/hooks/useJobPolling';
+import { useRetryJob } from '@/features/jobs/hooks/useRetryJob';
 import { useArtifact } from '@/features/artifacts/hooks/useArtifact';
 import { useGraphData } from '@/features/graph/hooks/useGraphData';
 import ArtifactViewer from '@/features/artifacts/components/ArtifactViewer';
@@ -34,9 +35,11 @@ function extractRepoName(url: string): string {
 
 export default function JobDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const jobId = typeof params.jobId === 'string' ? params.jobId : null;
 
   const { job, isLoading: jobLoading, error: jobError } = useJobPolling(jobId);
+  const { retriedJob, isRetrying, error: retryError, retry } = useRetryJob();
   const { artifacts, isLoading: artifactsLoading, error: artifactsError } = useArtifact(
     job?.status === 'completed' ? jobId : null
   );
@@ -46,9 +49,17 @@ export default function JobDetailPage() {
       : null
   );
 
+  // Navigate to the new job page when retry creates a replacement
+  useEffect(() => {
+    if (retriedJob) {
+      router.push(`/jobs/${retriedJob.id}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retriedJob]);
+
   if (!jobId) {
     return (
-      <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
+      <div className="min-h-screen" style={{ background: 'transparent' }}>
         <Navbar />
         <div className="px-8 py-6">
           <p style={{ fontSize: 13, color: 'var(--danger)' }}>Invalid job ID in URL.</p>
@@ -63,7 +74,7 @@ export default function JobDetailPage() {
   const repoName = job ? extractRepoName(job.repo_url) : null;
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg)', transition: 'background 0.3s ease' }}>
+    <div className="min-h-screen" style={{ background: 'transparent' }}>
       <Navbar />
 
       {/* Breadcrumb */}
@@ -222,9 +233,63 @@ export default function JobDetailPage() {
 
           {/* Terminal states */}
           {(job.status === 'failed' || job.status === 'cancelled') && (
-            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-              Job {job.status}. No artifacts are available.
-            </p>
+            <div style={{
+              borderRadius: 'var(--radius-lg)', padding: 24,
+              background: 'var(--card)',
+              border: '1px solid var(--border)',
+              boxShadow: 'var(--shadow-md)',
+              display: 'flex', flexDirection: 'column', gap: 16,
+            }}>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
+                Job {job.status}. No artifacts are available.
+              </p>
+
+              {/* Show error details for failed jobs */}
+              {job.status === 'failed' && job.error_message && (
+                <div style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: '12px 16px', borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+                }}>
+                  <p style={{ fontSize: 12, color: 'var(--danger)', margin: 0, fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
+                    {job.error_message}
+                  </p>
+                </div>
+              )}
+
+              {/* Retry button for failed jobs */}
+              {job.status === 'failed' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+                  <button
+                    type="button"
+                    onClick={() => retry(job.id)}
+                    disabled={isRetrying}
+                    aria-busy={isRetrying}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '10px 22px', borderRadius: 'var(--radius-md)',
+                      border: '1px solid rgba(239,68,68,0.35)',
+                      background: 'rgba(239,68,68,0.08)', color: 'var(--danger)',
+                      fontSize: 13, fontWeight: 600,
+                      cursor: isRetrying ? 'not-allowed' : 'pointer',
+                      opacity: isRetrying ? 0.6 : 1,
+                      transition: 'background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease',
+                    }}
+                    onMouseEnter={e => { if (!isRetrying) { e.currentTarget.style.background = 'rgba(239,68,68,0.16)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.55)'; }}}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.35)'; }}
+                  >
+                    <RotateCcw
+                      style={{ width: 14, height: 14, flexShrink: 0, animation: isRetrying ? 'spin 0.8s linear infinite' : 'none' }}
+                      aria-hidden="true"
+                    />
+                    {isRetrying ? 'Retrying…' : 'Retry Job'}
+                  </button>
+                  {retryError && (
+                    <p style={{ fontSize: 12, color: 'var(--danger)', margin: 0 }}>{retryError}</p>
+                  )}
+                </div>
+              )}
+            </div>
           )}
           {job.status === 'pending' && (
             <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Job is queued and waiting to start.</p>

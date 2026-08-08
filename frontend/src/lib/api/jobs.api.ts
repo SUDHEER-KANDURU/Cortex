@@ -49,3 +49,12 @@ export async function cancelJob(jobId: string): Promise<void> {
 export async function deleteJob(jobId: string): Promise<void> {
   await apiClient.delete(`/jobs/${jobId}`);
 }
+
+/**
+ * Retry a failed job — creates a new job with the same params.
+ * POST /api/v1/jobs/:jobId/retry
+ */
+export async function retryJob(jobId: string): Promise<Job> {
+  const response = await apiClient.post<Job>(`/jobs/${jobId}/retry`);
+  return response.data;
+}

@@ -9,14 +9,12 @@ from cortex.chat.domain.entities import (
 )
 from cortex.chat.infrastructure.context_retriever import ContextRetriever
 from cortex.chat.infrastructure.nim_client import NIMClient
+from cortex.chat.infrastructure.dependencies import chat_repository
 from cortex.graph.infrastructure.sqlite_repository import SQLiteGraphRepository
 from cortex.config import get_settings
 import structlog
 
 logger = structlog.get_logger()
-
-# In-memory session store — replaced with SQLite in auth PR
-_sessions: dict[str, ChatSession] = {}
 
 SYSTEM_PROMPT = """You are Cortex, an expert code analysis assistant. You have analyzed a GitHub repository and built a complete knowledge graph of its structure. You answer questions about the codebase based on the provided context.
 
@@ -31,21 +29,26 @@ Rules:
 
 
 class ChatService:
-    """Manages chat sessions and streams AI responses."""
+    """Manages chat sessions and streams AI responses.
+
+    Sessions and messages are persisted via `chat_repository` (SQLite by
+    default) instead of an in-memory dict, so history survives a restart.
+    """
 
     def __init__(self) -> None:
         self._retriever = ContextRetriever()
         settings = get_settings()
         self._nim = NIMClient(settings.nim_api_key)
         self._use_nim = bool(settings.nim_api_key)
+        self._repo = chat_repository
 
-    def create_session(self, job_id: str) -> ChatSession:
-        """Create a new chat session for a job."""
+    async def create_session(self, job_id: str) -> ChatSession:
+        """Create and persist a new chat session for a job."""
         session = ChatSession(
             id=str(uuid.uuid4()),
             job_id=job_id,
         )
-        _sessions[session.id] = session
+        await self._repo.save_session(session)
         logger.info(
             "chat_session_created",
             session_id=session.id,
@@ -53,17 +56,19 @@ class ChatService:
         )
         return session
 
-    def get_session(self, session_id: str) -> ChatSession | None:
-        """Get an existing session by ID."""
-        return _sessions.get(session_id)
+    async def get_session(self, session_id: str) -> ChatSession | None:
+        """Get an existing session by ID, with full message history loaded."""
+        return await self._repo.get_session(session_id)
 
-    def get_or_create_session(
+    async def get_or_create_session(
         self, job_id: str, session_id: str | None = None
     ) -> ChatSession:
         """Get existing session or create new one."""
-        if session_id and session_id in _sessions:
-            return _sessions[session_id]
-        return self.create_session(job_id)
+        if session_id:
+            existing = await self._repo.get_session(session_id)
+            if existing:
+                return existing
+        return await self.create_session(job_id)
 
     async def stream_response(
         self,
@@ -73,14 +78,15 @@ class ChatService:
         """Stream an AI response for a user message.
 
         Flow:
-        1. Add user message to session history
+        1. Add user message to session history (persisted immediately)
         2. Retrieve relevant code context from graph
         3. Build prompt with context + history
         4. Stream response from NIM or fallback
-        5. Collect full response and save to session
+        5. Collect full response and save to session (persisted)
         """
         # Add user message to history
-        session.add_message(MessageRole.USER, user_message)
+        user_msg = session.add_message(MessageRole.USER, user_message)
+        await self._repo.add_message(session.id, user_msg)
 
         # Retrieve relevant context
         context = await self._retriever.retrieve(
@@ -129,7 +135,8 @@ class ChatService:
 
         # Save complete response to session
         complete = "".join(full_response)
-        session.add_message(MessageRole.ASSISTANT, complete)
+        assistant_msg = session.add_message(MessageRole.ASSISTANT, complete)
+        await self._repo.add_message(session.id, assistant_msg)
 
         logger.info(
             "chat_response_complete",

@@ -319,9 +319,12 @@ class GraphBuilder:
             properties={
                 "file": file_path,
                 "line": parsed_class.line_start,
+                "lines": parsed_class.line_end - parsed_class.line_start + 1,
                 "methods": parsed_class.method_count(),
                 "base_classes": ", ".join(parsed_class.base_classes),
                 "is_abstract": parsed_class.is_abstract(),
+                "has_docstring": parsed_class.docstring is not None and len(parsed_class.docstring.strip()) > 0,
+                "decorators": ", ".join(parsed_class.decorators),
             },
         )
 
@@ -344,7 +347,10 @@ class GraphBuilder:
                 "is_async": fn.is_async,
                 "is_method": fn.is_method,
                 "parameters": ", ".join(fn.parameters),
+                "param_count": len(fn.parameters),
                 "lines": fn.line_count(),
+                "has_docstring": fn.docstring is not None and len(fn.docstring.strip()) > 0,
+                "decorators": ", ".join(fn.decorators),
             },
         )
 

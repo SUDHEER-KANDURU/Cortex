@@ -29,7 +29,7 @@ class SessionResponse(BaseModel):
     description="Creates a chat session tied to a specific job/repo analysis.",
 )
 async def create_session(job_id: str) -> SessionResponse:
-    session = _service.create_session(job_id)
+    session = await _service.create_session(job_id)
     return SessionResponse(
         session_id=session.id,
         job_id=session.job_id,
@@ -48,7 +48,7 @@ async def create_session(job_id: str) -> SessionResponse:
 async def stream_chat(request: ChatRequest) -> StreamingResponse:
     """Stream chat response using SSE."""
 
-    session = _service.get_or_create_session(
+    session = await _service.get_or_create_session(
         request.job_id, request.session_id
     )
 
@@ -96,7 +96,7 @@ async def stream_chat(request: ChatRequest) -> StreamingResponse:
     summary="Get chat history for a session",
 )
 async def get_history(session_id: str) -> dict:
-    session = _service.get_session(session_id)
+    session = await _service.get_session(session_id)
     if not session:
         raise HTTPException(
             status_code=404, detail="Session not found"

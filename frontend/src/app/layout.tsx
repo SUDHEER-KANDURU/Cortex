@@ -69,10 +69,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body
         className="min-h-screen antialiased"
-        style={{ background: 'var(--bg, #060810)', color: 'var(--text, #FFFFFF)' }}
+        style={{ color: 'var(--text, #FFFFFF)' }}
         suppressHydrationWarning
       >
-        {children}
+        {/* ── Global liquid-blob background — fixed, covers every page ── */}
+        <div className="liquid-bg-mesh" aria-hidden="true">
+          <div className="liquid-blob liquid-blob-1" />
+          <div className="liquid-blob liquid-blob-2" />
+          <div className="liquid-blob liquid-blob-3" />
+        </div>
+
+        {/* All page content sits above the blobs */}
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          {children}
+        </div>
       </body>
     </html>
   );

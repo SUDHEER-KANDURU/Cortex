@@ -1,7 +1,8 @@
 """Chat domain entities."""
 
+import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 
@@ -11,11 +12,16 @@ class MessageRole(str, Enum):
     SYSTEM = "system"
 
 
+def _now() -> datetime:
+    return datetime.now(timezone.utc)  # Fix — was datetime.utcnow() (deprecated)
+
+
 @dataclass
 class ChatMessage:
     role: MessageRole
     content: str
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))  # NEW — needed as DB primary key
+    created_at: datetime = field(default_factory=_now)
 
 
 @dataclass
@@ -23,7 +29,7 @@ class ChatSession:
     id: str
     job_id: str
     messages: list[ChatMessage] = field(default_factory=list)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=_now)
 
     def add_message(
         self, role: MessageRole, content: str

@@ -207,7 +207,6 @@ export function PortfolioHero() {
                   whileTap={prefersReducedMotion ? {} : { scale: 0.96, transition: { duration: DURATION.micro } }}
                 >
                   <DashboardLink
-                    data-magnetic
                     className="hero-cta-primary cta-shimmer inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold rounded-full"
                     style={{
                       background: "linear-gradient(135deg, var(--primary) 0%, #00c9a7 100%)",
@@ -224,7 +223,6 @@ export function PortfolioHero() {
                   whileTap={prefersReducedMotion ? {} : { scale: 0.97, transition: { duration: DURATION.micro } }}
                 >
                   <Link href="#works"
-                    data-magnetic
                     className="inline-flex items-center gap-2 px-5 py-3 text-sm font-medium rounded-full"
                     style={{
                       color: "var(--text-secondary)",

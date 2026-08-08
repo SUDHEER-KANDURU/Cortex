@@ -429,9 +429,7 @@ function useHeroParallax() {
 export default function HomePage() {
   useLenis()
   useScrollReveal()
-  useMouseSpotlight()
   useSpotlight()
-  useMagneticPull()
   useHeroParallax()
 
   return (
@@ -439,13 +437,6 @@ export default function HomePage() {
       className="portfolio-page"
       style={{ fontFamily: "var(--font-sans,'Inter',system-ui,sans-serif)" }}
     >
-      {/* ── Cyber-Aurora liquid blob background ── */}
-      <div className="liquid-bg-mesh" aria-hidden="true">
-        <div className="liquid-blob liquid-blob-1" />
-        <div className="liquid-blob liquid-blob-2" />
-        <div className="liquid-blob liquid-blob-3" />
-      </div>
-
       <ScrollProgress />
       <PortfolioHeader />
       <main>

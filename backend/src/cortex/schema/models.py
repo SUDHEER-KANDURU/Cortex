@@ -10,6 +10,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from cortex.jobs.domain.entities import JobStatus, ArtifactType
 from cortex.artifacts.domain.entities import ArtifactContentType
 from cortex.graph.domain.entities import NodeType, RelationshipType
+from cortex.chat.domain.entities import MessageRole
 
 
 class Base(DeclarativeBase):
@@ -110,3 +111,47 @@ class GraphEdgeModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now)
 
     __table_args__ = (Index("ix_graph_edges_job_rel", "job_id", "relationship"),)
+
+
+class ChatSessionModel(Base):
+    """A chat conversation tied to one job/repo analysis.
+
+    NEW — replaces the in-memory `_sessions` dict that used to live in
+    chat_service.py. Sessions now survive a server restart.
+    """
+    __tablename__ = "chat_sessions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    job_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now)
+
+    messages: Mapped[list["ChatMessageModel"]] = relationship(
+        "ChatMessageModel",
+        back_populates="session",
+        cascade="all, delete-orphan",
+        order_by="ChatMessageModel.created_at",
+    )
+
+    __table_args__ = (Index("ix_chat_sessions_job", "job_id"),)
+
+
+class ChatMessageModel(Base):
+    """One message (user or assistant) within a chat session. NEW."""
+    __tablename__ = "chat_messages"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    session_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    role: Mapped[str] = mapped_column(
+        SAEnum(MessageRole, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now, index=True)
+
+    session: Mapped["ChatSessionModel"] = relationship("ChatSessionModel", back_populates="messages")
+
+    __table_args__ = (Index("ix_chat_messages_session_created", "session_id", "created_at"),)
