@@ -2,7 +2,7 @@
 Each generator takes a GraphBuildResult and produces formatted content."""
 
 from dataclasses import dataclass
-from cortex.graph.domain.entities import NodeType, RelationshipType
+from cortex.graph.domain.entities import NodeType, RelationshipType, GraphNode
 from cortex.pipeline.infrastructure.graph_builder import GraphBuildResult
 import structlog
 
@@ -129,6 +129,387 @@ class MermaidGenerator:
         if clean and not clean[0].isalpha():
             clean = "n_" + clean
         return clean[:24]
+
+
+class GraphInterviewQuestionGenerator:
+    """Generates interview questions derived directly from the knowledge graph.
+
+    Instead of a fixed generic template, this walks the actual graph structure —
+    god classes (highest method count), high fan-out/fan-in nodes, deep or
+    multiple inheritance chains, and detected import cycles — and turns each
+    real finding into a targeted question that names actual classes and files.
+    """
+
+    GOD_CLASS_METHOD_THRESHOLD = 8
+    HIGH_FANOUT_THRESHOLD = 3
+
+    def generate(self, graph: GraphBuildResult, repo_name: str) -> str:
+        classes = graph.nodes_by_type(NodeType.CLASS)
+        files = graph.nodes_by_type(NodeType.FILE)
+        functions = graph.nodes_by_type(NodeType.FUNCTION)
+        modules = graph.nodes_by_type(NodeType.MODULE)
+
+        fan_out = self._count_fan_out(graph)
+        fan_in = self._count_fan_in(graph)
+        inheritance_depth = self._compute_inheritance_depth(graph, classes)
+        cycles = self._find_import_cycles(graph, files)
+
+        lines = [
+            f"# Interview Preparation — {repo_name}",
+            "",
+            "Questions generated directly from this repository's knowledge graph — "
+            "real class names, real coupling, real inheritance chains — not generic "
+            "descriptions.",
+            "",
+            "---",
+            "",
+        ]
+
+        q_num = 1
+
+        # 1 — God classes (highest method count)
+        god_classes = sorted(
+            classes,
+            key=lambda c: int(c.properties.get("methods", 0) or 0),
+            reverse=True,
+        )
+        god_classes = [
+            c for c in god_classes
+            if int(c.properties.get("methods", 0) or 0) >= self.GOD_CLASS_METHOD_THRESHOLD
+        ][:3]
+
+        if god_classes:
+            top = god_classes[0]
+            methods = top.properties.get("methods", 0)
+            file_path = top.properties.get("file", "unknown")
+            others = ", ".join(
+                f"`{c.label}` ({c.properties.get('methods', 0)} methods)"
+                for c in god_classes[1:]
+            )
+            suffix = f", followed by {others}" if others else ""
+            lines += self._question(
+                q_num,
+                "God Class",
+                f"`{top.label}` in `{file_path}` has {methods} methods — the most of any "
+                f"class in this codebase{suffix}. Walk through what responsibilities this "
+                "class currently owns, and propose a concrete split (name the new classes "
+                "and which methods move where).",
+            )
+        else:
+            lines += self._question(
+                q_num,
+                "Class Design",
+                f"No class in `{repo_name}` exceeds {self.GOD_CLASS_METHOD_THRESHOLD} "
+                "methods — what design convention in this codebase seems to be keeping "
+                "classes small?",
+            )
+        q_num += 1
+
+        # 2 — High fan-out file
+        file_fanout = sorted(
+            ((f, fan_out.get(f.id, 0)) for f in files),
+            key=lambda pair: pair[1],
+            reverse=True,
+        )
+        if file_fanout and file_fanout[0][1] >= self.HIGH_FANOUT_THRESHOLD:
+            f_node, count = file_fanout[0]
+            lines += self._question(
+                q_num,
+                "Coupling & Fan-Out",
+                f"`{f_node.properties.get('path', f_node.label)}` imports from {count} "
+                "other modules — the highest fan-out in the repo. Why might this file "
+                "depend on so much, and what would you extract to reduce that number?",
+            )
+            q_num += 1
+
+        # 3 — High fan-in node ("core" abstraction everyone depends on)
+        node_fanin = sorted(
+            (
+                (n, fan_in.get(n.id, 0))
+                for n in graph.nodes
+                if n.node_type in (NodeType.CLASS, NodeType.FILE)
+            ),
+            key=lambda pair: pair[1],
+            reverse=True,
+        )
+        if node_fanin and node_fanin[0][1] >= self.HIGH_FANOUT_THRESHOLD:
+            n_node, count = node_fanin[0]
+            kind = "class" if n_node.node_type == NodeType.CLASS else "file"
+            lines += self._question(
+                q_num,
+                "Core Abstraction",
+                f"`{n_node.label}` is depended on by {count} other nodes in the graph — "
+                f"the most relied-upon {kind} in the codebase. What would break first if "
+                "you changed its public interface, and how would you introduce that "
+                "change safely?",
+            )
+            q_num += 1
+
+        # 4 — Deep inheritance chain
+        deep = sorted(inheritance_depth.items(), key=lambda kv: kv[1], reverse=True)
+        if deep and deep[0][1] >= 2:
+            cls_id, depth = deep[0]
+            cls_node = next((c for c in classes if c.id == cls_id), None)
+            if cls_node:
+                lines += self._question(
+                    q_num,
+                    "Inheritance Depth",
+                    f"`{cls_node.label}` sits {depth} levels deep in an inheritance chain "
+                    f"(base: `{cls_node.properties.get('base_classes', '')}`). Trace the "
+                    "full chain from this class to its root base — what does each level "
+                    "add, and would composition work better than inheritance here?",
+                )
+                q_num += 1
+
+        # 5 — Multiple inheritance
+        multi_base = [
+            c for c in classes
+            if len([b for b in str(c.properties.get("base_classes", "")).split(",") if b.strip()]) > 1
+        ]
+        if multi_base:
+            c = multi_base[0]
+            lines += self._question(
+                q_num,
+                "Multiple Inheritance",
+                f"`{c.label}` inherits from multiple base classes "
+                f"(`{c.properties.get('base_classes', '')}`). Explain the method "
+                "resolution order Python would use here, and any diamond-inheritance "
+                "risk this creates.",
+            )
+            q_num += 1
+
+        # 6 — Circular dependencies (or their absence)
+        if cycles:
+            cycle_str = " → ".join(f"`{c}`" for c in cycles[0])
+            lines += self._question(
+                q_num,
+                "Circular Dependencies",
+                f"There's an import cycle in this codebase: {cycle_str}. How did this "
+                "likely happen, and what's your plan to break the cycle without a large "
+                "rewrite?",
+            )
+        else:
+            lines += self._question(
+                q_num,
+                "Dependency Direction",
+                f"`{repo_name}` has no detected circular imports among its files. What "
+                "convention (layering, dependency direction) is likely enforcing that, "
+                "and where in the codebase is it most visible?",
+            )
+        q_num += 1
+
+        # 7 — Largest file
+        big_files = sorted(
+            files,
+            key=lambda f: int(f.properties.get("lines", 0) or 0),
+            reverse=True,
+        )
+        if big_files:
+            f_node = big_files[0]
+            lines_count = f_node.properties.get("lines", 0)
+            classes_in_file = f_node.properties.get("classes", 0)
+            functions_in_file = f_node.properties.get("functions", 0)
+            lines += self._question(
+                q_num,
+                "Largest File",
+                f"`{f_node.properties.get('path', f_node.label)}` is the largest file in "
+                f"the repo at {lines_count} lines ({classes_in_file} classes, "
+                f"{functions_in_file} functions). Would you split this file? If so, "
+                "along what boundary?",
+            )
+            q_num += 1
+
+        # 8 — Testing strategy, tied to the riskiest node found so far
+        risk_target = god_classes[0] if god_classes else (big_files[0] if big_files else None)
+        if risk_target is not None:
+            if risk_target.node_type == NodeType.CLASS:
+                target_file = risk_target.properties.get("file", "")
+                lines += self._question(
+                    q_num,
+                    "Testing Strategy",
+                    f"How would you write unit tests for `{risk_target.label}` in "
+                    f"`{target_file}`? Name what you'd mock, what you'd assert, and "
+                    "where you'd start given its current size and dependencies.",
+                )
+            else:
+                target_path = risk_target.properties.get("path", risk_target.label)
+                lines += self._question(
+                    q_num,
+                    "Testing Strategy",
+                    f"How would you write tests for `{target_path}`? Name what you'd "
+                    "mock, what you'd assert, and where you'd start given its current "
+                    "size and dependencies.",
+                )
+            q_num += 1
+
+        # 9 — Function with the most parameters
+        complex_fns = sorted(
+            functions,
+            key=lambda fn: len(
+                [p for p in str(fn.properties.get("parameters", "")).split(",") if p.strip()]
+            ),
+            reverse=True,
+        )
+        if complex_fns:
+            fn = complex_fns[0]
+            param_count = len(
+                [p for p in str(fn.properties.get("parameters", "")).split(",") if p.strip()]
+            )
+            if param_count >= 4:
+                lines += self._question(
+                    q_num,
+                    "Function Signature Complexity",
+                    f"`{fn.label}` in `{fn.properties.get('file', 'unknown')}` takes "
+                    f"{param_count} parameters (`{fn.properties.get('parameters', '')}`). "
+                    "What would you group into a parameter object or config class, and why?",
+                )
+                q_num += 1
+
+        # 10 — Busiest module (most files)
+        if modules:
+            module_file_counts: dict[str, int] = {}
+            for edge in graph.edges:
+                if edge.relationship != RelationshipType.CONTAINS:
+                    continue
+                src = self._node_by_id(graph, edge.source_id)
+                tgt = self._node_by_id(graph, edge.target_id)
+                if src and tgt and src.node_type == NodeType.MODULE and tgt.node_type == NodeType.FILE:
+                    module_file_counts[src.id] = module_file_counts.get(src.id, 0) + 1
+            if module_file_counts:
+                busiest_id = max(module_file_counts, key=module_file_counts.get)
+                busiest = self._node_by_id(graph, busiest_id)
+                if busiest:
+                    lines += self._question(
+                        q_num,
+                        "Module Responsibility",
+                        f"`{busiest.label}` contains {module_file_counts[busiest_id]} "
+                        f"files — the most of any module in `{repo_name}`. What single "
+                        "responsibility does this module own, and does every file in it "
+                        "actually belong there?",
+                    )
+                    q_num += 1
+
+        # Final — grounded system overview
+        lines += self._question(
+            q_num,
+            "System Overview",
+            f"This graph has {graph.node_count()} nodes and {graph.edge_count()} edges "
+            f"across {len(modules)} modules, {len(files)} files, and {len(classes)} "
+            f"classes. Give a two-minute walkthrough of `{repo_name}`'s architecture "
+            "using only names that appear in this graph.",
+        )
+
+        return "\n".join(lines)
+
+    def _question(self, number: int, category: str, question: str) -> list[str]:
+        return [
+            f"## Q{number}: {category}",
+            "",
+            question,
+            "",
+            "> **Tip:** Use the exact names above in your answer — they come directly "
+            "from this repository's parsed structure.",
+            "",
+        ]
+
+    def _count_fan_out(self, graph: GraphBuildResult) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for edge in graph.edges:
+            if edge.relationship in (
+                RelationshipType.IMPORTS,
+                RelationshipType.DEPENDS_ON,
+                RelationshipType.CALLS,
+            ):
+                counts[edge.source_id] = counts.get(edge.source_id, 0) + 1
+        return counts
+
+    def _count_fan_in(self, graph: GraphBuildResult) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for edge in graph.edges:
+            if edge.relationship in (
+                RelationshipType.IMPORTS,
+                RelationshipType.DEPENDS_ON,
+                RelationshipType.CALLS,
+            ):
+                counts[edge.target_id] = counts.get(edge.target_id, 0) + 1
+        return counts
+
+    def _compute_inheritance_depth(
+        self,
+        graph: GraphBuildResult,
+        classes: list[GraphNode],
+    ) -> dict[str, int]:
+        """Depth = number of INHERITS hops from a class to its root base class."""
+        child_to_base: dict[str, str] = {}
+        for edge in graph.edges:
+            if edge.relationship == RelationshipType.INHERITS:
+                child_to_base[edge.source_id] = edge.target_id
+
+        depths: dict[str, int] = {}
+        for cls in classes:
+            depth = 0
+            current = cls.id
+            visited = {current}
+            while current in child_to_base:
+                current = child_to_base[current]
+                if current in visited:
+                    break  # guard against malformed cycles
+                visited.add(current)
+                depth += 1
+            depths[cls.id] = depth
+        return depths
+
+    def _find_import_cycles(
+        self,
+        graph: GraphBuildResult,
+        files: list[GraphNode],
+    ) -> list[list[str]]:
+        """DFS cycle detection over FILE -> FILE IMPORTS edges.
+        Returns the first detected cycle as a list of file labels/paths."""
+        adjacency: dict[str, list[str]] = {}
+        for edge in graph.edges:
+            if edge.relationship == RelationshipType.IMPORTS:
+                adjacency.setdefault(edge.source_id, []).append(edge.target_id)
+
+        file_ids = {f.id for f in files}
+        label_by_id = {n.id: n.properties.get("path", n.label) for n in graph.nodes}
+
+        visited: set[str] = set()
+        rec_stack: list[str] = []
+        cycles: list[list[str]] = []
+
+        def dfs(node_id: str) -> None:
+            if cycles:
+                return  # first cycle found is enough
+            visited.add(node_id)
+            rec_stack.append(node_id)
+            for neighbor in adjacency.get(node_id, []):
+                if neighbor not in file_ids:
+                    continue
+                if neighbor in rec_stack:
+                    cycle_start = rec_stack.index(neighbor)
+                    cycle_ids = rec_stack[cycle_start:] + [neighbor]
+                    cycles.append([label_by_id.get(cid, cid) for cid in cycle_ids])
+                    return
+                if neighbor not in visited:
+                    dfs(neighbor)
+                    if cycles:
+                        return
+            rec_stack.pop()
+
+        for f in files:
+            if f.id not in visited:
+                dfs(f.id)
+            if cycles:
+                break
+
+        return cycles
+
+    def _node_by_id(self, graph: GraphBuildResult, node_id: str) -> GraphNode | None:
+        for n in graph.nodes:
+            if n.id == node_id:
+                return n
+        return None
 
 
 class MarkdownReportGenerator:
@@ -304,103 +685,10 @@ class MarkdownReportGenerator:
         graph: GraphBuildResult,
         repo_name: str,
     ) -> str:
-        modules = graph.nodes_by_type(NodeType.MODULE)
-        classes = graph.nodes_by_type(NodeType.CLASS)
-        abstract_classes = [
-            c for c in classes
-            if str(c.properties.get("is_abstract", False)) == "True"
-        ]
-
-        module_names = [m.label for m in modules]
-        module_list = ", ".join(f"`{m}`" for m in module_names[:4])
-
-        lines = [
-            f"# Interview Preparation — {repo_name}",
-            "",
-            "10 technical questions about this specific codebase. "
-            "Answer using actual class and method names — "
-            "not generic descriptions.",
-            "",
-            "---",
-            "",
-        ]
-
-        questions = [
-            (
-                "Architecture Overview",
-                f"Walk me through the high-level architecture of "
-                f"`{repo_name}`. What are the main modules "
-                f"({module_list}) and what does each one do?",
-            ),
-            (
-                "Clean Architecture",
-                "Explain the four-layer architecture used in this "
-                "codebase: domain, application, infrastructure, "
-                "and presentation. Why is the domain layer isolated "
-                "from everything else?",
-            ),
-            (
-                "Abstract Classes",
-                f"This codebase has {len(abstract_classes)} abstract "
-                "classes. Name them, explain what each one contracts, "
-                "and explain why they exist instead of concrete classes.",
-            ),
-            (
-                "Dependency Injection",
-                "How are dependencies injected in this project? "
-                "Give a specific example tracing from the router "
-                "through the service to the repository.",
-            ),
-            (
-                "Data Flow",
-                "Trace the complete flow of a POST request from "
-                "the moment it hits the API endpoint to when the "
-                "response is returned. Name every class involved.",
-            ),
-            (
-                "Error Handling",
-                "Describe the exception hierarchy in this codebase. "
-                "Where are exceptions raised, where are they caught, "
-                "and how do they map to HTTP status codes?",
-            ),
-            (
-                "Repository Pattern",
-                "Why does this codebase use the repository pattern? "
-                "What would need to change to swap the in-memory "
-                "store for a PostgreSQL database?",
-            ),
-            (
-                "Testing Strategy",
-                "How would you unit test the service layer? "
-                "What would you mock, what would you assert, "
-                "and why is the architecture easy to test?",
-            ),
-            (
-                "Design Decisions",
-                f"What is the most important architectural decision "
-                f"in `{repo_name}` and what tradeoffs does it involve?",
-            ),
-            (
-                "Scaling",
-                f"This system currently uses in-memory storage. "
-                f"Walk me through the changes needed to make it "
-                f"production-ready with PostgreSQL, Redis caching, "
-                f"and async Celery workers.",
-            ),
-        ]
-
-        for i, (category, question) in enumerate(questions, 1):
-            lines += [
-                f"## Q{i}: {category}",
-                "",
-                question,
-                "",
-                "> **Tip:** Use specific class names from the "
-                "codebase in your answer.",
-                "",
-            ]
-
-        return "\n".join(lines)
+        """Interview questions derived from actual graph structure — god
+        classes, fan-out/fan-in, inheritance depth, import cycles — rather
+        than a fixed generic template. See GraphInterviewQuestionGenerator."""
+        return GraphInterviewQuestionGenerator().generate(graph, repo_name)
 
     def generate_api_spec(
         self,

@@ -12,14 +12,14 @@ class IssueSeverity(str, Enum):
 
 
 class IssueCategory(str, Enum):
-    COMPLEXITY = "complexity"
-    COUPLING = "coupling"
-    DUPLICATION = "duplication"
-    NAMING = "naming"
+    COMPLEXITY    = "complexity"
+    COUPLING      = "coupling"
+    DUPLICATION   = "duplication"
+    NAMING        = "naming"
     DOCUMENTATION = "documentation"
-    ERROR_HANDLING = "error_handling"
-    ARCHITECTURE = "architecture"
-    SIZE = "size"
+    ERROR_HANDLING= "error_handling"
+    ARCHITECTURE  = "architecture"
+    SIZE          = "size"
 
 
 @dataclass
