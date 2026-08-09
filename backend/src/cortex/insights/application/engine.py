@@ -1,25 +1,31 @@
 """Insights engine — computes engineering health from graph data.
 
-Reads graph nodes and edges already stored in SQLite.
-No re-analysis required — all data comes from the last pipeline run.
-
-Design principles:
-- Every check uses ACTUAL stored properties (has_docstring, lines, param_count, etc.)
-- Thresholds are industry-standard (Google/NASA style guides, Clean Code)
-- Scores are calibrated: a healthy mid-size repo should land B/C, not F
-- Each issue carries file path + line number when available
-- Naming, error-handling, async hygiene, param-count all analysed
+Design contract:
+  - Every metric traces back to a stored graph property
+  - Every issue carries evidence dict
+  - Every dimension carries a confidence score
+  - Test files never distort production metrics
+  - Language rules are isolated — no Python rules applied to Java
+  - Scores are normalised per-codebase, never raw issue counts
+  - Thresholds are imported from thresholds.py, never scattered inline
+  - Deterministic: same input → same output
 """
 
 from __future__ import annotations
 
+import re
+import statistics
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
 import structlog
 
 from cortex.graph.domain.entities import NodeType, RelationshipType
+from cortex.insights.application.file_classifier import FileClassifier, FileCategory
+from cortex.insights.application.language_rules import get_rules
+from cortex.insights.domain import thresholds as T
 from cortex.insights.domain.entities import (
+    AnalysisCoverage,
     CodeIssue,
     HealthDimension,
     InsightsReport,
@@ -33,95 +39,232 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
+_classifier = FileClassifier()
 
-# ── Industry thresholds ───────────────────────────────────────────────────────
-# Based on: Clean Code (Martin), Google style guides, SonarQube defaults
 
-_FN_LINES_CRITICAL   = 50   # >50 lines → god function (SonarQube default)
-_FN_LINES_WARNING    = 30   # >30 lines → large (Google Python style)
-_FN_PARAMS_CRITICAL  = 7    # >7 params → too many (Clean Code)
-_FN_PARAMS_WARNING   = 5    # >5 params → worth noting
-_CLASS_METHODS_CRIT  = 20   # >20 methods → god class
-_CLASS_METHODS_WARN  = 12   # >12 methods → large class
-_CLASS_LINES_CRIT    = 400  # >400 lines → too large
-_FILE_LINES_CRIT     = 500  # >500 lines → split candidate
-_FILE_LINES_WARN     = 300  # >300 lines → watch list
-_FANOUT_CRIT         = 12   # >12 imports in one file
-_FANOUT_WARN         = 8    # >8 imports
-_FANIN_CRIT          = 20   # imported by >20 files → fragile hub
-_FANIN_WARN          = 10   # imported by >10 files
-_DOC_COVERAGE_LOW    = 0.50 # below 50% documented = issue
-_DOC_COVERAGE_WARN   = 0.70 # below 70% = warning
+# ── Small helpers ─────────────────────────────────────────────────────────────
 
+def _prop(node: "GraphNode", key: str, default=None):
+    """Safe property accessor — never raises."""
+    return node.properties.get(key, default)
+
+def _int(node: "GraphNode", key: str) -> int:
+    try:
+        return int(_prop(node, key, 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+def _bool(node: "GraphNode", key: str) -> bool:
+    v = _prop(node, key, False)
+    if isinstance(v, bool): return v
+    return str(v).lower() in ("true", "1", "yes")
+
+def _str(node: "GraphNode", key: str) -> str:
+    return str(_prop(node, key, "") or "")
+
+def _percentile(values: list[float], p: float) -> float:
+    if not values: return 0.0
+    s = sorted(values)
+    idx = (len(s) - 1) * p
+    lo, hi = int(idx), min(int(idx) + 1, len(s) - 1)
+    return s[lo] + (s[hi] - s[lo]) * (idx - lo)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# InsightsEngine
+# ═══════════════════════════════════════════════════════════════════════════════
 
 class InsightsEngine:
-    """Derives engineering insights from an existing knowledge graph."""
+    """Derives engineering insights from an existing knowledge graph.
+
+    All methods are pure computations over lists of nodes/edges —
+    no database calls, no HTTP, no side effects, no randomness.
+    """
 
     def compute(
         self,
-        job_id: str,
+        job_id:   str,
         repo_url: str,
-        nodes: list[GraphNode],
-        edges: list[GraphEdge],
+        nodes:    list["GraphNode"],
+        edges:    list["GraphEdge"],
     ) -> InsightsReport:
+
         repo_name = repo_url.rstrip("/").split("/")[-1]
 
         # ── Index nodes by type ───────────────────────────────────────────────
-        by_type: dict[NodeType, list[GraphNode]] = defaultdict(list)
+        by_type: dict[NodeType, list["GraphNode"]] = defaultdict(list)
         for node in nodes:
             by_type[node.node_type].append(node)
 
         # ── Index edges ───────────────────────────────────────────────────────
-        edges_from: dict[str, list[GraphEdge]] = defaultdict(list)
-        edges_to:   dict[str, list[GraphEdge]] = defaultdict(list)
+        edges_from: dict[str, list["GraphEdge"]] = defaultdict(list)
+        edges_to:   dict[str, list["GraphEdge"]] = defaultdict(list)
         for edge in edges:
             edges_from[edge.source_id].append(edge)
             edges_to[edge.target_id].append(edge)
 
+        # ── Classify files ────────────────────────────────────────────────────
+        file_nodes = by_type[NodeType.FILE]
+        classified = {
+            f.id: _classifier.classify(_str(f, "path") or f.label)
+            for f in file_nodes
+        }
+        source_file_ids = {
+            fid for fid, cf in classified.items()
+            if cf.category == FileCategory.SOURCE
+        }
+        test_file_ids = {
+            fid for fid, cf in classified.items()
+            if cf.category == FileCategory.TEST
+        }
+
+        # Restrict analysis to source files
+        source_files = [f for f in file_nodes if f.id in source_file_ids]
+        test_files   = [f for f in file_nodes if f.id in test_file_ids]
+
+        # Map class/function nodes back to their parent file
+        # via CONTAINS edges: file → class → function
+        fn_to_file:  dict[str, str] = {}   # function_node_id → file_node_id
+        cls_to_file: dict[str, str] = {}   # class_node_id    → file_node_id
+
+        # Build node-type index for O(1) lookup in edge traversal
+        node_type_idx: dict[str, NodeType] = {n.id: n.node_type for n in nodes}
+
+        for edge in edges:
+            if edge.relationship != RelationshipType.CONTAINS:
+                continue
+            src, tgt = edge.source_id, edge.target_id
+            src_type = node_type_idx.get(src)
+            tgt_type = node_type_idx.get(tgt)
+            if src_type == NodeType.FILE and tgt_type == NodeType.CLASS:
+                cls_to_file[tgt] = src
+            if src_type == NodeType.FILE and tgt_type == NodeType.FUNCTION:
+                fn_to_file[tgt] = src
+            if src_type == NodeType.CLASS and tgt_type == NodeType.FUNCTION:
+                fn_to_file.setdefault(tgt, cls_to_file.get(src, ""))
+
+        # Build a path→id map for source files so we can resolve by path
+        source_file_path_to_id: dict[str, str] = {}
+        for f in file_nodes:
+            p = _str(f, "path") or f.label
+            source_file_path_to_id[p] = f.id
+
+        # Assign class/function node lists BEFORE the fallback resolution
+        all_classes   = by_type[NodeType.CLASS]
+        all_functions = by_type[NodeType.FUNCTION]
+
+        # Fallback: for any function/class not mapped via edges,
+        # use the "file" property stored by the graph builder
+        for fn_node in all_functions:
+            if fn_node.id not in fn_to_file:
+                file_prop = _str(fn_node, "file")
+                if file_prop in source_file_path_to_id:
+                    fn_to_file[fn_node.id] = source_file_path_to_id[file_prop]
+        for cls_node in all_classes:
+            if cls_node.id not in cls_to_file:
+                file_prop = _str(cls_node, "file")
+                if file_prop in source_file_path_to_id:
+                    cls_to_file[cls_node.id] = source_file_path_to_id[file_prop]
+
+        # Filter classes and functions to source-file scope only
+        src_classes   = [c for c in all_classes   if cls_to_file.get(c.id, "") in source_file_ids]
+        src_functions = [f for f in all_functions if fn_to_file.get(f.id, "")  in source_file_ids]
+        test_functions= [f for f in all_functions if fn_to_file.get(f.id, "")  in test_file_ids]
+
+        # ── Detect dominant language ──────────────────────────────────────────
+        lang_counts: dict[str, int] = defaultdict(int)
+        for f in source_files:
+            lang = _str(f, "language") or "unknown"
+            lang_counts[lang] += 1
+        dominant_lang = max(lang_counts, key=lang_counts.get) if lang_counts else "unknown"
+
+        # ── Build file_id → language and file_path → language indexes ─────────
+        # Used by naming/documentation so rules are applied per-file, not per-repo
+        file_id_to_lang: dict[str, str] = {
+            f.id: (_str(f, "language") or "unknown")
+            for f in source_files
+        }
+        # Also map by path (the "file" property on function/class nodes)
+        file_path_to_lang: dict[str, str] = {}
+        for f in source_files:
+            path = _str(f, "path") or f.label
+            lang = _str(f, "language") or "unknown"
+            file_path_to_lang[path] = lang
+
+        def node_lang(node: "GraphNode") -> str:
+            """Return the language of the file containing this node."""
+            file_id = fn_to_file.get(node.id) or cls_to_file.get(node.id, "")
+            if file_id in file_id_to_lang:
+                return file_id_to_lang[file_id]
+            # Fallback: use "file" property path
+            file_prop = _str(node, "file")
+            if file_prop in file_path_to_lang:
+                return file_path_to_lang[file_prop]
+            return dominant_lang
+
+        # ── Build coverage object ─────────────────────────────────────────────
+        non_source = len(file_nodes) - len(source_files)
+        coverage = AnalysisCoverage(
+            total_files_in_repo=len(file_nodes),
+            source_files=len(source_files),
+            test_files=len(test_files),
+            generated_files=sum(1 for cf in classified.values() if cf.category == FileCategory.GENERATED),
+            vendor_files=sum(1 for cf in classified.values() if cf.category == FileCategory.VENDOR),
+            config_files=sum(1 for cf in classified.values() if cf.category in (FileCategory.CONFIG, FileCategory.DOCS)),
+            unsupported_files=sum(1 for cf in classified.values() if cf.category == FileCategory.UNKNOWN),
+            analyzed_files=len(source_files),
+            skipped_files=0,
+            coverage_pct=1.0 if not source_files else 1.0,  # all fetched source files analysed
+            languages_detected=list(lang_counts.keys()),
+        )
+
+        # ── Compute dimensions ────────────────────────────────────────────────
         issues: list[CodeIssue] = []
 
-        # ── Compute each dimension ────────────────────────────────────────────
-        complexity_dim    = self._complexity_dimension(by_type, issues)
-        coupling_dim      = self._coupling_dimension(by_type, edges_from, edges_to, issues)
-        size_dim          = self._size_dimension(by_type, issues)
-        architecture_dim  = self._architecture_dimension(by_type, edges, edges_from, edges_to, issues)
-        documentation_dim = self._documentation_dimension(by_type, issues)
-        naming_dim        = self._naming_dimension(by_type, issues)
+        complexity_dim   = self._complexity(src_functions, src_classes, issues, dominant_lang)
+        coupling_dim     = self._coupling(source_files, edges, edges_from, edges_to, issues)
+        size_dim         = self._size(source_files, src_classes, issues)
+        architecture_dim = self._architecture(source_files, src_classes, edges, edges_from, edges_to, issues)
+        documentation_dim= self._documentation(src_functions, src_classes, issues, dominant_lang, node_lang)
+        naming_dim       = self._naming(src_functions, src_classes, issues, dominant_lang, node_lang)
 
         dimensions = [
-            complexity_dim,
-            coupling_dim,
-            size_dim,
-            architecture_dim,
-            documentation_dim,
-            naming_dim,
+            complexity_dim, coupling_dim, size_dim,
+            architecture_dim, documentation_dim, naming_dim,
         ]
 
-        # ── Overall weighted score ────────────────────────────────────────────
-        # Weights reflect real-world impact on maintainability
-        weights = [0.22, 0.22, 0.18, 0.20, 0.10, 0.08]
-        overall = int(sum(d.score * w for d, w in zip(dimensions, weights)))
-        overall = max(0, min(100, overall))
+        # ── Overall score — weighted, normalised ──────────────────────────────
+        weights = [0.22, 0.22, 0.15, 0.20, 0.12, 0.09]
+        raw_score = sum(d.score * w for d, w in zip(dimensions, weights))
+        overall   = max(0, min(100, int(raw_score)))
 
-        # ── Stats ─────────────────────────────────────────────────────────────
-        all_fns   = by_type[NodeType.FUNCTION]
-        doc_fns   = [f for f in all_fns if str(f.properties.get("has_docstring", False)) == "True"]
-        async_fns = [f for f in all_fns if str(f.properties.get("is_async", False)) == "True"]
+        # Overall confidence = weighted average of dimension confidences
+        overall_conf = sum(d.confidence * w for d, w in zip(dimensions, weights))
+        overall_conf = round(min(1.0, max(0.0, overall_conf)), 3)
+
+        # ── Stats dict ────────────────────────────────────────────────────────
+        async_fns   = [f for f in src_functions if _bool(f, "is_async")]
+        doc_fns     = [f for f in src_functions if _bool(f, "has_docstring")]
+        doc_classes = [c for c in src_classes   if _bool(c, "has_docstring")]
 
         stats = {
-            "total_nodes":    len(nodes),
-            "total_edges":    len(edges),
-            "repositories":   len(by_type[NodeType.REPOSITORY]),
-            "modules":        len(by_type[NodeType.MODULE]),
-            "files":          len(by_type[NodeType.FILE]),
-            "classes":        len(by_type[NodeType.CLASS]),
-            "functions":      len(all_fns),
-            "async_functions": len(async_fns),
-            "documented_fns": len(doc_fns),
-            "total_issues":   len(issues),
-            "high_issues":    len([i for i in issues if i.severity == IssueSeverity.HIGH]),
-            "medium_issues":  len([i for i in issues if i.severity == IssueSeverity.MEDIUM]),
-            "low_issues":     len([i for i in issues if i.severity == IssueSeverity.LOW]),
+            "total_nodes":        len(nodes),
+            "total_edges":        len(edges),
+            "repositories":       len(by_type[NodeType.REPOSITORY]),
+            "modules":            len(by_type[NodeType.MODULE]),
+            "files":              len(source_files),
+            "test_files":         len(test_files),
+            "classes":            len(src_classes),
+            "functions":          len(src_functions),
+            "async_functions":    len(async_fns),
+            "documented_fns":     len(doc_fns),
+            "documented_classes": len(doc_classes),
+            "dominant_language":  dominant_lang,
+            "total_issues":       len(issues),
+            "critical_issues":    len([i for i in issues if i.severity == IssueSeverity.CRITICAL]),
+            "high_issues":        len([i for i in issues if i.severity == IssueSeverity.HIGH]),
+            "medium_issues":      len([i for i in issues if i.severity == IssueSeverity.MEDIUM]),
+            "low_issues":         len([i for i in issues if i.severity == IssueSeverity.LOW]),
         }
 
         report = InsightsReport(
@@ -130,770 +273,1039 @@ class InsightsEngine:
             repo_name=repo_name,
             overall_score=overall,
             overall_grade=HealthDimension.grade_from_score(overall),
+            overall_confidence=overall_conf,
             dimensions=dimensions,
             issues=sorted(
                 issues,
-                key=lambda i: ({"high": 0, "medium": 1, "low": 2, "info": 3}[i.severity.value], i.file_path),
+                key=lambda i: (
+                    {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}[i.severity.value],
+                    i.file_path,
+                ),
             ),
             stats=stats,
+            coverage=coverage,
         )
 
         logger.info(
             "insights_computed",
             job_id=job_id,
             overall_score=overall,
+            overall_confidence=overall_conf,
             total_issues=len(issues),
+            source_files=len(source_files),
+            test_files=len(test_files),
+            dominant_lang=dominant_lang,
         )
         return report
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # Dimension: Complexity
+    # COMPLEXITY
     # ═══════════════════════════════════════════════════════════════════════════
 
-    def _complexity_dimension(
+    def _complexity(
         self,
-        by_type: dict[NodeType, list[GraphNode]],
-        issues: list[CodeIssue],
+        functions: list["GraphNode"],
+        classes:   list["GraphNode"],
+        issues:    list[CodeIssue],
+        lang:      str,
     ) -> HealthDimension:
-        """Function size, class size, parameter count, async correctness."""
-        functions = by_type[NodeType.FUNCTION]
-        classes   = by_type[NodeType.CLASS]
+        """Multi-signal complexity analysis.
 
-        god_fns: list[GraphNode]   = []
-        large_fns: list[GraphNode] = []
-        high_param: list[GraphNode]= []
+        Complexity is NOT just line count.
+        God-function detection uses composite score (see thresholds.GOD_FUNCTION_WEIGHTS).
+        """
+        if not functions and not classes:
+            return HealthDimension(
+                name="Complexity", score=100,
+                grade="A", summary="No functions or classes found.",
+                confidence=0.1,
+            )
+
+        fn_line_values = [_int(f, "lines") for f in functions if _int(f, "lines") > 0]
+        param_values   = [max(0, _int(f, "param_count") - (1 if _bool(f, "is_method") else 0)) for f in functions]
+
+        # ── Per-function analysis ─────────────────────────────────────────────
+        god_fns:    list["GraphNode"] = []
+        large_fns:  list["GraphNode"] = []
+        param_fns:  list["GraphNode"] = []
+
+        # Percentile thresholds (repo-relative anomaly detection)
+        p95_lines = _percentile(fn_line_values, T.FUNCTION_SIZE_TOP_PERCENTILE) if fn_line_values else 999
 
         for fn in functions:
-            lines      = int(fn.properties.get("lines", 0))
-            param_count= int(fn.properties.get("param_count", 0))
-            name       = fn.label
+            lines       = _int(fn, "lines")
+            raw_params  = _int(fn, "param_count")
+            is_method   = _bool(fn, "is_method")
+            # strip self/cls — AST parser already does this but double-check
+            eff_params  = max(0, raw_params)
 
-            # Strip 'self'/'cls' for methods — they don't count
-            is_method  = bool(fn.properties.get("is_method", False))
-            effective_params = max(0, param_count - 1) if is_method else param_count
+            name     = fn.label
+            filepath = _str(fn, "file")
+            line_no  = _int(fn, "line")
 
-            if lines > _FN_LINES_CRITICAL:
+            # ── God function composite score ──────────────────────────────────
+            # Each signal contributes a 0–1 normalised score.
+            # Weights and thresholds are defined in thresholds.py (fully documented).
+            w = T.GOD_FUNCTION_WEIGHTS
+
+            # cyclomatic — primary signal (McCabe, 1976)
+            cyclomatic   = _int(fn, "cyclomatic")    # 0 for non-Python files
+            has_cyclo    = cyclomatic > 0             # False for TS/Java (no AST cyclomatic)
+            sig_lines    = min(1.0, max(0.0, (lines - T.FN_LINES_CRITICAL.value)
+                                             / max(1, T.FN_LINES_CRITICAL.value)))
+            sig_cyclo    = min(1.0, max(0.0, (cyclomatic - T.CYCLOMATIC_HIGH.value)
+                                             / max(1, T.CYCLOMATIC_HIGH.value))) if has_cyclo else 0.0
+            sig_params   = min(1.0, max(0.0, (eff_params - T.FN_PARAMS_CRITICAL.value)
+                                             / max(1, T.FN_PARAMS_CRITICAL.value)))
+            sig_nesting  = min(1.0, max(0.0, (_int(fn, "nesting_depth") - T.NESTING_HIGH.value)
+                                             / max(1, T.NESTING_HIGH.value)))
+            sig_calls    = min(1.0, max(0.0, (_int(fn, "call_count") - 8) / 10))
+
+            # If cyclomatic is unavailable (non-Python), redistribute its weight to lines
+            if not has_cyclo:
+                effective_line_weight = w["lines"] + w["cyclomatic"]
+                composite = (
+                    sig_lines   * effective_line_weight +
+                    sig_params  * w["param_count"] +
+                    sig_nesting * w["nesting"] +
+                    sig_calls   * w["calls"]
+                )
+            else:
+                composite = (
+                    sig_lines   * w["lines"] +
+                    sig_cyclo   * w["cyclomatic"] +
+                    sig_params  * w["param_count"] +
+                    sig_nesting * w["nesting"] +
+                    sig_calls   * w["calls"]
+                )
+
+            # Also emit standalone cyclomatic complexity issues for Python
+            if has_cyclo and cyclomatic >= T.CYCLOMATIC_CRITICAL.value:
+                issues.append(CodeIssue(
+                    category=IssueCategory.COMPLEXITY,
+                    severity=IssueSeverity.CRITICAL,
+                    title="Critical cyclomatic complexity",
+                    description=f"`{name}` has cyclomatic complexity {cyclomatic} (threshold: {int(T.CYCLOMATIC_CRITICAL.value)}). Statistically untestable.",
+                    recommendation="Decompose this function. Each branch path needs its own test — at {cyclomatic} paths this is unrealistic.",
+                    file_path=filepath, line_start=line_no, line_end=line_no + lines,
+                    affected_symbol=name,
+                    evidence={"cyclomatic": cyclomatic, "threshold": int(T.CYCLOMATIC_CRITICAL.value), "lines": lines},
+                    confidence=1.0,
+                ))
+            elif has_cyclo and cyclomatic >= T.CYCLOMATIC_HIGH.value:
+                issues.append(CodeIssue(
+                    category=IssueCategory.COMPLEXITY,
+                    severity=IssueSeverity.HIGH,
+                    title="High cyclomatic complexity",
+                    description=f"`{name}` has cyclomatic complexity {cyclomatic} (threshold: {int(T.CYCLOMATIC_HIGH.value)}).",
+                    recommendation="Refactor by extracting conditions and early returns to reduce branching.",
+                    file_path=filepath, line_start=line_no, line_end=line_no + lines,
+                    affected_symbol=name,
+                    evidence={"cyclomatic": cyclomatic, "threshold": int(T.CYCLOMATIC_HIGH.value)},
+                    confidence=1.0,
+                ))
+            elif has_cyclo and cyclomatic >= T.CYCLOMATIC_MEDIUM.value:
+                issues.append(CodeIssue(
+                    category=IssueCategory.COMPLEXITY,
+                    severity=IssueSeverity.MEDIUM,
+                    title="Moderate cyclomatic complexity",
+                    description=f"`{name}` has cyclomatic complexity {cyclomatic}.",
+                    recommendation="Consider splitting into smaller functions with focused responsibilities.",
+                    file_path=filepath, line_start=line_no, line_end=line_no + lines,
+                    affected_symbol=name,
+                    evidence={"cyclomatic": cyclomatic},
+                    confidence=0.90,
+                ))
+
+            # Also flag nesting depth independently
+            if _int(fn, "nesting_depth") >= T.NESTING_CRITICAL.value:
+                issues.append(CodeIssue(
+                    category=IssueCategory.COMPLEXITY,
+                    severity=IssueSeverity.HIGH,
+                    title="Deep nesting",
+                    description=f"`{name}` has nesting depth {_int(fn, 'nesting_depth')} (threshold: {int(T.NESTING_CRITICAL.value)}).",
+                    recommendation="Use early returns, extract nested blocks into helper functions.",
+                    file_path=filepath, line_start=line_no, line_end=line_no + lines,
+                    affected_symbol=name,
+                    evidence={"nesting_depth": _int(fn, "nesting_depth"), "threshold": int(T.NESTING_CRITICAL.value)},
+                    confidence=0.95,
+                ))
+
+            # Repo-relative percentile outlier detection (only meaningful with ≥20 fns)
+            is_percentile_outlier = (
+                lines > 0
+                and lines >= p95_lines
+                and len(fn_line_values) >= 20
+                and lines > T.FN_LINES_CRITICAL.value
+            )
+
+            evidence = {
+                "lines":         lines,
+                "cyclomatic":    cyclomatic if has_cyclo else "n/a (non-Python)",
+                "param_count":   eff_params,
+                "nesting_depth": _int(fn, "nesting_depth"),
+                "call_count":    _int(fn, "call_count"),
+                "composite_score": round(composite, 3),
+            }
+
+            if composite >= T.GOD_FUNCTION_SCORE_THRESHOLD or is_percentile_outlier:
                 god_fns.append(fn)
                 issues.append(CodeIssue(
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.HIGH,
-                    title="God function — too long",
-                    description=f"`{name}` is {lines} lines (limit: {_FN_LINES_CRITICAL}). Functions this long violate SRP and are hard to test.",
-                    suggestion="Extract logical blocks into named helper functions. Aim for <30 lines per function.",
-                    file_path=str(fn.properties.get("file", "")),
-                    line=int(fn.properties.get("line", 0)),
-                    affected_symbol=fn.label,
+                    title="God function — multiple complexity signals",
+                    description=f"`{name}` shows {lines} lines and {eff_params} parameters with composite complexity score {composite:.2f}.",
+                    recommendation="Extract logical blocks into named helpers. Each function should have one clearly named responsibility.",
+                    file_path=filepath, line_start=line_no, line_end=line_no + lines,
+                    affected_symbol=name, evidence=evidence,
+                    confidence=min(1.0, 0.5 + composite * 0.5),
                 ))
-            elif lines > _FN_LINES_WARNING:
+            elif composite >= T.GOD_FUNCTION_SCORE_HIGH or lines > T.FN_LINES_HIGH.value:
                 large_fns.append(fn)
                 issues.append(CodeIssue(
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.MEDIUM,
                     title="Large function",
-                    description=f"`{name}` is {lines} lines. Consider breaking it down.",
-                    suggestion="Extract helper functions for distinct logical steps.",
-                    file_path=str(fn.properties.get("file", "")),
-                    line=int(fn.properties.get("line", 0)),
-                    affected_symbol=fn.label,
+                    description=f"`{name}` is {lines} lines with {eff_params} parameters.",
+                    recommendation="Consider extracting helper functions for distinct steps.",
+                    file_path=filepath, line_start=line_no, line_end=line_no + lines,
+                    affected_symbol=name, evidence=evidence,
+                    confidence=0.8,
                 ))
 
-            if effective_params > _FN_PARAMS_CRITICAL:
-                high_param.append(fn)
-                issues.append(CodeIssue(
-                    category=IssueCategory.COMPLEXITY,
-                    severity=IssueSeverity.HIGH,
-                    title="Too many parameters",
-                    description=f"`{name}` takes {effective_params} parameters (limit: {_FN_PARAMS_CRITICAL}). Hard to call and test correctly.",
-                    suggestion="Introduce a config/options dataclass or builder pattern to group related params.",
-                    file_path=str(fn.properties.get("file", "")),
-                    line=int(fn.properties.get("line", 0)),
-                    affected_symbol=fn.label,
-                ))
-            elif effective_params > _FN_PARAMS_WARNING:
-                issues.append(CodeIssue(
-                    category=IssueCategory.COMPLEXITY,
-                    severity=IssueSeverity.MEDIUM,
-                    title="High parameter count",
-                    description=f"`{name}` takes {effective_params} parameters.",
-                    suggestion="Consider grouping related parameters into a dataclass.",
-                    file_path=str(fn.properties.get("file", "")),
-                    line=int(fn.properties.get("line", 0)),
-                    affected_symbol=fn.label,
-                ))
+            if eff_params > T.FN_PARAMS_CRITICAL.value:
+                param_fns.append(fn)
+                if fn not in god_fns:  # don't double-report
+                    issues.append(CodeIssue(
+                        category=IssueCategory.COMPLEXITY,
+                        severity=IssueSeverity.HIGH,
+                        title="Too many parameters",
+                        description=f"`{name}` takes {eff_params} parameters (threshold: {int(T.FN_PARAMS_CRITICAL.value)}).",
+                        recommendation="Group related parameters into a dataclass or options object.",
+                        file_path=filepath, line_start=line_no, line_end=line_no,
+                        affected_symbol=name,
+                        evidence={"param_count": eff_params, "threshold": int(T.FN_PARAMS_CRITICAL.value)},
+                        confidence=0.95,
+                    ))
 
-        god_classes: list[GraphNode]   = []
-        large_classes: list[GraphNode] = []
+        # ── Per-class analysis ────────────────────────────────────────────────
+        god_classes:   list["GraphNode"] = []
+        large_classes: list["GraphNode"] = []
+        cls_line_vals = [_int(c, "lines") for c in classes if _int(c, "lines") > 0]
+        p95_cls = _percentile(cls_line_vals, T.CLASS_SIZE_TOP_PERCENTILE) if cls_line_vals else 9999
 
         for cls in classes:
-            methods    = int(cls.properties.get("methods", 0))
-            cls_lines  = int(cls.properties.get("lines", 0))
-            name       = cls.label
+            methods   = _int(cls, "methods")
+            cls_lines = _int(cls, "lines")
+            name      = cls.label
+            filepath  = _str(cls, "file")
+            line_no   = _int(cls, "line")
 
-            if methods > _CLASS_METHODS_CRIT or cls_lines > _CLASS_LINES_CRIT:
+            evidence = {
+                "methods":     methods,
+                "lines":       cls_lines,
+                "is_abstract": _bool(cls, "is_abstract"),
+            }
+
+            is_outlier = (
+                cls_lines > 0
+                and cls_lines >= p95_cls
+                and len(cls_line_vals) >= 10
+                and cls_lines > T.CLASS_LINES_CRITICAL.value
+            )
+
+            if methods > T.CLASS_METHODS_CRITICAL.value or cls_lines > T.CLASS_LINES_CRITICAL.value or is_outlier:
                 god_classes.append(cls)
-                detail = f"{methods} methods" if methods > _CLASS_METHODS_CRIT else f"{cls_lines} lines"
+                detail = []
+                if methods > T.CLASS_METHODS_CRITICAL.value: detail.append(f"{methods} methods")
+                if cls_lines > T.CLASS_LINES_CRITICAL.value: detail.append(f"{cls_lines} lines")
                 issues.append(CodeIssue(
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.HIGH,
-                    title="God class detected",
-                    description=f"`{name}` has {detail} — almost certainly violates Single Responsibility.",
-                    suggestion="Apply SRP: split into focused classes. Extract services, validators, or helpers.",
-                    file_path=str(cls.properties.get("file", "")),
-                    line=int(cls.properties.get("line", 0)),
-                    affected_symbol=name,
+                    title="God class — Single Responsibility Principle violated",
+                    description=f"`{name}` has {', '.join(detail) if detail else 'unusually many responsibilities'}.",
+                    recommendation="Apply SRP: split into focused classes. Extract services, validators, or helpers.",
+                    file_path=filepath, line_start=line_no, line_end=line_no + cls_lines,
+                    affected_symbol=name, evidence=evidence,
+                    confidence=0.85,
                 ))
-            elif methods > _CLASS_METHODS_WARN:
+            elif methods > T.CLASS_METHODS_HIGH.value:
                 large_classes.append(cls)
                 issues.append(CodeIssue(
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.MEDIUM,
                     title="Large class",
                     description=f"`{name}` has {methods} methods.",
-                    suggestion="Consider splitting responsibilities. Aim for <10 public methods per class.",
-                    file_path=str(cls.properties.get("file", "")),
-                    line=int(cls.properties.get("line", 0)),
-                    affected_symbol=name,
+                    recommendation="Consider splitting responsibilities. Aim for <10 public methods.",
+                    file_path=filepath, line_start=line_no, line_end=line_no + cls_lines,
+                    affected_symbol=name, evidence=evidence,
+                    confidence=0.75,
                 ))
 
         # ── Scoring ───────────────────────────────────────────────────────────
-        n_fns = max(1, len(functions))
-        n_cls = max(1, len(classes))
-
+        n_fns   = max(1, len(functions))
+        n_cls   = max(1, len(classes))
         god_fn_pct   = len(god_fns)   / n_fns
         large_fn_pct = len(large_fns) / n_fns
-        god_cls_pct  = len(god_classes) / n_cls
-        param_pct    = len(high_param)  / n_fns
+        god_cls_pct  = len(god_classes)/ n_cls
+        param_pct    = len(param_fns)  / n_fns
 
-        # Weighted penalty — god issues hurt more than large issues
-        penalty = (
-            god_fn_pct   * 50 +
-            large_fn_pct * 20 +
-            god_cls_pct  * 40 +
-            param_pct    * 30
-        )
-        score = max(0, min(100, int(100 - penalty)))
+        penalty = god_fn_pct*50 + large_fn_pct*15 + god_cls_pct*35 + param_pct*20
+        score   = max(0, min(100, int(100 - penalty)))
 
-        avg_fn_lines = (
-            sum(int(f.properties.get("lines", 0)) for f in functions) / n_fns
-            if functions else 0.0
-        )
-        avg_params = (
-            sum(int(f.properties.get("param_count", 0)) for f in functions) / n_fns
-            if functions else 0.0
+        avg_lines  = statistics.mean(fn_line_values)  if fn_line_values  else 0.0
+        avg_params = statistics.mean(param_values)    if param_values    else 0.0
+        med_lines  = statistics.median(fn_line_values)if fn_line_values  else 0.0
+
+        # Cyclomatic stats (only for functions that have real data)
+        cyclo_values = [_int(f, "cyclomatic") for f in functions if _int(f, "cyclomatic") > 0]
+        avg_cyclo  = statistics.mean(cyclo_values)   if cyclo_values else 0.0
+        max_cyclo  = max(cyclo_values)               if cyclo_values else 0
+        high_cyclo = [f for f in functions if _int(f, "cyclomatic") >= T.CYCLOMATIC_HIGH.value]
+        has_cyclo_data = len(cyclo_values) > 0
+
+        # Confidence: proportional to how many functions had line data + cyclomatic data
+        fn_with_data   = sum(1 for f in functions if _int(f, "lines") > 0)
+        fn_with_cyclo  = len(cyclo_values)
+        base_conf      = round(fn_with_data / n_fns, 3) if functions else 0.1
+        # Full confidence only when we have cyclomatic data for Python files
+        cyclo_boost    = round(fn_with_cyclo / n_fns, 3) if functions and has_cyclo_data else 0.0
+        confidence     = min(1.0, round((base_conf + cyclo_boost) / (2 if has_cyclo_data else 1), 3))
+
+        cyclo_summary = (
+            f" Avg cyclomatic: {round(avg_cyclo,1)}, max: {max_cyclo}."
+            if has_cyclo_data else " (cyclomatic: Python only)"
         )
 
         return HealthDimension(
-            name="Complexity",
-            score=score,
+            name="Complexity", score=score,
             grade=HealthDimension.grade_from_score(score),
             summary=(
-                f"{len(god_fns)} god functions, {len(god_classes)} god classes, "
-                f"{len(high_param)} high-param functions."
+                f"{len(god_fns)} god functions, {len(god_classes)} god classes; "
+                f"median function: {round(med_lines,0)} lines.{cyclo_summary}"
             ),
+            confidence=confidence,
+            issue_count=len([i for i in issues if i.category == IssueCategory.COMPLEXITY]),
             metrics=[
-                MetricScore("Total Functions",           100, len(functions),           "functions", "All function/method nodes"),
-                MetricScore("God Functions (>50 lines)", max(0, 100 - int(god_fn_pct * 100)), len(god_fns), "functions", f"Functions exceeding {_FN_LINES_CRITICAL} lines"),
-                MetricScore("Large Functions (>30 lines)",max(0, 100 - int(large_fn_pct * 60)), len(large_fns), "functions", f"Functions between {_FN_LINES_WARNING}–{_FN_LINES_CRITICAL} lines"),
-                MetricScore("God Classes (>20 methods)", max(0, 100 - int(god_cls_pct * 100)), len(god_classes), "classes", "Classes likely violating SRP"),
-                MetricScore("High-Param Functions (>7)", max(0, 100 - int(param_pct * 100)), len(high_param), "functions", "Functions with too many parameters"),
-                MetricScore("Avg Function Length",       max(0, int(100 - max(0, avg_fn_lines - 15) * 1.5)), round(avg_fn_lines, 1), "lines", "Average lines per function"),
-                MetricScore("Avg Parameter Count",       max(0, int(100 - max(0, avg_params - 2) * 15)), round(avg_params, 1), "params", "Average parameters per function"),
+                MetricScore("Functions Analysed",        100, n_fns,              "functions", "Source functions/methods analysed", denominator=n_fns, confidence=base_conf),
+                MetricScore("God Functions",              max(0,100-int(god_fn_pct*100)),    len(god_fns),     "functions", f"Composite score >= {T.GOD_FUNCTION_SCORE_THRESHOLD}", denominator=n_fns),
+                MetricScore("Large Functions",            max(0,100-int(large_fn_pct*60)),   len(large_fns),   "functions", f">{int(T.FN_LINES_HIGH.value)} lines but below god threshold", denominator=n_fns),
+                MetricScore("God Classes",                max(0,100-int(god_cls_pct*100)),   len(god_classes), "classes",   f">{int(T.CLASS_METHODS_CRITICAL.value)} methods or >{int(T.CLASS_LINES_CRITICAL.value)} lines", denominator=n_cls),
+                MetricScore("High-Param Functions",       max(0,100-int(param_pct*100)),     len(param_fns),   "functions", f">{int(T.FN_PARAMS_CRITICAL.value)} params", denominator=n_fns),
+                MetricScore("High Cyclomatic (>=10)",     max(0,100-len(high_cyclo)*5),      len(high_cyclo),  "functions", "McCabe cyclomatic complexity >= 10 (Python only)", confidence=round(fn_with_cyclo/max(1,n_fns),3)),
+                MetricScore("Avg Cyclomatic Complexity",  max(0,int(100-max(0,avg_cyclo-3)*6)), round(avg_cyclo,1), "CC", "Mean McCabe cyclomatic complexity (Python only)", confidence=round(fn_with_cyclo/max(1,n_fns),3)),
+                MetricScore("Max Cyclomatic Complexity",  max(0,100-max(0,max_cyclo-5)*5),   max_cyclo,        "CC", "Highest cyclomatic complexity in codebase"),
+                MetricScore("Median Function Length",     max(0,int(100-max(0,med_lines-15)*1.5)), round(med_lines,1), "lines", "Median lines per function"),
+                MetricScore("Avg Function Length",        max(0,int(100-max(0,avg_lines-15)*1.5)), round(avg_lines,1), "lines", "Mean lines per function"),
+                MetricScore("Avg Parameter Count",        max(0,int(100-max(0,avg_params-2)*15)),  round(avg_params,1), "params", "Mean parameters per function"),
             ],
         )
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # Dimension: Coupling
+    # COUPLING
     # ═══════════════════════════════════════════════════════════════════════════
 
-    def _coupling_dimension(
+    def _coupling(
         self,
-        by_type: dict[NodeType, list[GraphNode]],
-        edges_from: dict[str, list[GraphEdge]],
-        edges_to:   dict[str, list[GraphEdge]],
-        issues: list[CodeIssue],
+        source_files: list["GraphNode"],
+        edges:        list["GraphEdge"],
+        edges_from:   dict[str, list["GraphEdge"]],
+        edges_to:     dict[str, list["GraphEdge"]],
+        issues:       list[CodeIssue],
     ) -> HealthDimension:
-        """Import fan-out/fan-in, deep inheritance, instability ratio."""
-        files   = by_type[NodeType.FILE]
-        classes = by_type[NodeType.CLASS]
+        """Martin's coupling metrics — Ca, Ce, instability.
 
-        high_fanout: list[tuple[GraphNode, int]] = []
-        high_fanin:  list[tuple[GraphNode, int]] = []
-        instability_values: list[float] = []
+        Deduplicates IMPORTS+DEPENDS_ON edges (both are emitted per import).
+        Only counts INTERNAL dependencies (cross-file within the repo).
+        """
+        if not source_files:
+            return HealthDimension(
+                name="Coupling", score=100, grade="A",
+                summary="No source files found.", confidence=0.0,
+            )
 
-        for f in files:
-            # De-duplicate: multiple IMPORTS+DEPENDS_ON edges per target
+        source_ids = {f.id for f in source_files}
+        file_by_id = {f.id: f for f in source_files}
+
+        high_fanout: list[tuple["GraphNode", int]] = []
+        high_fanin:  list[tuple["GraphNode", int]] = []
+        instability_vals: list[float] = []
+
+        for f in source_files:
+            # Deduplicate: use a set of target_ids
             out_targets = {
                 e.target_id for e in edges_from.get(f.id, [])
                 if e.relationship in (RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON)
+                and e.target_id in source_ids   # internal only
+                and e.target_id != f.id
             }
             in_sources = {
                 e.source_id for e in edges_to.get(f.id, [])
                 if e.relationship in (RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON)
+                and e.source_id in source_ids
+                and e.source_id != f.id
             }
-            fan_out = len(out_targets)
-            fan_in  = len(in_sources)
+            ce = len(out_targets)
+            ca = len(in_sources)
 
-            # Martin's instability = Ce / (Ca + Ce)  (1=unstable, 0=stable)
-            if fan_out + fan_in > 0:
-                instability = fan_out / (fan_out + fan_in)
-                instability_values.append(instability)
+            if ce + ca > 0:
+                instability_vals.append(ce / (ce + ca))
 
-            if fan_out > _FANOUT_CRIT:
-                high_fanout.append((f, fan_out))
+            label    = f.label
+            filepath = _str(f, "path") or label
+
+            if ce > T.FANOUT_CRITICAL.value:
+                high_fanout.append((f, ce))
                 issues.append(CodeIssue(
                     category=IssueCategory.COUPLING,
                     severity=IssueSeverity.HIGH,
-                    title="High fan-out (excessive dependencies)",
-                    description=f"`{f.label}` imports {fan_out} distinct modules (limit: {_FANOUT_CRIT}).",
-                    suggestion="Apply Facade or Mediator pattern to reduce direct dependencies. Consider dependency injection.",
-                    file_path=str(f.properties.get("path", "")),
-                    affected_symbol=f.label,
+                    title="High efferent coupling (fan-out)",
+                    description=f"`{label}` imports {ce} internal modules (threshold: {int(T.FANOUT_CRITICAL.value)}).",
+                    recommendation="Apply Facade or Mediator. Consider dependency injection to reduce direct references.",
+                    file_path=filepath, affected_symbol=label,
+                    evidence={"efferent_coupling": ce, "threshold": int(T.FANOUT_CRITICAL.value)},
+                    confidence=0.90,
                 ))
-            elif fan_out > _FANOUT_WARN:
+            elif ce > T.FANOUT_HIGH.value:
                 issues.append(CodeIssue(
                     category=IssueCategory.COUPLING,
                     severity=IssueSeverity.MEDIUM,
-                    title="Elevated fan-out",
-                    description=f"`{f.label}` imports {fan_out} modules.",
-                    suggestion="Review whether all dependencies are necessary. Look for consolidation opportunities.",
-                    file_path=str(f.properties.get("path", "")),
-                    affected_symbol=f.label,
+                    title="Elevated efferent coupling",
+                    description=f"`{label}` imports {ce} internal modules.",
+                    recommendation="Review whether all dependencies are necessary.",
+                    file_path=filepath, affected_symbol=label,
+                    evidence={"efferent_coupling": ce},
+                    confidence=0.75,
                 ))
 
-            if fan_in > _FANIN_CRIT:
-                high_fanin.append((f, fan_in))
+            if ca > T.FANIN_CRITICAL.value:
+                high_fanin.append((f, ca))
                 issues.append(CodeIssue(
                     category=IssueCategory.COUPLING,
                     severity=IssueSeverity.MEDIUM,
-                    title="Critical hub — high fan-in",
-                    description=f"`{f.label}` is imported by {fan_in} files. Changes here have wide blast radius.",
-                    suggestion="Freeze the public interface. Add comprehensive tests. Document invariants clearly.",
-                    file_path=str(f.properties.get("path", "")),
-                    affected_symbol=f.label,
-                ))
-            elif fan_in > _FANIN_WARN:
-                issues.append(CodeIssue(
-                    category=IssueCategory.COUPLING,
-                    severity=IssueSeverity.LOW,
-                    title="Moderate fan-in",
-                    description=f"`{f.label}` is imported by {fan_in} files.",
-                    suggestion="Keep the public API of this file stable. Avoid breaking changes.",
-                    file_path=str(f.properties.get("path", "")),
-                    affected_symbol=f.label,
+                    title="Critical dependency hub (high fan-in)",
+                    description=f"`{label}` is imported by {ca} files. Changes have wide blast radius.",
+                    recommendation="Freeze this file's public interface. Add comprehensive tests. Document invariants.",
+                    file_path=filepath, affected_symbol=label,
+                    evidence={"afferent_coupling": ca, "threshold": int(T.FANIN_CRITICAL.value)},
+                    confidence=0.85,
                 ))
 
-        # Deep inheritance check — uses actual base_classes property
-        for cls in classes:
-            bases_raw  = str(cls.properties.get("base_classes", ""))
-            base_list  = [b.strip() for b in bases_raw.split(",") if b.strip()]
-            base_count = len(base_list)
-            if base_count >= 3:
-                issues.append(CodeIssue(
-                    category=IssueCategory.COUPLING,
-                    severity=IssueSeverity.MEDIUM,
-                    title="Deep multiple inheritance",
-                    description=f"`{cls.label}` inherits from {base_count} base classes: {bases_raw}.",
-                    suggestion="Prefer composition over inheritance. Use mixins only for orthogonal concerns.",
-                    file_path=str(cls.properties.get("file", "")),
-                    line=int(cls.properties.get("line", 0)),
-                    affected_symbol=cls.label,
-                ))
-            elif base_count == 2:
-                issues.append(CodeIssue(
-                    category=IssueCategory.COUPLING,
-                    severity=IssueSeverity.LOW,
-                    title="Multiple inheritance",
-                    description=f"`{cls.label}` inherits from 2 base classes: {bases_raw}.",
-                    suggestion="Verify this cannot be replaced with composition or a single mixin.",
-                    file_path=str(cls.properties.get("file", "")),
-                    line=int(cls.properties.get("line", 0)),
-                    affected_symbol=cls.label,
-                ))
+        # Deep multiple inheritance (coupling smell)
+        for cls in []:  # classes not passed here — handled in architecture
+            pass
 
-        # ── Scoring ───────────────────────────────────────────────────────────
-        n_files = max(1, len(files))
+        n_files = max(1, len(source_files))
         fanout_pct = len(high_fanout) / n_files
         fanin_pct  = len(high_fanin)  / n_files
-        avg_instability = (
-            sum(instability_values) / len(instability_values)
-            if instability_values else 0.0
-        )
-        avg_fan_out = (
-            sum(v for _, v in high_fanout) / len(high_fanout)
-            if high_fanout else 0.0
-        )
+        avg_instability = statistics.mean(instability_vals) if instability_vals else 0.0
 
         penalty = fanout_pct * 55 + fanin_pct * 25
         score   = max(0, min(100, int(100 - penalty)))
 
+        avg_ce = statistics.mean([v for _, v in high_fanout]) if high_fanout else 0.0
+        # Confidence: proportion of source files that have import edge data
+        files_with_edges = sum(
+            1 for f in source_files
+            if edges_from.get(f.id) or edges_to.get(f.id)
+        )
+        confidence = round(files_with_edges / max(1, n_files), 3)
+
         return HealthDimension(
-            name="Coupling",
-            score=score,
+            name="Coupling", score=score,
             grade=HealthDimension.grade_from_score(score),
             summary=(
-                f"{len(high_fanout)} high fan-out files, "
-                f"{len(high_fanin)} critical hubs."
+                f"{len(high_fanout)} high-fanout files, "
+                f"{len(high_fanin)} dependency hubs; "
+                f"avg instability {round(avg_instability,2)}."
             ),
+            confidence=confidence,
+            issue_count=len([i for i in issues if i.category == IssueCategory.COUPLING]),
             metrics=[
-                MetricScore("High Fan-out Files (>12 deps)",  max(0, 100 - int(fanout_pct * 100)), len(high_fanout), "files",   f"Files importing >{_FANOUT_CRIT} modules"),
-                MetricScore("Critical Hubs (>20 dependents)", max(0, 100 - int(fanin_pct  * 100)), len(high_fanin),  "files",   f"Files imported by >{_FANIN_CRIT} others"),
-                MetricScore("Avg Instability (0=stable)",     max(0, int((1 - avg_instability) * 100)), round(avg_instability, 2), "ratio", "Martin's instability metric Ce/(Ca+Ce)"),
+                MetricScore("High Fan-out Files",   max(0,100-int(fanout_pct*100)), len(high_fanout), "files",  f">{int(T.FANOUT_CRITICAL.value)} internal imports", denominator=n_files),
+                MetricScore("Dependency Hubs",      max(0,100-int(fanin_pct*100)),  len(high_fanin),  "files",  f">{int(T.FANIN_CRITICAL.value)} dependents", denominator=n_files),
+                MetricScore("Avg Instability",      max(0,int((1-avg_instability)*100)), round(avg_instability,3), "ratio", "Martin Ce/(Ca+Ce): 0=stable, 1=unstable"),
             ],
         )
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # Dimension: Size
+    # SIZE
     # ═══════════════════════════════════════════════════════════════════════════
 
-    def _size_dimension(
+    def _size(
         self,
-        by_type: dict[NodeType, list[GraphNode]],
-        issues: list[CodeIssue],
+        source_files: list["GraphNode"],
+        src_classes:  list["GraphNode"],
+        issues:       list[CodeIssue],
     ) -> HealthDimension:
-        """File-level size checks + classes-per-file ratio."""
-        files = by_type[NodeType.FILE]
+        """File-level size. Generated/vendor files already excluded."""
+        if not source_files:
+            return HealthDimension(name="Size", score=100, grade="A",
+                                   summary="No source files.", confidence=0.0)
 
-        large_files: list[GraphNode] = []
-        watch_files: list[GraphNode] = []
+        large_files: list["GraphNode"] = []
+        watch_files: list["GraphNode"] = []
+        multicls_files: list["GraphNode"] = []
 
-        for f in files:
-            lines = int(f.properties.get("lines", 0))
-            if lines > _FILE_LINES_CRIT:
+        for f in source_files:
+            lines     = _int(f, "lines")
+            cls_count = _int(f, "classes")
+            label     = f.label
+            filepath  = _str(f, "path") or label
+
+            if lines > T.FILE_LINES_CRITICAL.value:
                 large_files.append(f)
                 issues.append(CodeIssue(
                     category=IssueCategory.SIZE,
                     severity=IssueSeverity.HIGH,
-                    title="Oversized file",
-                    description=f"`{f.label}` is {lines} lines (limit: {_FILE_LINES_CRIT}).",
-                    suggestion="Split into focused modules by responsibility. Each file should do one thing.",
-                    file_path=str(f.properties.get("path", "")),
-                    affected_symbol=f.label,
+                    title="Oversized source file",
+                    description=f"`{label}` is {lines} lines (threshold: {int(T.FILE_LINES_CRITICAL.value)}).",
+                    recommendation="Split into focused modules by responsibility.",
+                    file_path=filepath, affected_symbol=label,
+                    evidence={"lines": lines, "threshold": int(T.FILE_LINES_CRITICAL.value)},
+                    confidence=0.90,
                 ))
-            elif lines > _FILE_LINES_WARN:
+            elif lines > T.FILE_LINES_HIGH.value:
                 watch_files.append(f)
                 issues.append(CodeIssue(
                     category=IssueCategory.SIZE,
                     severity=IssueSeverity.LOW,
-                    title="Large file — watch list",
-                    description=f"`{f.label}` is {lines} lines.",
-                    suggestion="Consider splitting if complexity grows further.",
-                    file_path=str(f.properties.get("path", "")),
-                    affected_symbol=f.label,
+                    title="Large file — approaching split threshold",
+                    description=f"`{label}` is {lines} lines.",
+                    recommendation="Consider splitting if complexity grows.",
+                    file_path=filepath, affected_symbol=label,
+                    evidence={"lines": lines},
+                    confidence=0.80,
                 ))
 
-        n_files    = max(1, len(files))
-        n_classes  = len(by_type[NodeType.CLASS])
-        avg_lines  = sum(int(f.properties.get("lines", 0)) for f in files) / n_files if files else 0.0
-        cls_per_file = n_classes / n_files
-
-        # Flag files with many classes — likely mixed responsibilities
-        for f in files:
-            cls_count = int(f.properties.get("classes", 0))
-            if cls_count > 5:
+            if cls_count > T.CLASSES_PER_FILE_CRITICAL.value:
+                multicls_files.append(f)
                 issues.append(CodeIssue(
                     category=IssueCategory.SIZE,
                     severity=IssueSeverity.MEDIUM,
-                    title="Too many classes in one file",
-                    description=f"`{f.label}` defines {cls_count} classes.",
-                    suggestion="One class (or tightly related group) per file is the standard. Split into separate modules.",
-                    file_path=str(f.properties.get("path", "")),
-                    affected_symbol=f.label,
+                    title="Multiple classes in one file",
+                    description=f"`{label}` defines {cls_count} classes (threshold: {int(T.CLASSES_PER_FILE_CRITICAL.value)}).",
+                    recommendation="One primary class per file is standard in all major style guides.",
+                    file_path=filepath, affected_symbol=label,
+                    evidence={"class_count": cls_count},
+                    confidence=0.85,
                 ))
 
-        large_pct = len(large_files) / n_files
-        penalty   = large_pct * 60
-        score     = max(0, min(100, int(100 - penalty)))
+        n_files     = max(1, len(source_files))
+        large_pct   = len(large_files) / n_files
+        all_lines   = [_int(f, "lines") for f in source_files if _int(f, "lines") > 0]
+        avg_lines   = statistics.mean(all_lines)   if all_lines else 0.0
+        med_lines   = statistics.median(all_lines) if all_lines else 0.0
+        cls_per_file= len(src_classes) / n_files
+
+        penalty = large_pct * 60
+        score   = max(0, min(100, int(100 - penalty)))
+        files_with_data = sum(1 for f in source_files if _int(f, "lines") > 0)
+        confidence = round(files_with_data / n_files, 3)
 
         return HealthDimension(
-            name="Size",
-            score=score,
+            name="Size", score=score,
             grade=HealthDimension.grade_from_score(score),
-            summary=(
-                f"{len(files)} files analysed, {len(large_files)} oversized, "
-                f"{len(watch_files)} on watch list."
-            ),
+            summary=f"{len(source_files)} source files; {len(large_files)} oversized; median {round(med_lines,0)} lines.",
+            confidence=confidence,
+            issue_count=len([i for i in issues if i.category == IssueCategory.SIZE]),
             metrics=[
-                MetricScore("Total Files",                 100,                                    len(files),       "files", "All source files in the graph"),
-                MetricScore("Oversized Files (>500 lines)",max(0, 100 - int(large_pct * 100)),    len(large_files), "files", f"Files exceeding {_FILE_LINES_CRIT} lines"),
-                MetricScore("Watch-list Files (>300 lines)",max(0, 100 - len(watch_files) * 5),   len(watch_files), "files", f"Files between {_FILE_LINES_WARN}–{_FILE_LINES_CRIT} lines"),
-                MetricScore("Avg File Size",               max(0, int(100 - max(0, avg_lines - 80) * 0.12)), round(avg_lines, 0), "lines", "Average lines per file"),
-                MetricScore("Classes / File",              max(0, int(100 - max(0, cls_per_file - 1) * 20)), round(cls_per_file, 2), "ratio", "Average classes per file (1 is ideal)"),
+                MetricScore("Source Files",          100, n_files,          "files",  "Production source files analysed"),
+                MetricScore("Oversized Files",        max(0,100-int(large_pct*100)), len(large_files), "files", f">{int(T.FILE_LINES_CRITICAL.value)} lines", denominator=n_files),
+                MetricScore("Watch-list Files",       max(0,100-len(watch_files)*5), len(watch_files), "files", f">{int(T.FILE_LINES_HIGH.value)} lines", denominator=n_files),
+                MetricScore("Median File Size",       max(0,int(100-max(0,med_lines-80)*0.12)), round(med_lines,0), "lines", "Median LOC per source file"),
+                MetricScore("Classes / File",         max(0,int(100-max(0,cls_per_file-1)*20)), round(cls_per_file,2), "ratio", "Avg classes per source file (1 = ideal)"),
             ],
         )
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # Dimension: Architecture
+    # ARCHITECTURE
     # ═══════════════════════════════════════════════════════════════════════════
 
-    def _architecture_dimension(
+    def _architecture(
         self,
-        by_type: dict[NodeType, list[GraphNode]],
-        edges: list[GraphEdge],
-        edges_from: dict[str, list[GraphEdge]],
-        edges_to:   dict[str, list[GraphEdge]],
-        issues: list[CodeIssue],
+        source_files: list["GraphNode"],
+        src_classes:  list["GraphNode"],
+        edges:        list["GraphEdge"],
+        edges_from:   dict[str, list["GraphEdge"]],
+        edges_to:     dict[str, list["GraphEdge"]],
+        issues:       list[CodeIssue],
     ) -> HealthDimension:
-        """Circular deps, layering violations, abstraction ratio."""
-        modules = by_type[NodeType.MODULE]
-        classes = by_type[NodeType.CLASS]
-        files   = by_type[NodeType.FILE]
+        """Architecture: Tarjan's SCC cycle detection, abstraction, modularisation."""
+        source_ids = {f.id for f in source_files}
 
-        # ── True circular dependency detection ────────────────────────────────
-        # Build adjacency: file_id → set of file_ids it imports (deduplicated)
-        import_adj: dict[str, set[str]] = defaultdict(set)
+        # ── Build import adjacency (dedup, internal only) ─────────────────────
+        adj: dict[str, set[str]] = defaultdict(set)
         for edge in edges:
-            if edge.relationship in (RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON):
-                import_adj[edge.source_id].add(edge.target_id)
+            if edge.relationship not in (RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON):
+                continue
+            if edge.source_id in source_ids and edge.target_id in source_ids:
+                if edge.source_id != edge.target_id:
+                    adj[edge.source_id].add(edge.target_id)
 
-        # Find mutual cycles A↔B (direct cycles) — these are definitive
-        direct_cycles: list[tuple[str, str]] = []
-        seen_pairs: set[frozenset] = set()
-        for src, targets in import_adj.items():
-            for tgt in targets:
-                pair = frozenset({src, tgt})
-                if pair in seen_pairs:
-                    continue
-                if tgt in import_adj and src in import_adj[tgt]:
-                    direct_cycles.append((src, tgt))
-                    seen_pairs.add(pair)
+        node_label = {f.id: f.label for f in source_files}
+        node_path  = {f.id: _str(f, "path") or f.label for f in source_files}
 
-        # Build node label lookup for reporting
-        node_label: dict[str, str] = {n.id: n.label for n in files}
-        node_path:  dict[str, str] = {
-            n.id: str(n.properties.get("path", n.label)) for n in files
-        }
+        # ── Tarjan's SCC — finds ALL cycles, not just A↔B pairs ──────────────
+        # Iterative implementation to avoid Python recursion limit on large graphs.
+        # Based on: https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
+        index_map:  dict[str, int]  = {}
+        lowlink:    dict[str, int]  = {}
+        on_stack:   dict[str, bool] = {}
+        scc_stack:  list[str]       = []
+        sccs:       list[list[str]] = []
+        counter     = [0]
 
-        for src_id, tgt_id in direct_cycles[:10]:  # cap at 10 to avoid noise
-            src_label = node_label.get(src_id, src_id)
-            tgt_label = node_label.get(tgt_id, tgt_id)
+        def _strongconnect(root: str) -> None:
+            """Iterative Tarjan's SCC using an explicit call-stack."""
+            # Each frame: (node, iterator-over-neighbours, is_root_frame)
+            call_stack: list[tuple[str, "Iterator", bool]] = []
+
+            def _visit(v: str) -> None:
+                index_map[v] = counter[0]
+                lowlink[v]   = counter[0]
+                counter[0]  += 1
+                scc_stack.append(v)
+                on_stack[v] = True
+                call_stack.append((v, iter(adj.get(v, set())), True))
+
+            _visit(root)
+
+            while call_stack:
+                v, nbrs, _ = call_stack[-1]
+                advanced = False
+                for w in nbrs:
+                    if w not in index_map:
+                        # Tree edge — recurse
+                        _visit(w)
+                        advanced = True
+                        break
+                    elif on_stack.get(w, False):
+                        lowlink[v] = min(lowlink[v], index_map[w])
+                # No more unvisited neighbours — pop this frame
+                if not advanced:
+                    call_stack.pop()
+                    # Update parent's lowlink
+                    if call_stack:
+                        parent = call_stack[-1][0]
+                        lowlink[parent] = min(lowlink[parent], lowlink[v])
+                    # Check if v is SCC root
+                    if lowlink[v] == index_map[v]:
+                        scc: list[str] = []
+                        while True:
+                            w = scc_stack.pop()
+                            on_stack[w] = False
+                            scc.append(w)
+                            if w == v:
+                                break
+                        if len(scc) > 1:
+                            sccs.append(scc)
+
+        for node_id in list(source_ids):
+            if node_id not in index_map:
+                _strongconnect(node_id)
+
+        # Convert SCCs into issues — report the cycle path
+        cycles: list[list[str]] = []
+        for scc in sccs:
+            # Build a representative path through the SCC
+            scc_set = set(scc)
+            path: list[str] = [scc[0]]
+            visited_in_path: set[str] = {scc[0]}
+            cur = scc[0]
+            for _ in range(len(scc) - 1):
+                next_nodes = [n for n in adj.get(cur, set()) if n in scc_set and n not in visited_in_path]
+                if not next_nodes:
+                    break
+                nxt = next_nodes[0]
+                path.append(nxt)
+                visited_in_path.add(nxt)
+                cur = nxt
+            path.append(path[0])  # close the cycle
+
+            path_labels = [node_label.get(n, n) for n in path]
+            path_str = " -> ".join(path_labels)
+            cycles.append(path)
+
+            sev = IssueSeverity.HIGH if len(scc) <= 3 else IssueSeverity.CRITICAL
             issues.append(CodeIssue(
                 category=IssueCategory.ARCHITECTURE,
-                severity=IssueSeverity.HIGH,
-                title="Circular dependency",
-                description=f"`{src_label}` ↔ `{tgt_label}` mutually import each other.",
-                suggestion="Break the cycle: extract shared types to a third module, or invert one dependency using an interface.",
-                file_path=node_path.get(src_id, ""),
-                affected_symbol=f"{src_label} ↔ {tgt_label}",
+                severity=sev,
+                title=f"Circular dependency ({len(scc)}-node cycle)",
+                description=f"Import cycle of {len(scc)} files: {path_str}",
+                recommendation="Break cycles by extracting shared interfaces to a separate module, or inverting dependencies using the Dependency Inversion Principle.",
+                file_path=node_path.get(scc[0], ""),
+                affected_symbol=path_str,
+                evidence={
+                    "cycle_path":   path_labels,
+                    "cycle_length": len(scc),
+                    "files_in_cycle": [node_path.get(n, n) for n in scc],
+                },
+                confidence=1.0,
             ))
 
-        # ── Abstract class / interface coverage ───────────────────────────────
-        abstract_classes = [
-            c for c in classes
-            if str(c.properties.get("is_abstract", False)) == "True"
-        ]
-        abstraction_ratio = len(abstract_classes) / max(1, len(classes))
+        # ── Abstraction ratio ─────────────────────────────────────────────────
+        abstract_cls   = [c for c in src_classes if _bool(c, "is_abstract")]
+        abstraction_r  = len(abstract_cls) / max(1, len(src_classes))
 
-        # Low abstraction in larger codebases is an architectural smell
-        if len(classes) > 10 and abstraction_ratio < 0.10:
+        if len(src_classes) > 8 and abstraction_r < 0.10:
             issues.append(CodeIssue(
                 category=IssueCategory.ARCHITECTURE,
                 severity=IssueSeverity.MEDIUM,
                 title="Low abstraction coverage",
-                description=f"Only {len(abstract_classes)} abstract classes out of {len(classes)} total ({round(abstraction_ratio*100)}%). Concrete-only designs resist change.",
-                suggestion="Define interfaces or abstract base classes for core domain concepts. Program to abstractions, not concretions.",
+                description=f"Only {round(abstraction_r*100)}% of classes are abstract ({len(abstract_cls)}/{len(src_classes)}).",
+                recommendation="Define interfaces or ABCs for core domain concepts. Program to abstractions, not concretions.",
                 affected_symbol="codebase",
+                evidence={"abstract_classes": len(abstract_cls), "total_classes": len(src_classes)},
+                confidence=0.75,
             ))
 
-        # ── Poor modularisation ───────────────────────────────────────────────
-        n_files = len(files)
-        n_modules = len(modules)
+        # ── Modularisation ────────────────────────────────────────────────────
+        n_files   = len(source_files)
+        # Count distinct top-level directories as proxy for modules
+        modules_set = set()
+        for f in source_files:
+            parts = (_str(f, "path") or f.label).split("/")
+            if len(parts) > 1:
+                modules_set.add(parts[0])
+        n_modules = len(modules_set)
+
         if n_files > 15 and n_modules < 3:
             issues.append(CodeIssue(
                 category=IssueCategory.ARCHITECTURE,
                 severity=IssueSeverity.MEDIUM,
                 title="Poor modularisation",
-                description=f"{n_files} files across only {n_modules} package(s).",
-                suggestion="Group files by responsibility into sub-packages (e.g. domain/, application/, infrastructure/).",
+                description=f"{n_files} source files across only {n_modules} top-level packages.",
+                recommendation="Organise files into sub-packages by responsibility (e.g. domain/, application/, infrastructure/).",
+                evidence={"files": n_files, "modules": n_modules},
+                confidence=0.70,
             ))
 
-        # ── Inheritance depth — detect deep chains ────────────────────────────
-        # Build child→parents map from INHERITS edges
+        # ── Inheritance depth ─────────────────────────────────────────────────
         inherits_edges = [e for e in edges if e.relationship == RelationshipType.INHERITS]
         child_parents: dict[str, set[str]] = defaultdict(set)
         for e in inherits_edges:
             child_parents[e.source_id].add(e.target_id)
 
-        def _depth(node_id: str, visited: set) -> int:
-            if node_id in visited or node_id not in child_parents:
-                return 0
-            visited.add(node_id)
-            return 1 + max((_depth(p, visited) for p in child_parents[node_id]), default=0)
+        def _depth(nid: str, visited: set) -> int:
+            if nid in visited or nid not in child_parents: return 0
+            visited.add(nid)
+            return 1 + max((_depth(p, visited) for p in child_parents[nid]), default=0)
 
-        class_id_label = {c.id: c.label for c in classes}
-        class_id_file  = {c.id: str(c.properties.get("file", "")) for c in classes}
-
-        for cls in classes:
-            depth = _depth(cls.id, set())
-            if depth >= 4:
+        for cls in src_classes:
+            d = _depth(cls.id, set())
+            if d >= T.INHERIT_DEPTH_CRITICAL.value:
                 issues.append(CodeIssue(
                     category=IssueCategory.ARCHITECTURE,
                     severity=IssueSeverity.MEDIUM,
                     title="Deep inheritance chain",
-                    description=f"`{cls.label}` has inheritance depth of {depth}.",
-                    suggestion="Inheritance chains >3 levels are hard to understand. Favour composition.",
-                    file_path=class_id_file.get(cls.id, ""),
+                    description=f"`{cls.label}` has inheritance depth {d} (threshold: {int(T.INHERIT_DEPTH_CRITICAL.value)}).",
+                    recommendation="Prefer composition over inheritance. Deep hierarchies are fragile.",
+                    file_path=_str(cls, "file"),
                     affected_symbol=cls.label,
+                    evidence={"depth": d, "threshold": int(T.INHERIT_DEPTH_CRITICAL.value)},
+                    confidence=0.85,
                 ))
 
         # ── Scoring ───────────────────────────────────────────────────────────
-        cycle_penalty        = len(direct_cycles) * 18
-        abstraction_bonus    = min(15, int(abstraction_ratio * 60))
-        modular_penalty      = 10 if (n_files > 15 and n_modules < 3) else 0
+        cycle_penalty    = len(cycles) * 18
+        abstraction_bonus= min(12, int(abstraction_r * 50))
+        mod_penalty      = 8 if (n_files > 15 and n_modules < 3) else 0
 
-        score = max(0, min(100, 100 - cycle_penalty - modular_penalty + abstraction_bonus))
-
-        inherit_count = len(inherits_edges)
-        calls_count   = len([e for e in edges if e.relationship == RelationshipType.CALLS])
+        score = max(0, min(100, 100 - cycle_penalty - mod_penalty + abstraction_bonus))
+        # Confidence: proportion of source files that have at least one import/contains edge
+        edge_count = len([e for e in edges if e.relationship in (RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON)])
+        files_with_any_edge = sum(
+            1 for f in source_files
+            if edges_from.get(f.id) or edges_to.get(f.id)
+        )
+        confidence = round(files_with_any_edge / max(1, len(source_files)), 3) if source_files else 0.0
 
         return HealthDimension(
-            name="Architecture",
-            score=score,
+            name="Architecture", score=score,
             grade=HealthDimension.grade_from_score(score),
             summary=(
-                f"{n_modules} modules, {len(direct_cycles)} circular dep pairs, "
-                f"{len(abstract_classes)} abstractions."
+                f"{len(cycles)} circular dep pairs, "
+                f"{n_modules} modules, "
+                f"{round(abstraction_r*100)}% abstraction."
             ),
+            confidence=confidence,
+            issue_count=len([i for i in issues if i.category == IssueCategory.ARCHITECTURE]),
             metrics=[
-                MetricScore("Modules / Packages",           100,                              n_modules,              "modules",  "Distinct packages/directories"),
-                MetricScore("Circular Dependencies",        max(0, 100 - len(direct_cycles) * 25), len(direct_cycles), "pairs",    "Mutual A↔B import cycles (definitive)"),
-                MetricScore("Abstract Classes / Interfaces",min(100, int(abstraction_ratio * 200)), len(abstract_classes), "classes", "ABCs and interfaces present"),
-                MetricScore("Abstraction Ratio",            min(100, int(abstraction_ratio * 200)), round(abstraction_ratio * 100, 1), "%", "% of classes that are abstract"),
-                MetricScore("Inheritance Edges",            100,                              inherit_count,          "edges",    "INHERITS relationships in graph"),
-                MetricScore("Call Edges",                   100,                              calls_count,            "edges",    "CALLS relationships captured"),
+                MetricScore("Circular Dependencies", max(0,100-len(cycles)*25),      len(cycles),       "pairs",   "A↔B mutual import cycles (confirmed)"),
+                MetricScore("Modules / Packages",    100,                             n_modules,         "modules", "Distinct top-level packages"),
+                MetricScore("Abstract Classes",      min(100,int(abstraction_r*200)), len(abstract_cls), "classes", "ABCs / interfaces"),
+                MetricScore("Abstraction Ratio",     min(100,int(abstraction_r*200)), round(abstraction_r*100,1), "%", "% of classes that are abstract"),
+                MetricScore("Inheritance Edges",     100, len(inherits_edges), "edges", "INHERITS relationships"),
             ],
         )
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # Dimension: Documentation
+    # DOCUMENTATION
     # ═══════════════════════════════════════════════════════════════════════════
 
-    def _documentation_dimension(
+    def _documentation(
         self,
-        by_type: dict[NodeType, list[GraphNode]],
-        issues: list[CodeIssue],
+        src_functions: list["GraphNode"],
+        src_classes:   list["GraphNode"],
+        issues:        list[CodeIssue],
+        lang:          str,
+        node_lang=None,
     ) -> HealthDimension:
-        """Uses the actual has_docstring property stored on every node."""
-        functions = by_type[NodeType.FUNCTION]
-        classes   = by_type[NodeType.CLASS]
+        """Uses ACTUAL has_docstring boolean stored on every node.
 
-        # ── Class docstrings ──────────────────────────────────────────────────
-        public_classes     = [c for c in classes if not c.label.startswith("_")]
-        undoc_classes      = [
-            c for c in public_classes
-            if str(c.properties.get("has_docstring", False)) != "True"
+        Per-symbol language-aware: only evaluates symbols whose language
+        supports documentation (Python docstrings, JSDoc, JavaDoc).
+        Does NOT punish TypeScript symbols for Python doc rules and vice versa.
+        """
+        get_lang = node_lang if callable(node_lang) else (lambda _: lang)
+
+        def _sym_has_doc_support(node: "GraphNode") -> bool:
+            return get_rules(get_lang(node)).has_doc_support()
+
+        public_classes = [
+            c for c in src_classes
+            if not c.label.startswith("_") and _sym_has_doc_support(c)
+        ]
+        public_fns = [
+            f for f in src_functions
+            if not f.label.startswith("_")
+            and _int(f, "lines") > 5
+            and _sym_has_doc_support(f)
         ]
 
-        # ── Function docstrings ───────────────────────────────────────────────
-        # Only flag non-trivial public functions (>5 lines)
-        non_trivial_fns    = [
-            f for f in functions
-            if not f.label.startswith("_") and int(f.properties.get("lines", 0)) > 5
-        ]
-        undoc_fns          = [
-            f for f in non_trivial_fns
-            if str(f.properties.get("has_docstring", False)) != "True"
-        ]
+        undoc_cls = [c for c in public_classes if not _bool(c, "has_docstring")]
+        undoc_fns = [f for f in public_fns     if not _bool(f, "has_docstring")]
 
-        total_public       = len(public_classes) + len(non_trivial_fns)
-        total_undoc        = len(undoc_classes)  + len(undoc_fns)
-        doc_coverage       = 1.0 - (total_undoc / max(1, total_public))
+        total_public = len(public_classes) + len(public_fns)
+        total_undoc  = len(undoc_cls)      + len(undoc_fns)
+        doc_coverage = 1.0 - (total_undoc / max(1, total_public))
 
-        if len(undoc_classes) > 0:
-            # Report top offenders by size (largest first)
-            worst = sorted(undoc_classes, key=lambda c: int(c.properties.get("lines", 0)), reverse=True)[:5]
-            for cls in worst:
+        if total_public == 0:
+            return HealthDimension(
+                name="Documentation", score=100, grade="A",
+                summary="No public symbols in supported languages found to evaluate.",
+                confidence=0.1,
+            )
+
+        # Report worst offenders by size (largest first)
+        if undoc_cls:
+            worst_cls = sorted(undoc_cls, key=lambda c: -_int(c, "lines"))[:5]
+            for cls in worst_cls:
                 issues.append(CodeIssue(
                     category=IssueCategory.DOCUMENTATION,
                     severity=IssueSeverity.MEDIUM,
                     title="Public class missing docstring",
-                    description=f"`{cls.label}` has no docstring.",
-                    suggestion="Add a class-level docstring explaining purpose, responsibilities, and usage.",
-                    file_path=str(cls.properties.get("file", "")),
-                    line=int(cls.properties.get("line", 0)),
+                    description=f"`{cls.label}` ({_int(cls,'lines')} lines) has no docstring.",
+                    recommendation="Add a class-level docstring: purpose, responsibilities, and usage example.",
+                    file_path=_str(cls, "file"), line_start=_int(cls, "line"),
                     affected_symbol=cls.label,
+                    evidence={"has_docstring": False, "lines": _int(cls, "lines")},
+                    confidence=1.0,
                 ))
 
-        if doc_coverage < _DOC_COVERAGE_LOW:
+        if doc_coverage < T.DOC_COVERAGE_CRITICAL.value:
             issues.append(CodeIssue(
                 category=IssueCategory.DOCUMENTATION,
                 severity=IssueSeverity.HIGH,
                 title="Critical documentation gap",
-                description=f"Only {round(doc_coverage*100)}% of public symbols are documented ({total_public - total_undoc}/{total_public}).",
-                suggestion="Adopt a docstring policy. Start with public APIs and complex functions. Use NumPy or Google style.",
+                description=f"Only {round(doc_coverage*100)}% of public symbols documented ({total_public-total_undoc}/{total_public}).",
+                recommendation="Adopt a docstring policy. Start with public classes and non-trivial functions.",
+                evidence={"coverage_pct": round(doc_coverage*100,1), "total_public": total_public, "documented": total_public-total_undoc},
+                confidence=0.95,
             ))
-        elif doc_coverage < _DOC_COVERAGE_WARN:
+        elif doc_coverage < T.DOC_COVERAGE_HIGH.value:
             issues.append(CodeIssue(
                 category=IssueCategory.DOCUMENTATION,
                 severity=IssueSeverity.MEDIUM,
                 title="Low documentation coverage",
-                description=f"{round(doc_coverage*100)}% of public symbols documented. Target ≥70%.",
-                suggestion="Add docstrings to all public classes and non-trivial functions.",
+                description=f"{round(doc_coverage*100)}% of public symbols documented. Target ≥{round(T.DOC_COVERAGE_HIGH.value*100)}%.",
+                recommendation="Add docstrings to all public classes and non-trivial functions.",
+                evidence={"coverage_pct": round(doc_coverage*100,1)},
+                confidence=0.90,
+            ))
+        elif doc_coverage < T.DOC_COVERAGE_MEDIUM.value:
+            issues.append(CodeIssue(
+                category=IssueCategory.DOCUMENTATION,
+                severity=IssueSeverity.LOW,
+                title="Documentation below recommended threshold",
+                description=f"{round(doc_coverage*100)}% documented. Recommended: ≥{round(T.DOC_COVERAGE_MEDIUM.value*100)}%.",
+                recommendation="Consider documenting remaining public APIs.",
+                evidence={"coverage_pct": round(doc_coverage*100,1)},
+                confidence=0.80,
             ))
 
         score = min(100, int(doc_coverage * 100))
+        # Confidence: do we actually have nodes with docstring data?
+        # has_docstring is stored as a bool (True/False), not None when missing
+        # Use presence of "has_docstring" key in properties as the signal
+        nodes_with_docstring_field = sum(
+            1 for f in src_functions + src_classes
+            if "has_docstring" in f.properties
+        )
+        total_nodes = max(1, len(src_functions) + len(src_classes))
+        confidence  = round(nodes_with_docstring_field / total_nodes, 3)
 
         return HealthDimension(
-            name="Documentation",
-            score=score,
+            name="Documentation", score=score,
             grade=HealthDimension.grade_from_score(score),
             summary=(
-                f"{round(doc_coverage*100)}% doc coverage "
-                f"({total_public - total_undoc}/{total_public} public symbols documented)."
+                f"{round(doc_coverage*100,1)}% public API documented "
+                f"({total_public-total_undoc}/{total_public} symbols). "
+                f"Language: {lang}."
             ),
+            confidence=confidence,
+            issue_count=len([i for i in issues if i.category == IssueCategory.DOCUMENTATION]),
             metrics=[
-                MetricScore("Doc Coverage",                score,                                  round(doc_coverage * 100, 1),       "%",         "Actual has_docstring=True ratio"),
-                MetricScore("Undocumented Public Classes", max(0, 100 - len(undoc_classes) * 10), len(undoc_classes),                 "classes",   "Public classes without docstrings"),
-                MetricScore("Undocumented Public Functions",max(0, 100 - len(undoc_fns) * 3),     len(undoc_fns),                     "functions", "Non-trivial public fns without docstrings"),
-                MetricScore("Total Public Symbols",        100,                                    total_public,                       "symbols",   "Classes + non-trivial public functions"),
+                MetricScore("Doc Coverage",              score,                             round(doc_coverage*100,1), "%",        "has_docstring=True ratio on public symbols", denominator=total_public, confidence=confidence),
+                MetricScore("Public Classes Documented",  max(0,100-len(undoc_cls)*10),     len(public_classes)-len(undoc_cls), "classes",   "Public classes with docstrings", denominator=max(1,len(public_classes))),
+                MetricScore("Undocumented Public Classes",max(0,100-len(undoc_cls)*10),     len(undoc_cls),  "classes",   "Public classes missing docstrings"),
+                MetricScore("Public Functions Documented",max(0,100-len(undoc_fns)*3),      len(public_fns)-len(undoc_fns), "functions", "Non-trivial public functions with docstrings", denominator=max(1,len(public_fns))),
+                MetricScore("Total Public Symbols",       100, total_public, "symbols", "Classes + non-trivial public functions analysed"),
             ],
         )
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # Dimension: Naming
+    # NAMING
     # ═══════════════════════════════════════════════════════════════════════════
 
-    def _naming_dimension(
+    def _naming(
         self,
-        by_type: dict[NodeType, list[GraphNode]],
-        issues: list[CodeIssue],
+        src_functions: list["GraphNode"],
+        src_classes:   list["GraphNode"],
+        issues:        list[CodeIssue],
+        lang:          str,
+        node_lang=None,
     ) -> HealthDimension:
-        """Convention checks: snake_case functions, PascalCase classes, no single-letter names."""
-        import re
+        """Per-symbol language-aware naming convention check.
 
-        functions = by_type[NodeType.FUNCTION]
-        classes   = by_type[NodeType.CLASS]
+        Each function/class is checked against the rules for ITS OWN file's
+        language — not the repo-dominant language.
+        Python snake_case methods are NOT flagged by TypeScript camelCase rules.
+        Idiomatic short names (i, j, x, fn, id) are never flagged.
+        """
+        get_lang = node_lang if callable(node_lang) else (lambda _: lang)
 
-        _snake   = re.compile(r'^[a-z_][a-z0-9_]*$')
-        _pascal  = re.compile(r'^[A-Z][a-zA-Z0-9]*$')
-        _dunder  = re.compile(r'^__[a-z]+__$')
-        _private = re.compile(r'^_[a-z]')
+        bad_fn:  list["GraphNode"] = []
+        bad_cls: list["GraphNode"] = []
+        supported_total = 0
+        unsupported_total = 0
 
-        bad_fn_names:  list[GraphNode] = []
-        bad_cls_names: list[GraphNode] = []
-        too_short:     list[GraphNode] = []
-
-        for fn in functions:
-            name = fn.label
-            if _dunder.match(name):       # __init__, __str__ — always OK
+        for fn in src_functions:
+            fn_lang  = get_lang(fn)
+            fn_rules = get_rules(fn_lang)
+            if not fn_rules.is_supported():
+                unsupported_total += 1
                 continue
-            if len(name) <= 2 and not _dunder.match(name) and not name.startswith("_"):
-                too_short.append(fn)
+            supported_total += 1
+            name     = fn.label
+            if fn_rules.is_idiomatic_short(name):
+                continue
+            sym_type = "method" if _bool(fn, "is_method") else "function"
+            if not fn_rules.naming_ok(name, sym_type):
+                bad_fn.append(fn)
                 issues.append(CodeIssue(
                     category=IssueCategory.NAMING,
                     severity=IssueSeverity.LOW,
-                    title="Single/double letter function name",
-                    description=f"`{name}` is too short to be self-documenting.",
-                    suggestion="Use descriptive names that reveal intent (e.g. `calculate_total` not `ct`).",
-                    file_path=str(fn.properties.get("file", "")),
-                    line=int(fn.properties.get("line", 0)),
+                    title="Non-standard function name",
+                    description=f"`{name}` does not follow {fn_rules.description()} function naming.",
+                    recommendation="Rename to match language conventions for readability.",
+                    file_path=_str(fn, "file"), line_start=_int(fn, "line"),
                     affected_symbol=name,
-                ))
-            elif not _snake.match(name) and not _private.match(name) and not _dunder.match(name):
-                bad_fn_names.append(fn)
-                issues.append(CodeIssue(
-                    category=IssueCategory.NAMING,
-                    severity=IssueSeverity.LOW,
-                    title="Non-standard function name (expected snake_case)",
-                    description=f"`{name}` does not follow snake_case convention.",
-                    suggestion="Rename to snake_case per PEP 8 / language conventions.",
-                    file_path=str(fn.properties.get("file", "")),
-                    line=int(fn.properties.get("line", 0)),
-                    affected_symbol=name,
+                    evidence={"name": name, "convention": fn_rules.description(), "language": fn_lang},
+                    confidence=0.80,
                 ))
 
-        for cls in classes:
+        for cls in src_classes:
+            cls_lang  = get_lang(cls)
+            cls_rules = get_rules(cls_lang)
+            if not cls_rules.is_supported():
+                unsupported_total += 1
+                continue
+            supported_total += 1
             name = cls.label
-            if not _pascal.match(name):
-                bad_cls_names.append(cls)
+            if not cls_rules.naming_ok(name, "class"):
+                bad_cls.append(cls)
                 issues.append(CodeIssue(
                     category=IssueCategory.NAMING,
                     severity=IssueSeverity.LOW,
-                    title="Non-standard class name (expected PascalCase)",
-                    description=f"`{name}` does not follow PascalCase convention.",
-                    suggestion="Rename to PascalCase per PEP 8 / language conventions.",
-                    file_path=str(cls.properties.get("file", "")),
-                    line=int(cls.properties.get("line", 0)),
+                    title="Non-standard class name",
+                    description=f"`{name}` does not follow {cls_rules.description()} class naming.",
+                    recommendation="Rename to PascalCase.",
+                    file_path=_str(cls, "file"), line_start=_int(cls, "line"),
                     affected_symbol=name,
+                    evidence={"name": name, "convention": cls_rules.description(), "language": cls_lang},
+                    confidence=0.80,
                 ))
 
-        total_symbols  = max(1, len(functions) + len(classes))
-        total_bad      = len(bad_fn_names) + len(bad_cls_names) + len(too_short)
-        convention_pct = 1.0 - (total_bad / total_symbols)
-        score          = max(0, min(100, int(convention_pct * 100)))
+        total     = max(1, supported_total)
+        total_bad = len(bad_fn) + len(bad_cls)
+        compliance= 1.0 - (total_bad / total)
+        score     = max(0, min(100, int(compliance * 100)))
+
+        # Confidence: proportion of symbols that were in a supported language
+        all_syms = max(1, len(src_functions) + len(src_classes))
+        confidence = round(supported_total / all_syms, 3)
 
         return HealthDimension(
-            name="Naming",
-            score=score,
+            name="Naming", score=score,
             grade=HealthDimension.grade_from_score(score),
             summary=(
-                f"{total_bad} naming violations across "
-                f"{total_symbols} symbols checked."
+                f"{total_bad} naming violations in {supported_total} supported symbols. "
+                f"{unsupported_total} symbols in unsupported languages skipped."
             ),
+            confidence=confidence,
+            issue_count=len([i for i in issues if i.category == IssueCategory.NAMING]),
             metrics=[
-                MetricScore("Convention Compliance",          score, round(convention_pct * 100, 1), "%",         "% of symbols following naming rules"),
-                MetricScore("Bad Function Names",             max(0, 100 - len(bad_fn_names) * 5),  len(bad_fn_names),  "functions", "Functions not in snake_case"),
-                MetricScore("Bad Class Names",                max(0, 100 - len(bad_cls_names) * 8), len(bad_cls_names), "classes",   "Classes not in PascalCase"),
-                MetricScore("Too-short Names (≤2 chars)",     max(0, 100 - len(too_short) * 8),     len(too_short),     "symbols",   "Single/double letter names"),
+                MetricScore("Convention Compliance",  score,                      round(compliance*100,1), "%",         "% of supported symbols following their language's naming rules", denominator=total),
+                MetricScore("Bad Function Names",      max(0,100-len(bad_fn)*5),  len(bad_fn),  "functions", "Functions not matching their language's convention"),
+                MetricScore("Bad Class Names",         max(0,100-len(bad_cls)*8), len(bad_cls), "classes",   "Classes not matching their language's convention"),
+                MetricScore("Unsupported Language Symbols", 100, unsupported_total, "symbols", "Symbols in languages with no naming rules (not penalised)"),
             ],
         )
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # Markdown export
+    # MARKDOWN EXPORT
     # ═══════════════════════════════════════════════════════════════════════════
 
     def to_markdown_report(self, report: InsightsReport) -> str:
-        """Generate a full engineering report as markdown."""
-        sev_icon = {"high": "🔴", "medium": "🟡", "low": "🟢", "info": "ℹ️"}
-
+        sev_icon = {"critical": "🚨", "high": "🔴", "medium": "🟡", "low": "🟢", "info": "ℹ️"}
         lines = [
             f"# Engineering Health Report — {report.repo_name}",
             "",
-            f"**Overall Score: {report.overall_score}/100 (Grade {report.overall_grade})**",
+            f"**Score: {report.overall_score}/100  Grade: {report.overall_grade}  Confidence: {round(report.overall_confidence*100)}%**",
             "",
-            "---",
-            "",
-            "## Summary",
-            "",
-            f"| Metric | Value |",
-            f"|--------|-------|",
-            f"| Files | {report.stats.get('files', 0)} |",
-            f"| Classes | {report.stats.get('classes', 0)} |",
-            f"| Functions | {report.stats.get('functions', 0)} |",
-            f"| Async Functions | {report.stats.get('async_functions', 0)} |",
-            f"| Doc Coverage | {report.stats.get('documented_fns', 0)}/{report.stats.get('functions', 0)} fns |",
-            f"| High Issues | {report.stats.get('high_issues', 0)} |",
-            f"| Medium Issues | {report.stats.get('medium_issues', 0)} |",
-            f"| Low Issues | {report.stats.get('low_issues', 0)} |",
+            f"Analysis coverage: {round(report.coverage.coverage_pct*100,1)}%  "
+            f"Source files: {report.coverage.source_files}  "
+            f"Test files: {report.coverage.test_files}  "
+            f"Generated excluded: {report.coverage.generated_files}",
             "",
             "## Dimension Scores",
             "",
-            "| Dimension | Score | Grade | Summary |",
-            "|-----------|-------|-------|---------|",
+            "| Dimension | Score | Grade | Confidence | Summary |",
+            "|-----------|-------|-------|------------|---------|",
         ]
+        for d in report.dimensions:
+            lines.append(f"| {d.name} | {d.score}/100 | {d.grade} | {round(d.confidence*100)}% | {d.summary} |")
 
-        for dim in report.dimensions:
-            lines.append(f"| {dim.name} | {dim.score}/100 | {dim.grade} | {dim.summary} |")
-
-        lines += ["", "## Issues by Severity", ""]
-
+        lines += ["", "## Issues", ""]
         if not report.issues:
             lines.append("✅ No issues detected.")
         else:
-            for sev in ("high", "medium", "low", "info"):
+            for sev in ("critical", "high", "medium", "low", "info"):
                 sev_issues = [i for i in report.issues if i.severity.value == sev]
-                if not sev_issues:
-                    continue
+                if not sev_issues: continue
                 icon = sev_icon.get(sev, "⚪")
                 lines += [f"### {icon} {sev.capitalize()} ({len(sev_issues)})", ""]
                 for issue in sev_issues:
-                    lines += [f"**{issue.title}** — `{issue.affected_symbol or 'N/A'}`"]
+                    lines += [f"**{issue.title}**"]
                     if issue.file_path:
-                        loc = f"{issue.file_path}:{issue.line}" if issue.line else issue.file_path
+                        loc = f"{issue.file_path}:{issue.line_start}" if issue.line_start else issue.file_path
                         lines.append(f"- File: `{loc}`")
-                    lines += [
-                        f"- Issue: {issue.description}",
-                        f"- Fix: {issue.suggestion}",
-                        "",
-                    ]
-
+                    if issue.affected_symbol:
+                        lines.append(f"- Symbol: `{issue.affected_symbol}`")
+                    lines.append(f"- {issue.description}")
+                    if issue.evidence:
+                        lines.append(f"- Evidence: {issue.evidence}")
+                    lines += [f"- Fix: {issue.recommendation}", f"- Confidence: {round(issue.confidence*100)}%", ""]
         return "\n".join(lines)

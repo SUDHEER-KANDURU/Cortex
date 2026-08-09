@@ -225,6 +225,7 @@ class GitHubClient:
                 }
             ],
             key=lambda n: n.size,
+            reverse=True,  # largest files first — they carry the most signal
         )[:max_files]
 
         logger.info(

@@ -21,14 +21,21 @@ import { staggerFastContainer, staggerFastChild } from '@/lib/utils/motion';
 
 function sevColor(s: IssueSeverity): string {
   switch (s) {
-    case 'high':   return 'var(--danger)';
-    case 'medium': return 'var(--warning)';
-    case 'low':    return 'var(--success)';
-    default:       return 'var(--text-muted)';
+    case 'critical': return '#dc2626';
+    case 'high':     return 'var(--danger)';
+    case 'medium':   return 'var(--warning)';
+    case 'low':      return 'var(--success)';
+    default:         return 'var(--text-muted)';
   }
 }
 function sevIcon(s: IssueSeverity): string {
-  switch (s) { case 'high': return '🔴'; case 'medium': return '🟡'; case 'low': return '🟢'; default: return '⚪'; }
+  switch (s) {
+    case 'critical': return '🚨';
+    case 'high':     return '🔴';
+    case 'medium':   return '🟡';
+    case 'low':      return '🟢';
+    default:         return '⚪';
+  }
 }
 function sevLabel(s: IssueSeverity): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -227,6 +234,18 @@ function DimensionCard({ dim }: { dim: HealthDimension }) {
       <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
         {dim.summary}
       </p>
+      {(dim.confidence < 1 || dim.issue_count > 0) && (
+        <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+          {dim.issue_count > 0 && (
+            <span style={{ fontSize: 10, color: color, fontWeight: 600 }}>
+              {dim.issue_count} issue{dim.issue_count !== 1 ? 's' : ''}
+            </span>
+          )}
+          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+            {Math.round((dim.confidence ?? 1) * 100)}% confidence
+          </span>
+        </div>
+      )}
 
       {/* Expanded metrics */}
       {open && dim.metrics.length > 0 && (
@@ -353,8 +372,31 @@ function IssueRow({ issue }: { issue: CodeIssue }) {
             fontSize: 12, color: 'var(--text-secondary)',
             margin: 0, lineHeight: 1.65,
           }}>
-            {issue.suggestion}
+            {issue.recommendation || issue.suggestion}
           </p>
+          {issue.evidence && Object.keys(issue.evidence).length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 3 }}>
+                📊 Evidence
+              </span>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {Object.entries(issue.evidence).map(([k, v]) => (
+                  <span key={k} style={{
+                    fontSize: 10, padding: '1px 7px', borderRadius: 4,
+                    background: 'rgba(255,255,255,0.07)', color: 'var(--text-muted)',
+                    fontFamily: 'var(--font-mono)',
+                  }}>
+                    {k}: {String(v)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {issue.confidence < 1 && (
+            <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: '6px 0 0' }}>
+              Confidence: {Math.round((issue.confidence ?? 1) * 100)}%
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -466,10 +508,11 @@ function IssuesPanel({ issues }: { issues: CodeIssue[] }) {
   }, [filtered]);
 
   const sevCounts = useMemo<Record<IssueSeverity, number>>(() => ({
-    high:   issues.filter(i => i.severity === 'high').length,
-    medium: issues.filter(i => i.severity === 'medium').length,
-    low:    issues.filter(i => i.severity === 'low').length,
-    info:   issues.filter(i => i.severity === 'info').length,
+    critical: issues.filter(i => i.severity === 'critical').length,
+    high:     issues.filter(i => i.severity === 'high').length,
+    medium:   issues.filter(i => i.severity === 'medium').length,
+    low:      issues.filter(i => i.severity === 'low').length,
+    info:     issues.filter(i => i.severity === 'info').length,
   }), [issues]);
 
   return (
@@ -517,7 +560,7 @@ function IssuesPanel({ issues }: { issues: CodeIssue[] }) {
           >
             All ({issues.length})
           </button>
-          {(['high', 'medium', 'low'] as IssueSeverity[]).map(s => (
+          {(['critical', 'high', 'medium', 'low'] as IssueSeverity[]).map(s => (
             <button
               key={s}
               onClick={() => setSevFilter(s === sevFilter ? 'all' : s)}
@@ -690,7 +733,9 @@ export default function InsightsDashboard({ report, isDark }: Props) {
             {report.repo_name}
           </h2>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 10px' }}>
-            Engineering Health Report · {report.stats.files} files · {report.stats.classes} classes · {report.stats.functions} functions
+            Engineering Health Report · {report.stats.files} source files
+            · {report.coverage?.test_files ?? 0} test files
+            · {report.stats.dominant_language}
           </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <span style={{
@@ -701,22 +746,29 @@ export default function InsightsDashboard({ report, isDark }: Props) {
             }}>
               Grade {report.overall_grade} — {gradeDesc(report.overall_grade)}
             </span>
+            <span style={{
+              padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+              background: 'rgba(255,255,255,0.07)', color: 'var(--text-muted)',
+              border: '1px solid var(--border)',
+            }}>
+              {Math.round((report.overall_confidence ?? 1) * 100)}% confidence
+            </span>
+            {report.stats.critical_issues > 0 && (
+              <span style={{
+                padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                background: 'rgba(220,38,38,0.12)', color: '#dc2626',
+                border: '1px solid rgba(220,38,38,0.3)',
+              }}>
+                🚨 {report.stats.critical_issues} critical
+              </span>
+            )}
             {report.stats.high_issues > 0 && (
               <span style={{
                 padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
                 background: 'rgba(239,68,68,0.12)', color: '#ef4444',
                 border: '1px solid rgba(239,68,68,0.3)',
               }}>
-                🔴 {report.stats.high_issues} critical
-              </span>
-            )}
-            {report.stats.medium_issues > 0 && (
-              <span style={{
-                padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-                background: 'rgba(245,158,11,0.12)', color: '#f59e0b',
-                border: '1px solid rgba(245,158,11,0.3)',
-              }}>
-                🟡 {report.stats.medium_issues} warnings
+                🔴 {report.stats.high_issues} high
               </span>
             )}
           </div>
@@ -737,17 +789,48 @@ export default function InsightsDashboard({ report, isDark }: Props) {
 
       {/* ── Stats strip ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(95px,1fr))', gap: 8 }}>
-        <StatCard label="Files"       value={report.stats.files}       />
-        <StatCard label="Classes"     value={report.stats.classes}      />
-        <StatCard label="Functions"   value={report.stats.functions}    />
-        <StatCard label="Async Fns"   value={report.stats.async_functions ?? 0} />
-        <StatCard label="Doc Coverage" value={`${docCovPct}%`} accent={docCovPct >= 70 ? '#22c55e' : docCovPct >= 50 ? '#f59e0b' : '#ef4444'} />
-        <StatCard label="Modules"     value={report.stats.modules}      />
-        <StatCard label="Graph Edges" value={report.stats.total_edges}  />
-        <StatCard label="🔴 Critical" value={report.stats.high_issues}   accent={report.stats.high_issues > 0 ? '#ef4444' : undefined} />
-        <StatCard label="🟡 Warnings" value={report.stats.medium_issues} accent={report.stats.medium_issues > 0 ? '#f59e0b' : undefined} />
-        <StatCard label="🟢 Low"      value={report.stats.low_issues}   />
+        <StatCard label="Source Files"   value={report.stats.files} />
+        <StatCard label="Test Files"     value={report.stats.test_files ?? 0} />
+        <StatCard label="Classes"        value={report.stats.classes} />
+        <StatCard label="Functions"      value={report.stats.functions} />
+        <StatCard label="Language"       value={report.stats.dominant_language ?? '—'} />
+        <StatCard label="Doc Coverage"   value={`${docCovPct}%`} accent={docCovPct >= 70 ? '#22c55e' : docCovPct >= 50 ? '#f59e0b' : '#ef4444'} />
+        <StatCard label="Confidence"     value={`${Math.round((report.overall_confidence ?? 1)*100)}%`} />
+        <StatCard label="🚨 Critical"    value={report.stats.critical_issues ?? 0} accent={(report.stats.critical_issues ?? 0) > 0 ? '#dc2626' : undefined} />
+        <StatCard label="🔴 High"        value={report.stats.high_issues}   accent={report.stats.high_issues > 0 ? '#ef4444' : undefined} />
+        <StatCard label="🟡 Warnings"   value={report.stats.medium_issues} accent={report.stats.medium_issues > 0 ? '#f59e0b' : undefined} />
       </div>
+
+      {/* ── Coverage bar ── */}
+      {report.coverage && (
+        <div style={{
+          background: 'var(--glass-card)', border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-md)', padding: '12px 16px',
+          display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center',
+        }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            Analysis Coverage
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--text)' }}>
+            {report.coverage.analyzed_files} / {Math.max(report.coverage.analyzed_files, report.coverage.source_files)} source files
+          </span>
+          {report.coverage.test_files > 0 && (
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              · {report.coverage.test_files} test files excluded from metrics
+            </span>
+          )}
+          {report.coverage.generated_files > 0 && (
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              · {report.coverage.generated_files} generated files excluded
+            </span>
+          )}
+          {report.coverage.languages_detected?.length > 0 && (
+            <span style={{ fontSize: 11, color: 'var(--primary)', marginLeft: 'auto' }}>
+              Languages: {report.coverage.languages_detected.join(', ')}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* ── Dimensions grid ── */}
       <div>

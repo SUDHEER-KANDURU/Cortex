@@ -311,6 +311,7 @@ class GraphBuilder:
         file_path: str,
     ) -> GraphNode:
         """Create a class node."""
+        cls_lines = max(0, (parsed_class.line_end or parsed_class.line_start) - parsed_class.line_start + 1)
         return GraphNode(
             id=self._make_id("class", f"{file_path}.{parsed_class.name}"),
             label=parsed_class.name,
@@ -319,7 +320,7 @@ class GraphBuilder:
             properties={
                 "file": file_path,
                 "line": parsed_class.line_start,
-                "lines": parsed_class.line_end - parsed_class.line_start + 1,
+                "lines": cls_lines,
                 "methods": parsed_class.method_count(),
                 "base_classes": ", ".join(parsed_class.base_classes),
                 "is_abstract": parsed_class.is_abstract(),
@@ -342,15 +343,20 @@ class GraphBuilder:
             node_type=NodeType.FUNCTION,
             job_id=self._job_id,
             properties={
-                "file": file_path,
-                "line": fn.line_start,
-                "is_async": fn.is_async,
-                "is_method": fn.is_method,
-                "parameters": ", ".join(fn.parameters),
-                "param_count": len(fn.parameters),
-                "lines": fn.line_count(),
+                "file":          file_path,
+                "line":          fn.line_start,
+                "is_async":      fn.is_async,
+                "is_method":     fn.is_method,
+                "parameters":    ", ".join(fn.parameters),
+                "param_count":   len(fn.parameters),
+                "lines":         fn.line_count(),
                 "has_docstring": fn.docstring is not None and len(fn.docstring.strip()) > 0,
-                "decorators": ", ".join(fn.decorators),
+                "decorators":    ", ".join(fn.decorators),
+                # ── Complexity metrics (Python AST; 0 for other languages) ──
+                "cyclomatic":    getattr(fn, "_cyclomatic",   0),
+                "branch_count":  getattr(fn, "_branch_count", 0),
+                "nesting_depth": getattr(fn, "_nesting_depth",0),
+                "call_count":    getattr(fn, "_call_count",   0),
             },
         )
 

@@ -78,7 +78,7 @@ export interface ApiError {
 
 // ── Insights types ────────────────────────────────────────────────────────────
 
-export type IssueSeverity = 'high' | 'medium' | 'low' | 'info';
+export type IssueSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type IssueCategory =
   | 'complexity'
   | 'coupling'
@@ -87,57 +87,85 @@ export type IssueCategory =
   | 'documentation'
   | 'error_handling'
   | 'architecture'
-  | 'size'
-  | 'error handling';  // backend may return spaced variant
+  | 'size';
 
 export interface MetricScore {
-  label: string;
-  score: number;        // 0–100
-  raw_value: number;
-  unit: string;
+  label:       string;
+  score:       number;
+  raw_value:   number;
+  unit:        string;
   description: string;
+  denominator: number;
+  confidence:  number;
 }
 
 export interface HealthDimension {
-  name: string;
-  score: number;        // 0–100
-  grade: 'A' | 'B' | 'C' | 'D' | 'F';
-  summary: string;
-  metrics: MetricScore[];
+  name:        string;
+  score:       number;
+  grade:       'A' | 'B' | 'C' | 'D' | 'F';
+  summary:     string;
+  confidence:  number;
+  issue_count: number;
+  metrics:     MetricScore[];
 }
 
 export interface CodeIssue {
-  category: IssueCategory;
-  severity: IssueSeverity;
-  title: string;
-  description: string;
-  suggestion: string;
-  file_path: string;
-  line: number;
+  category:        IssueCategory;
+  severity:        IssueSeverity;
+  title:           string;
+  description:     string;
+  suggestion:      string;   // backwards compat = recommendation
+  recommendation:  string;
+  file_path:       string;
+  line:            number;
+  line_start:      number;
+  line_end:        number;
   affected_symbol: string;
+  evidence:        Record<string, unknown>;
+  confidence:      number;
+}
+
+export interface AnalysisCoverage {
+  total_files_in_repo: number;
+  source_files:        number;
+  test_files:          number;
+  generated_files:     number;
+  vendor_files:        number;
+  config_files:        number;
+  unsupported_files:   number;
+  analyzed_files:      number;
+  skipped_files:       number;
+  coverage_pct:        number;
+  languages_detected:  string[];
 }
 
 export interface InsightsReport {
-  job_id: string;
-  repo_url: string;
-  repo_name: string;
-  overall_score: number;
-  overall_grade: 'A' | 'B' | 'C' | 'D' | 'F';
-  dimensions: HealthDimension[];
-  issues: CodeIssue[];
+  job_id:             string;
+  repo_url:           string;
+  repo_name:          string;
+  overall_score:      number;
+  overall_grade:      'A' | 'B' | 'C' | 'D' | 'F';
+  overall_confidence: number;
+  dimensions:         HealthDimension[];
+  issues:             CodeIssue[];
   stats: {
-    total_nodes:      number;
-    total_edges:      number;
-    repositories:     number;
-    modules:          number;
-    files:            number;
-    classes:          number;
-    functions:        number;
-    async_functions:  number;
-    documented_fns:   number;
-    total_issues:     number;
-    high_issues:      number;
-    medium_issues:    number;
-    low_issues:       number;
+    total_nodes:        number;
+    total_edges:        number;
+    repositories:       number;
+    modules:            number;
+    files:              number;
+    test_files:         number;
+    classes:            number;
+    functions:          number;
+    async_functions:    number;
+    documented_fns:     number;
+    documented_classes: number;
+    dominant_language:  string;
+    total_issues:       number;
+    critical_issues:    number;
+    high_issues:        number;
+    medium_issues:      number;
+    low_issues:         number;
   };
+  coverage: AnalysisCoverage;
 }

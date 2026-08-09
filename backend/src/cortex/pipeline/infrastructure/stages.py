@@ -35,7 +35,7 @@ class GitHubFetchStage(AbstractPipelineStage):
                 repo_url=context.repo_url,
             )
 
-            result = await self._analyzer.fetch(context.repo_url, max_files=60)
+            result = await self._analyzer.fetch(context.repo_url, max_files=150)
 
             context.file_tree = [
                 {"path": f.path, "type": "blob", "size": f.size}
