@@ -1,59 +1,96 @@
 // =============================================================================
-// InsightsDashboard — Engineering health report for a completed job
-// Uses CSS variables only — fully theme-aware.
+// InsightsDashboard — Industry-grade engineering health report
+// Accurate metrics, grouped issues, category filtering, file-level drill-down
 // =============================================================================
 
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import type { InsightsReport, HealthDimension, CodeIssue, IssueSeverity } from '@/types';
+import type {
+  InsightsReport,
+  HealthDimension,
+  CodeIssue,
+  IssueSeverity,
+  IssueCategory,
+} from '@/types';
 import { exportInsightsMarkdown } from '@/lib/api/insights.api';
-import { staggerFastContainer, staggerFastChild, SPRING } from '@/lib/utils/motion';
+import { staggerFastContainer, staggerFastChild } from '@/lib/utils/motion';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Severity helpers ──────────────────────────────────────────────────────────
 
-function gradeColor(grade: string): string {
-  switch (grade) {
-    case 'A': return 'var(--success)';
-    case 'B': return '#60C060';
-    case 'C': return 'var(--warning)';
-    case 'D': return '#E8772A';
-    case 'F': return 'var(--danger)';
-    default:  return 'var(--text-muted)';
-  }
-}
-
-function severityColor(sev: IssueSeverity): string {
-  switch (sev) {
+function sevColor(s: IssueSeverity): string {
+  switch (s) {
     case 'high':   return 'var(--danger)';
     case 'medium': return 'var(--warning)';
     case 'low':    return 'var(--success)';
     default:       return 'var(--text-muted)';
   }
 }
+function sevIcon(s: IssueSeverity): string {
+  switch (s) { case 'high': return '🔴'; case 'medium': return '🟡'; case 'low': return '🟢'; default: return '⚪'; }
+}
+function sevLabel(s: IssueSeverity): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
-function severityIcon(sev: IssueSeverity): string {
-  switch (sev) {
-    case 'high':   return '🔴';
-    case 'medium': return '🟡';
-    case 'low':    return '🟢';
-    default:       return '⚪';
+// ── Grade helpers ─────────────────────────────────────────────────────────────
+
+function gradeColor(g: string): string {
+  switch (g) {
+    case 'A': return '#22c55e';
+    case 'B': return '#84cc16';
+    case 'C': return '#f59e0b';
+    case 'D': return '#f97316';
+    case 'F': return '#ef4444';
+    default:  return 'var(--text-muted)';
   }
 }
 
-function scoreBar(score: number, color: string) {
+function gradeDesc(g: string): string {
+  switch (g) {
+    case 'A': return 'Excellent';
+    case 'B': return 'Good';
+    case 'C': return 'Fair';
+    case 'D': return 'Poor';
+    case 'F': return 'Critical';
+    default:  return '';
+  }
+}
+
+// ── Category helpers ──────────────────────────────────────────────────────────
+
+const CATEGORY_ICONS: Record<string, string> = {
+  complexity:    '⚙️',
+  coupling:      '🔗',
+  size:          '📏',
+  architecture:  '🏛️',
+  documentation: '📝',
+  naming:        '🏷️',
+  duplication:   '📋',
+  error_handling:'🛡️',
+  'error handling': '🛡️',
+};
+
+function catIcon(c: string): string { return CATEGORY_ICONS[c] ?? '🔍'; }
+function catLabel(c: string): string {
+  return c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+// ── Score bar ─────────────────────────────────────────────────────────────────
+
+function ScoreBar({
+  score, color, height = 6,
+}: { score: number; color: string; height?: number }) {
   return (
     <div style={{
-      width: '100%', height: 6, borderRadius: 3,
-      background: 'rgba(255,255,255,0.07)',
-      overflow: 'hidden',
+      width: '100%', height, borderRadius: height / 2,
+      background: 'rgba(255,255,255,0.07)', overflow: 'hidden',
     }}>
       <div style={{
-        width: `${score}%`, height: '100%',
-        background: color,
-        borderRadius: 3,
-        transition: 'width 0.6s cubic-bezier(0.16,1,0.3,1)',
+        width: `${Math.max(0, Math.min(100, score))}%`,
+        height: '100%', background: color, borderRadius: height / 2,
+        transition: 'width 0.7s cubic-bezier(0.16,1,0.3,1)',
       }} />
     </div>
   );
@@ -62,31 +99,74 @@ function scoreBar(score: number, color: string) {
 // ── Score Ring ────────────────────────────────────────────────────────────────
 
 function ScoreRing({ score, grade }: { score: number; grade: string }) {
-  const r = 44;
-  const circ = 2 * Math.PI * r;
-  const fill = (score / 100) * circ;
+  const r     = 46;
+  const circ  = 2 * Math.PI * r;
+  const fill  = (score / 100) * circ;
   const color = gradeColor(grade);
-
   return (
-    <div style={{ position: 'relative', width: 120, height: 120, flexShrink: 0 }}>
-      <svg width={120} height={120} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={60} cy={60} r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={10} />
+    <div style={{ position: 'relative', width: 128, height: 128, flexShrink: 0 }}>
+      <svg width={128} height={128} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={64} cy={64} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={10} />
         <circle
-          cx={60} cy={60} r={r} fill="none"
+          cx={64} cy={64} r={r} fill="none"
           stroke={color} strokeWidth={10}
           strokeDasharray={`${fill} ${circ - fill}`}
           strokeLinecap="round"
-          style={{ transition: 'stroke-dasharray 0.8s cubic-bezier(0.16,1,0.3,1)' }}
+          style={{ transition: 'stroke-dasharray 0.9s cubic-bezier(0.16,1,0.3,1)' }}
         />
       </svg>
       <div style={{
         position: 'absolute', inset: 0,
         display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
+        alignItems: 'center', justifyContent: 'center', gap: 1,
       }}>
-        <span style={{ fontSize: 26, fontWeight: 700, color, lineHeight: 1 }}>{score}</span>
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>/ 100</span>
+        <span style={{ fontSize: 28, fontWeight: 800, color, lineHeight: 1, fontFamily: 'var(--font-mono)' }}>
+          {score}
+        </span>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>/ 100</span>
+        <span style={{
+          fontSize: 11, fontWeight: 700,
+          color, marginTop: 1,
+          padding: '1px 7px', borderRadius: 8,
+          background: `${color}18`,
+          border: `1px solid ${color}30`,
+        }}>
+          {grade} · {gradeDesc(grade)}
+        </span>
       </div>
+    </div>
+  );
+}
+
+// ── Stat Card ─────────────────────────────────────────────────────────────────
+
+function StatCard({
+  label, value, accent, sub,
+}: { label: string; value: number | string; accent?: string; sub?: string }) {
+  return (
+    <div style={{
+      background: 'var(--glass-card)',
+      border: `1px solid ${accent ? `${accent}30` : 'var(--border)'}`,
+      borderRadius: 'var(--radius-md)',
+      padding: '12px 14px',
+      textAlign: 'center',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {accent && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+          background: accent,
+        }} />
+      )}
+      <div style={{
+        fontSize: 22, fontWeight: 800, color: accent ?? 'var(--text)',
+        fontFamily: 'var(--font-mono)', lineHeight: 1.1,
+      }}>
+        {value}
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{label}</div>
+      {sub && <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 1, opacity: 0.7 }}>{sub}</div>}
     </div>
   );
 }
@@ -94,58 +174,88 @@ function ScoreRing({ score, grade }: { score: number; grade: string }) {
 // ── Dimension Card ────────────────────────────────────────────────────────────
 
 function DimensionCard({ dim }: { dim: HealthDimension }) {
-  const [expanded, setExpanded] = useState(false);
+  const [open, setOpen] = useState(false);
   const color = gradeColor(dim.grade);
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-expanded={open}
+      onClick={() => setOpen(o => !o)}
+      onKeyDown={e => e.key === 'Enter' && setOpen(o => !o)}
       style={{
         background: 'var(--glass-card)',
-        border: '1px solid var(--border)',
+        border: `1px solid var(--border)`,
+        borderLeft: `3px solid ${color}`,
         borderRadius: 'var(--radius-md)',
-        padding: '16px 18px',
+        padding: '14px 16px',
         cursor: 'pointer',
-        transition: 'border-color 0.2s',
+        transition: 'border-color 0.2s, background 0.2s',
+        outline: 'none',
       }}
-      onClick={() => setExpanded(e => !e)}
-      onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border-hover)')}
+      onMouseEnter={e => (e.currentTarget.style.borderColor = `${color}60`)}
       onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-        <span style={{
-          fontSize: 20, fontWeight: 800, color,
-          fontFamily: 'var(--font-mono)', minWidth: 28,
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+          background: `${color}18`, border: `1px solid ${color}35`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          {dim.grade}
-        </span>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{dim.name}</span>
-            <span style={{ fontSize: 12, color, fontWeight: 600 }}>{dim.score}/100</span>
+          <span style={{ fontSize: 18, fontWeight: 800, color, fontFamily: 'var(--font-mono)' }}>
+            {dim.grade}
+          </span>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, alignItems: 'baseline' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{dim.name}</span>
+            <span style={{ fontSize: 12, color, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+              {dim.score}/100
+            </span>
           </div>
-          {scoreBar(dim.score, color)}
+          <ScoreBar score={dim.score} color={color} height={5} />
         </div>
         <span style={{
-          fontSize: 10, color: 'var(--text-muted)', transform: expanded ? 'rotate(180deg)' : 'none',
-          transition: 'transform 0.2s', marginLeft: 4,
+          fontSize: 9, color: 'var(--text-muted)',
+          transform: open ? 'rotate(180deg)' : 'none',
+          transition: 'transform 0.2s', flexShrink: 0,
         }}>▼</span>
       </div>
-      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>{dim.summary}</p>
 
-      {expanded && dim.metrics.length > 0 && (
-        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {dim.metrics.map(m => (
-            <div key={m.label}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{m.label}</span>
-                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: gradeColor(m.score >= 80 ? 'A' : m.score >= 65 ? 'B' : m.score >= 50 ? 'C' : 'D') }}>
-                  {m.raw_value} {m.unit}
-                </span>
+      <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+        {dim.summary}
+      </p>
+
+      {/* Expanded metrics */}
+      {open && dim.metrics.length > 0 && (
+        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {dim.metrics.map(m => {
+            const mColor = m.score >= 80 ? '#22c55e' : m.score >= 65 ? '#84cc16' : m.score >= 50 ? '#f59e0b' : '#ef4444';
+            return (
+              <div key={m.label}>
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between',
+                  marginBottom: 4, alignItems: 'baseline',
+                }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 500 }}>
+                    {m.label}
+                  </span>
+                  <span style={{
+                    fontSize: 11, fontFamily: 'var(--font-mono)',
+                    color: mColor, fontWeight: 700,
+                  }}>
+                    {m.raw_value} {m.unit}
+                  </span>
+                </div>
+                <ScoreBar score={m.score} color={mColor} height={4} />
+                <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: '3px 0 0', lineHeight: 1.4 }}>
+                  {m.description}
+                </p>
               </div>
-              {scoreBar(m.score, 'var(--accent)')}
-              <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: '3px 0 0' }}>{m.description}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -155,57 +265,94 @@ function DimensionCard({ dim }: { dim: HealthDimension }) {
 // ── Issue Row ─────────────────────────────────────────────────────────────────
 
 function IssueRow({ issue }: { issue: CodeIssue }) {
-  const [expanded, setExpanded] = useState(false);
+  const [open, setOpen] = useState(false);
+  const color = sevColor(issue.severity);
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-expanded={open}
+      onClick={() => setOpen(o => !o)}
+      onKeyDown={e => e.key === 'Enter' && setOpen(o => !o)}
       style={{
-        background: 'rgba(255,255,255,0.025)',
+        background: 'rgba(255,255,255,0.022)',
         border: '1px solid var(--border)',
-        borderLeft: `3px solid ${severityColor(issue.severity)}`,
+        borderLeft: `3px solid ${color}`,
         borderRadius: 'var(--radius-sm)',
         padding: '10px 14px',
         cursor: 'pointer',
         transition: 'background 0.15s',
+        outline: 'none',
       }}
-      onClick={() => setExpanded(e => !e)}
-      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
-      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.025)')}
+      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.045)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.022)')}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-        <span style={{ fontSize: 13, lineHeight: 1.4, flexShrink: 0 }}>{severityIcon(issue.severity)}</span>
+        <span style={{ fontSize: 13, lineHeight: 1.5, flexShrink: 0 }}>{sevIcon(issue.severity)}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {/* Title + category badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{issue.title}</span>
             <span style={{
-              fontSize: 10, padding: '2px 6px', borderRadius: 4,
+              fontSize: 10, padding: '2px 7px', borderRadius: 4,
               background: 'rgba(255,255,255,0.07)', color: 'var(--text-muted)',
-              fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.05em',
+              fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+              letterSpacing: '0.06em', flexShrink: 0,
             }}>
-              {issue.category}
+              {catIcon(issue.category)} {catLabel(issue.category)}
             </span>
           </div>
-          <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '4px 0 0', lineHeight: 1.5 }}>
+
+          {/* Description */}
+          <p style={{
+            fontSize: 12, color: 'var(--text-secondary)',
+            margin: 0, lineHeight: 1.55,
+          }}>
             {issue.description}
           </p>
+
+          {/* File + line */}
           {issue.file_path && (
-            <p style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', margin: '3px 0 0' }}>
-              {issue.file_path}{issue.line > 0 ? `:${issue.line}` : ''}
+            <p style={{
+              fontSize: 11, fontFamily: 'var(--font-mono)',
+              color: 'var(--text-muted)', margin: '4px 0 0',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              📁 {issue.file_path}{issue.line > 0 ? `:${issue.line}` : ''}
+              {issue.affected_symbol && (
+                <span style={{ color: 'var(--primary)', marginLeft: 6 }}>
+                  · {issue.affected_symbol}
+                </span>
+              )}
             </p>
           )}
         </div>
+        <span style={{
+          fontSize: 9, color: 'var(--text-muted)',
+          transform: open ? 'rotate(180deg)' : 'none',
+          transition: 'transform 0.2s', flexShrink: 0, marginTop: 2,
+        }}>▼</span>
       </div>
-      {expanded && (
+
+      {/* Suggestion panel */}
+      {open && (
         <div style={{
-          marginTop: 10, padding: '10px 12px',
+          marginTop: 10, padding: '10px 13px',
           background: 'rgba(0,229,168,0.05)',
-          border: '1px solid rgba(0,229,168,0.15)',
-          borderRadius: 6,
+          border: '1px solid rgba(0,229,168,0.18)',
+          borderRadius: 8,
         }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)', display: 'block', marginBottom: 4 }}>
-            💡 Suggestion
+          <span style={{
+            fontSize: 11, fontWeight: 700, color: 'var(--primary)',
+            display: 'block', marginBottom: 5,
+          }}>
+            💡 How to fix
           </span>
-          <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
+          <p style={{
+            fontSize: 12, color: 'var(--text-secondary)',
+            margin: 0, lineHeight: 1.65,
+          }}>
             {issue.suggestion}
           </p>
         </div>
@@ -214,22 +361,275 @@ function IssueRow({ issue }: { issue: CodeIssue }) {
   );
 }
 
-// ── Stats Row ─────────────────────────────────────────────────────────────────
+// ── Issues grouped by file ────────────────────────────────────────────────────
 
-function StatCard({ label, value, sub }: { label: string; value: number | string; sub?: string }) {
+function FileGroup({ filePath, issues }: { filePath: string; issues: CodeIssue[] }) {
+  const [open, setOpen] = useState(true);
+  const highCount   = issues.filter(i => i.severity === 'high').length;
+  const medCount    = issues.filter(i => i.severity === 'medium').length;
+
+  const shortPath = filePath.split('/').slice(-2).join('/') || filePath;
+
   return (
     <div style={{
-      background: 'var(--glass-card)',
       border: '1px solid var(--border)',
       borderRadius: 'var(--radius-md)',
-      padding: '14px 16px',
-      textAlign: 'center',
+      overflow: 'hidden',
+      marginBottom: 8,
     }}>
-      <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>
-        {value}
+      {/* File header */}
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%', textAlign: 'left', cursor: 'pointer',
+          background: 'rgba(255,255,255,0.03)',
+          border: 'none', padding: '10px 14px',
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}
+      >
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          📄 {shortPath}
+        </span>
+        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+          {highCount > 0 && (
+            <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'rgba(239,68,68,0.15)', color: '#ef4444', fontWeight: 700 }}>
+              {highCount} high
+            </span>
+          )}
+          {medCount > 0 && (
+            <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', fontWeight: 700 }}>
+              {medCount} med
+            </span>
+          )}
+          <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'rgba(255,255,255,0.07)', color: 'var(--text-muted)', fontWeight: 600 }}>
+            {issues.length} total
+          </span>
+        </div>
+        <span style={{ fontSize: 9, color: 'var(--text-muted)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
+      </button>
+
+      {open && (
+        <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+          {issues.map((issue, i) => (
+            <IssueRow key={`${issue.title}-${i}`} issue={issue} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Issues Panel ──────────────────────────────────────────────────────────────
+
+type SevFilter = 'all' | IssueSeverity;
+type CatFilter = 'all' | IssueCategory;
+type ViewMode  = 'flat' | 'byFile';
+
+function IssuesPanel({ issues }: { issues: CodeIssue[] }) {
+  const prefersReduced = useReducedMotion();
+  const [sevFilter, setSevFilter] = useState<SevFilter>('all');
+  const [catFilter, setCatFilter] = useState<CatFilter>('all');
+  const [viewMode,  setViewMode]  = useState<ViewMode>('byFile');
+  const [showAll,   setShowAll]   = useState(false);
+
+  // Derive unique categories from the actual data
+  const categories = useMemo(
+    () => Array.from(new Set(issues.map(i => i.category))).sort(),
+    [issues],
+  );
+
+  const filtered = useMemo(() => {
+    let list = issues;
+    if (sevFilter !== 'all') list = list.filter(i => i.severity === sevFilter);
+    if (catFilter !== 'all') list = list.filter(i => i.category === catFilter);
+    return list;
+  }, [issues, sevFilter, catFilter]);
+
+  const LIMIT = 40;
+  const visible = showAll ? filtered : filtered.slice(0, LIMIT);
+
+  // Group by file for file view
+  const byFile = useMemo(() => {
+    const map = new Map<string, CodeIssue[]>();
+    for (const issue of filtered) {
+      const key = issue.file_path || '(no file)';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(issue);
+    }
+    // Sort: files with most high-severity issues first
+    return Array.from(map.entries()).sort(([, a], [, b]) => {
+      const highA = a.filter(i => i.severity === 'high').length;
+      const highB = b.filter(i => i.severity === 'high').length;
+      return highB - highA || b.length - a.length;
+    });
+  }, [filtered]);
+
+  const sevCounts = useMemo<Record<IssueSeverity, number>>(() => ({
+    high:   issues.filter(i => i.severity === 'high').length,
+    medium: issues.filter(i => i.severity === 'medium').length,
+    low:    issues.filter(i => i.severity === 'low').length,
+    info:   issues.filter(i => i.severity === 'info').length,
+  }), [issues]);
+
+  return (
+    <div>
+      {/* ── Toolbar ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+        {/* Row 1: title + view toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <h3 style={{
+            fontSize: 12, fontWeight: 700, color: 'var(--text-muted)',
+            margin: 0, textTransform: 'uppercase', letterSpacing: '0.1em',
+          }}>
+            Issues ({filtered.length})
+          </h3>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+            {(['byFile', 'flat'] as ViewMode[]).map(m => (
+              <button
+                key={m}
+                onClick={() => setViewMode(m)}
+                style={{
+                  padding: '3px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600,
+                  cursor: 'pointer', border: `1px solid ${viewMode === m ? 'var(--primary)' : 'var(--border)'}`,
+                  background: viewMode === m ? 'var(--primary-dim)' : 'transparent',
+                  color: viewMode === m ? 'var(--primary)' : 'var(--text-muted)',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {m === 'byFile' ? '📁 By File' : '☰ Flat'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Row 2: severity filters */}
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setSevFilter('all')}
+            style={{
+              padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600,
+              cursor: 'pointer', transition: 'all 0.15s',
+              background: sevFilter === 'all' ? 'rgba(255,255,255,0.1)' : 'transparent',
+              color: sevFilter === 'all' ? 'var(--text)' : 'var(--text-muted)',
+              border: `1px solid ${sevFilter === 'all' ? 'var(--border-hover)' : 'var(--border)'}`,
+            }}
+          >
+            All ({issues.length})
+          </button>
+          {(['high', 'medium', 'low'] as IssueSeverity[]).map(s => (
+            <button
+              key={s}
+              onClick={() => setSevFilter(s === sevFilter ? 'all' : s)}
+              style={{
+                padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600,
+                cursor: 'pointer', transition: 'all 0.15s',
+                background: sevFilter === s ? `${sevColor(s)}20` : 'transparent',
+                color: sevFilter === s ? sevColor(s) : 'var(--text-muted)',
+                border: `1px solid ${sevFilter === s ? sevColor(s) : 'var(--border)'}`,
+              }}
+            >
+              {sevIcon(s)} {sevLabel(s)} ({sevCounts[s]})
+            </button>
+          ))}
+        </div>
+
+        {/* Row 3: category filters (only categories present in data) */}
+        {categories.length > 1 && (
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setCatFilter('all')}
+              style={{
+                padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 600,
+                cursor: 'pointer', transition: 'all 0.15s',
+                background: catFilter === 'all' ? 'rgba(255,255,255,0.07)' : 'transparent',
+                color: catFilter === 'all' ? 'var(--text)' : 'var(--text-muted)',
+                border: `1px solid ${catFilter === 'all' ? 'var(--border-hover)' : 'var(--border)'}`,
+              }}
+            >
+              All categories
+            </button>
+            {categories.map(c => (
+              <button
+                key={c}
+                onClick={() => setCatFilter(c === catFilter ? 'all' : c as CatFilter)}
+                style={{
+                  padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 600,
+                  cursor: 'pointer', transition: 'all 0.15s',
+                  background: catFilter === c ? 'rgba(255,255,255,0.09)' : 'transparent',
+                  color: catFilter === c ? 'var(--text)' : 'var(--text-muted)',
+                  border: `1px solid ${catFilter === c ? 'var(--border-hover)' : 'var(--border)'}`,
+                }}
+              >
+                {catIcon(c)} {catLabel(c)}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{label}</div>
-      {sub && <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>{sub}</div>}
+
+      {/* ── Issue list ── */}
+      {filtered.length === 0 ? (
+        <div style={{
+          padding: '32px 24px', textAlign: 'center',
+          background: 'var(--glass-card)', border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-md)',
+        }}>
+          <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0 }}>
+            ✅ No issues for this filter.
+          </p>
+        </div>
+      ) : viewMode === 'byFile' ? (
+        <div>
+          {byFile.slice(0, showAll ? undefined : 15).map(([fp, iss]) => (
+            <FileGroup key={fp} filePath={fp} issues={iss} />
+          ))}
+          {byFile.length > 15 && !showAll && (
+            <button
+              onClick={() => setShowAll(true)}
+              style={{
+                width: '100%', marginTop: 4, padding: '8px',
+                background: 'transparent', border: '1px dashed var(--border)',
+                borderRadius: 8, color: 'var(--text-muted)', fontSize: 12,
+                cursor: 'pointer', transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
+            >
+              Show {byFile.length - 15} more files…
+            </button>
+          )}
+        </div>
+      ) : (
+        <motion.div
+          style={{ display: 'flex', flexDirection: 'column', gap: 5 }}
+          variants={prefersReduced ? undefined : staggerFastContainer}
+          initial={prefersReduced ? false : 'hidden'}
+          animate="visible"
+        >
+          {visible.map((issue, i) => (
+            <motion.div
+              key={`${issue.title}-${issue.file_path}-${i}`}
+              variants={prefersReduced ? undefined : staggerFastChild}
+            >
+              <IssueRow issue={issue} />
+            </motion.div>
+          ))}
+          {filtered.length > LIMIT && !showAll && (
+            <button
+              onClick={() => setShowAll(true)}
+              style={{
+                marginTop: 4, padding: '8px',
+                background: 'transparent', border: '1px dashed var(--border)',
+                borderRadius: 8, color: 'var(--text-muted)', fontSize: 12,
+                cursor: 'pointer', width: '100%',
+              }}
+            >
+              Show {filtered.length - LIMIT} more issues…
+            </button>
+          )}
+        </motion.div>
+      )}
     </div>
   );
 }
@@ -241,43 +641,41 @@ interface Props {
   isDark: boolean;
 }
 
-type SeverityFilter = 'all' | IssueSeverity;
-
 export default function InsightsDashboard({ report, isDark }: Props) {
-  const [issueFilter, setIssueFilter] = useState<SeverityFilter>('all');
   const [exporting, setExporting] = useState(false);
   const prefersReduced = useReducedMotion();
-
-  const filteredIssues = issueFilter === 'all'
-    ? report.issues
-    : report.issues.filter(i => i.severity === issueFilter);
-
-  const handleExport = useCallback(async () => {
-    setExporting(true);
-    try {
-      const md = await exportInsightsMarkdown(report.job_id);
-      const blob = new Blob([md], { type: 'text/markdown' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${report.repo_name}-engineering-report.md`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      // silent — export is non-critical
-    } finally {
-      setExporting(false);
-    }
-  }, [report.job_id, report.repo_name]);
 
   const cardBg = isDark
     ? 'rgba(13,17,27,0.82)'
     : 'rgba(255,255,255,0.92)';
 
+  const handleExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      const md  = await exportInsightsMarkdown(report.job_id);
+      const blob = new Blob([md], { type: 'text/markdown' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `${report.repo_name}-engineering-report.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // export is non-critical
+    } finally {
+      setExporting(false);
+    }
+  }, [report.job_id, report.repo_name]);
+
+  // Derive doc coverage % for display
+  const docCovPct = report.stats.functions > 0
+    ? Math.round((report.stats.documented_fns / report.stats.functions) * 100)
+    : 100;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: '4px 0' }}>
 
-      {/* ── Header ── */}
+      {/* ── Header card ── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 20,
         background: cardBg,
@@ -288,57 +686,75 @@ export default function InsightsDashboard({ report, isDark }: Props) {
       }}>
         <ScoreRing score={report.overall_score} grade={report.overall_grade} />
         <div style={{ flex: 1, minWidth: 180 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: '0 0 4px' }}>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', margin: '0 0 3px' }}>
             {report.repo_name}
           </h2>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 10px' }}>
-            Engineering Health Report
+            Engineering Health Report · {report.stats.files} files · {report.stats.classes} classes · {report.stats.functions} functions
           </p>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <span style={{
-              padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+              padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700,
               background: `${gradeColor(report.overall_grade)}20`,
               color: gradeColor(report.overall_grade),
               border: `1px solid ${gradeColor(report.overall_grade)}40`,
             }}>
-              Grade {report.overall_grade}
+              Grade {report.overall_grade} — {gradeDesc(report.overall_grade)}
             </span>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              {report.stats.total_issues} issues · {report.stats.files} files · {report.stats.classes} classes
-            </span>
+            {report.stats.high_issues > 0 && (
+              <span style={{
+                padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                background: 'rgba(239,68,68,0.12)', color: '#ef4444',
+                border: '1px solid rgba(239,68,68,0.3)',
+              }}>
+                🔴 {report.stats.high_issues} critical
+              </span>
+            )}
+            {report.stats.medium_issues > 0 && (
+              <span style={{
+                padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                background: 'rgba(245,158,11,0.12)', color: '#f59e0b',
+                border: '1px solid rgba(245,158,11,0.3)',
+              }}>
+                🟡 {report.stats.medium_issues} warnings
+              </span>
+            )}
           </div>
         </div>
         <button
           onClick={handleExport}
           disabled={exporting}
           style={{
-            padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+            padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 600,
             background: 'var(--primary-dim)', color: 'var(--primary)',
             border: '1px solid rgba(0,229,168,0.25)', cursor: exporting ? 'wait' : 'pointer',
             transition: 'background 0.2s', flexShrink: 0,
           }}
-          onMouseEnter={e => (e.currentTarget.style.background = 'var(--primary-glow)')}
-          onMouseLeave={e => (e.currentTarget.style.background = 'var(--primary-dim)')}
         >
           {exporting ? 'Exporting…' : '↓ Export .md'}
         </button>
       </div>
 
       {/* ── Stats strip ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(100px,1fr))', gap: 10 }}>
-        <StatCard label="Nodes" value={report.stats.total_nodes} />
-        <StatCard label="Files" value={report.stats.files} />
-        <StatCard label="Classes" value={report.stats.classes} />
-        <StatCard label="Functions" value={report.stats.functions} />
-        <StatCard label="Modules" value={report.stats.modules} />
-        <StatCard label="Edges" value={report.stats.total_edges} />
-        <StatCard label="High Issues" value={report.stats.high_issues} sub="critical" />
-        <StatCard label="Med Issues" value={report.stats.medium_issues} sub="warning" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(95px,1fr))', gap: 8 }}>
+        <StatCard label="Files"       value={report.stats.files}       />
+        <StatCard label="Classes"     value={report.stats.classes}      />
+        <StatCard label="Functions"   value={report.stats.functions}    />
+        <StatCard label="Async Fns"   value={report.stats.async_functions ?? 0} />
+        <StatCard label="Doc Coverage" value={`${docCovPct}%`} accent={docCovPct >= 70 ? '#22c55e' : docCovPct >= 50 ? '#f59e0b' : '#ef4444'} />
+        <StatCard label="Modules"     value={report.stats.modules}      />
+        <StatCard label="Graph Edges" value={report.stats.total_edges}  />
+        <StatCard label="🔴 Critical" value={report.stats.high_issues}   accent={report.stats.high_issues > 0 ? '#ef4444' : undefined} />
+        <StatCard label="🟡 Warnings" value={report.stats.medium_issues} accent={report.stats.medium_issues > 0 ? '#f59e0b' : undefined} />
+        <StatCard label="🟢 Low"      value={report.stats.low_issues}   />
       </div>
 
-      {/* ── Dimensions ── */}
+      {/* ── Dimensions grid ── */}
       <div>
-        <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        <h3 style={{
+          fontSize: 11, fontWeight: 700, color: 'var(--text-muted)',
+          margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.1em',
+        }}>
           Health Dimensions
         </h3>
         <motion.div
@@ -355,67 +771,52 @@ export default function InsightsDashboard({ report, isDark }: Props) {
         </motion.div>
       </div>
 
-      {/* ── Issues ── */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-          <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            Issues ({filteredIssues.length})
-          </h3>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {(['all', 'high', 'medium', 'low'] as const).map(sev => (
-              <button
-                key={sev}
-                onClick={() => setIssueFilter(sev)}
-                style={{
-                  padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600,
-                  cursor: 'pointer', transition: 'all 0.15s',
-                  background: issueFilter === sev
-                    ? (sev === 'all' ? 'var(--accent-dim)' : `${severityColor(sev as IssueSeverity)}20`)
-                    : 'transparent',
-                  color: issueFilter === sev
-                    ? (sev === 'all' ? 'var(--accent)' : severityColor(sev as IssueSeverity))
-                    : 'var(--text-muted)',
-                  border: `1px solid ${issueFilter === sev
-                    ? (sev === 'all' ? 'var(--accent)' : severityColor(sev as IssueSeverity))
-                    : 'var(--border)'}`,
-                }}
-              >
-                {sev === 'all' ? 'All' : sev.charAt(0).toUpperCase() + sev.slice(1)}
-              </button>
-            ))}
-          </div>
+      {/* ── Dimension score overview bar ── */}
+      <div style={{
+        background: 'var(--glass-card)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-md)',
+        padding: '16px 18px',
+      }}>
+        <h3 style={{
+          fontSize: 11, fontWeight: 700, color: 'var(--text-muted)',
+          margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.1em',
+        }}>
+          Score Overview
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {report.dimensions.map(dim => {
+            const color = gradeColor(dim.grade);
+            return (
+              <div key={dim.name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)', minWidth: 100, fontWeight: 500 }}>
+                  {dim.name}
+                </span>
+                <div style={{ flex: 1 }}>
+                  <ScoreBar score={dim.score} color={color} height={7} />
+                </div>
+                <span style={{
+                  fontSize: 11, fontFamily: 'var(--font-mono)',
+                  color, fontWeight: 700, minWidth: 40, textAlign: 'right',
+                }}>
+                  {dim.score}
+                </span>
+                <span style={{
+                  fontSize: 10, fontWeight: 700, color,
+                  background: `${color}18`, border: `1px solid ${color}30`,
+                  padding: '1px 6px', borderRadius: 5, minWidth: 20, textAlign: 'center',
+                }}>
+                  {dim.grade}
+                </span>
+              </div>
+            );
+          })}
         </div>
-
-        {filteredIssues.length === 0 ? (
-          <div style={{
-            padding: '32px 24px', textAlign: 'center',
-            background: 'var(--glass-card)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-md)',
-          }}>
-            <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0 }}>
-              ✅ No {issueFilter === 'all' ? '' : issueFilter + ' '}issues detected.
-            </p>
-          </div>
-        ) : (
-          <motion.div
-            style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
-            variants={prefersReduced ? undefined : staggerFastContainer}
-            initial={prefersReduced ? false : 'hidden'}
-            animate="visible"
-          >
-            {filteredIssues.slice(0, 30).map((issue, i) => (
-              <motion.div key={`${issue.title}-${i}`} variants={prefersReduced ? undefined : staggerFastChild}>
-                <IssueRow issue={issue} />
-              </motion.div>
-            ))}
-            {filteredIssues.length > 30 && (
-              <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', margin: '8px 0 0' }}>
-                + {filteredIssues.length - 30} more issues — export the report to see all.
-              </p>
-            )}
-          </motion.div>
-        )}
       </div>
+
+      {/* ── Issues ── */}
+      <IssuesPanel issues={report.issues} />
+
     </div>
   );
 }

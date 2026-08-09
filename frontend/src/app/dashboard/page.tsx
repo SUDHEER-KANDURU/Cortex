@@ -416,9 +416,10 @@ function Sidebar({ isDark, jobs, jobsLoading, jobsError, selectedJobId, onJobSel
   const bdr = tintBorder(isDark);
   return (
     <aside aria-label="Repository sidebar" style={{
-      background: isDark ? 'rgba(14,18,28,0.55)' : 'rgba(255,255,255,0.62)',
-      backdropFilter: 'blur(40px) saturate(180%)',
-      WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+      background: isDark ? 'rgba(14,18,28,0.52)' : 'rgba(255,255,255,0.60)',
+      backdropFilter: 'blur(48px) saturate(200%)',
+      WebkitBackdropFilter: 'blur(48px) saturate(200%)',
+      isolation: 'isolate',
       border: `1px solid ${bdr}`,
       boxShadow: isDark
         ? 'var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.07)'
@@ -456,6 +457,7 @@ function Sidebar({ isDark, jobs, jobsLoading, jobsError, selectedJobId, onJobSel
             {jobs.map(job => (
               <motion.div
                 key={job.id}
+                style={{ background: 'none' }}
                 variants={{
                   hidden:  { opacity: 0, y: 10, scale: 0.97 },
                   visible: { opacity: 1, y: 0,  scale: 1,
@@ -785,11 +787,12 @@ function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsE
                 artifacts.map(artifact => (
                   <div key={artifact.id} style={{
                     borderRadius: 'var(--radius-lg)', overflow: 'hidden',
-                    background: tint(isDark, 'xs'), border: `1px solid ${bdr}`,
+                    background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.025)',
+                    border: `1px solid ${bdr}`,
                     boxShadow: isDark ? 'var(--shadow-md)' : '0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)',
                     transition: 'background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
                   }}>
-                    <div style={{ padding: '12px 18px', borderBottom: `1px solid ${bdr}`, background: tint(isDark, 'xs'), display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ padding: '12px 18px', borderBottom: `1px solid ${bdr}`, background: isDark ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--primary)', padding: '3px 10px', borderRadius: 100, background: 'var(--primary-dim)', border: '1px solid rgba(0,229,168,0.22)', fontFamily: 'var(--font-mono)' }}>
                         {artifact.content_type}
                       </span>
@@ -933,9 +936,10 @@ export default function DashboardPage() {
 
           {/* Main glass panel */}
           <main className="dash-content" style={{
-            background: isDark ? 'rgba(14,18,28,0.65)' : 'rgba(255,255,255,0.72)',
-            backdropFilter: 'blur(40px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+            background: isDark ? 'rgba(14,18,28,0.60)' : 'rgba(255,255,255,0.68)',
+            backdropFilter: 'blur(48px) saturate(200%)',
+            WebkitBackdropFilter: 'blur(48px) saturate(200%)',
+            isolation: 'isolate',
             border: `1px solid ${tintBorder(isDark)}`,
             boxShadow: isDark
               ? 'var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.07)'

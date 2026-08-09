@@ -87,7 +87,8 @@ export type IssueCategory =
   | 'documentation'
   | 'error_handling'
   | 'architecture'
-  | 'size';
+  | 'size'
+  | 'error handling';  // backend may return spaced variant
 
 export interface MetricScore {
   label: string;
@@ -125,16 +126,18 @@ export interface InsightsReport {
   dimensions: HealthDimension[];
   issues: CodeIssue[];
   stats: {
-    total_nodes: number;
-    total_edges: number;
-    repositories: number;
-    modules: number;
-    files: number;
-    classes: number;
-    functions: number;
-    total_issues: number;
-    high_issues: number;
-    medium_issues: number;
-    low_issues: number;
+    total_nodes:      number;
+    total_edges:      number;
+    repositories:     number;
+    modules:          number;
+    files:            number;
+    classes:          number;
+    functions:        number;
+    async_functions:  number;
+    documented_fns:   number;
+    total_issues:     number;
+    high_issues:      number;
+    medium_issues:    number;
+    low_issues:       number;
   };
 }
