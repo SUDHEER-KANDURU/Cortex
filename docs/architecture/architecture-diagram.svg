@@ -1,0 +1,631 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2600 1380" width="2600" height="1380"
+  font-family="'Segoe UI', Arial, sans-serif">
+<defs>
+  <marker id="arr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+    <polygon points="0 0,8 3,0 6" fill="#64748b"/>
+  </marker>
+  <marker id="arr-b" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+    <polygon points="0 0,8 3,0 6" fill="#60a5fa"/>
+  </marker>
+  <marker id="arr-g" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+    <polygon points="0 0,8 3,0 6" fill="#34d399"/>
+  </marker>
+  <marker id="arr-o" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+    <polygon points="0 0,8 3,0 6" fill="#fb923c"/>
+  </marker>
+  <marker id="arr-p" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+    <polygon points="0 0,8 3,0 6" fill="#a78bfa"/>
+  </marker>
+</defs>
+<!-- ===================== BACKGROUND ===================== -->
+<rect width="2600" height="1380" fill="#0f172a"/>
+<!-- title -->
+<text x="1300" y="44" text-anchor="middle" fill="#f1f5f9" font-size="28" font-weight="700" letter-spacing="1.5">
+  CORTEX · Engineering Reasoning Engine — Full Architecture
+</text>
+<line x1="60" y1="58" x2="2540" y2="58" stroke="#1e293b" stroke-width="1.5"/>
+
+<!-- ========================================================= -->
+<!-- ROW 1 · FRONTEND  y=68 → y=278  (h=210) -->
+<!-- ========================================================= -->
+<rect x="60" y="68" width="2480" height="210" rx="10" fill="#111827" stroke="#1e3a5f" stroke-width="2"/>
+<text x="80" y="90" fill="#3b82f6" font-size="13" font-weight="700" letter-spacing="0.8">FRONTEND · Next.js 14 (App Router) · TypeScript</text>
+
+<!-- ── Pages ── -->
+<!-- page.tsx: x=90 w=150 -->
+<rect x="90" y="100" width="150" height="60" rx="6" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="165" y="122" text-anchor="middle" fill="#93c5fd" font-size="12" font-weight="600">page.tsx</text>
+<text x="165" y="138" text-anchor="middle" fill="#60a5fa" font-size="10">Landing Page</text>
+<text x="165" y="151" text-anchor="middle" fill="#60a5fa" font-size="10">app/page.tsx</text>
+
+<!-- dashboard/page.tsx: x=260 w=175 -->
+<rect x="260" y="100" width="175" height="60" rx="6" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="347" y="122" text-anchor="middle" fill="#93c5fd" font-size="12" font-weight="600">dashboard/page.tsx</text>
+<text x="347" y="138" text-anchor="middle" fill="#60a5fa" font-size="10">Dashboard Page</text>
+<text x="347" y="151" text-anchor="middle" fill="#60a5fa" font-size="10">loading.tsx</text>
+
+<!-- jobs/[jobId]/page.tsx: x=455 w=185 -->
+<rect x="455" y="100" width="185" height="60" rx="6" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="547" y="122" text-anchor="middle" fill="#93c5fd" font-size="12" font-weight="600">jobs/[jobId]/page.tsx</text>
+<text x="547" y="138" text-anchor="middle" fill="#60a5fa" font-size="10">Job Detail Page</text>
+<text x="547" y="151" text-anchor="middle" fill="#60a5fa" font-size="10">app/jobs/</text>
+
+<!-- ── Features ── -->
+<!-- features/jobs: x=670 w=165 -->
+<rect x="670" y="100" width="165" height="60" rx="6" fill="#0c2233" stroke="#06b6d4" stroke-width="1.5"/>
+<text x="752" y="120" text-anchor="middle" fill="#67e8f9" font-size="12" font-weight="600">features/jobs</text>
+<text x="752" y="136" text-anchor="middle" fill="#22d3ee" font-size="10">components + hooks</text>
+<text x="752" y="150" text-anchor="middle" fill="#22d3ee" font-size="10">jobs.types.ts</text>
+
+<!-- features/artifacts: x=855 w=165 -->
+<rect x="855" y="100" width="165" height="60" rx="6" fill="#0c2233" stroke="#06b6d4" stroke-width="1.5"/>
+<text x="937" y="120" text-anchor="middle" fill="#67e8f9" font-size="12" font-weight="600">features/artifacts</text>
+<text x="937" y="136" text-anchor="middle" fill="#22d3ee" font-size="10">components + hooks</text>
+<text x="937" y="150" text-anchor="middle" fill="#22d3ee" font-size="10">artifacts.types.ts</text>
+
+<!-- features/graph: x=1040 w=165 -->
+<rect x="1040" y="100" width="165" height="60" rx="6" fill="#0c2233" stroke="#06b6d4" stroke-width="1.5"/>
+<text x="1122" y="120" text-anchor="middle" fill="#67e8f9" font-size="12" font-weight="600">features/graph</text>
+<text x="1122" y="136" text-anchor="middle" fill="#22d3ee" font-size="10">components + hooks</text>
+<text x="1122" y="150" text-anchor="middle" fill="#22d3ee" font-size="10">graph.types.ts</text>
+
+<!-- features/insights: x=1225 w=165 -->
+<rect x="1225" y="100" width="165" height="60" rx="6" fill="#0c2233" stroke="#06b6d4" stroke-width="1.5"/>
+<text x="1307" y="120" text-anchor="middle" fill="#67e8f9" font-size="12" font-weight="600">features/insights</text>
+<text x="1307" y="136" text-anchor="middle" fill="#22d3ee" font-size="10">components + hooks</text>
+<text x="1307" y="150" text-anchor="middle" fill="#22d3ee" font-size="10">InsightsEngine</text>
+
+<!-- features/tree: x=1410 w=155 -->
+<rect x="1410" y="100" width="155" height="60" rx="6" fill="#0c2233" stroke="#06b6d4" stroke-width="1.5"/>
+<text x="1487" y="120" text-anchor="middle" fill="#67e8f9" font-size="12" font-weight="600">features/tree</text>
+<text x="1487" y="136" text-anchor="middle" fill="#22d3ee" font-size="10">RepoTree.tsx</text>
+<text x="1487" y="150" text-anchor="middle" fill="#22d3ee" font-size="10">src/features/tree/</text>
+
+<!-- ── lib/api ── -->
+<!-- lib/api/client.ts: x=90 y=178 w=200 -->
+<rect x="90" y="178" width="200" height="60" rx="6" fill="#1e1b3a" stroke="#a78bfa" stroke-width="1.5"/>
+<text x="190" y="198" text-anchor="middle" fill="#c4b5fd" font-size="12" font-weight="600">lib/api/</text>
+<text x="190" y="214" text-anchor="middle" fill="#a78bfa" font-size="10">client.ts · jobs.api.ts</text>
+<text x="190" y="227" text-anchor="middle" fill="#a78bfa" font-size="10">artifacts · graph · insights</text>
+
+<!-- app/_landing: x=310 y=178 w=195 -->
+<rect x="310" y="178" width="195" height="60" rx="6" fill="#0c2233" stroke="#06b6d4" stroke-width="1.5"/>
+<text x="407" y="198" text-anchor="middle" fill="#67e8f9" font-size="12" font-weight="600">app/_landing/</text>
+<text x="407" y="214" text-anchor="middle" fill="#22d3ee" font-size="10">KnowledgeGraph.tsx</text>
+<text x="407" y="227" text-anchor="middle" fill="#22d3ee" font-size="10">JourneyNav.tsx · sceneTimings.ts</text>
+
+<!-- ── components ── -->
+<!-- components/layout: x=1590 y=100 w=190 -->
+<rect x="1590" y="100" width="190" height="60" rx="6" fill="#0f2110" stroke="#4ade80" stroke-width="1.5"/>
+<text x="1685" y="120" text-anchor="middle" fill="#86efac" font-size="12" font-weight="600">components/layout</text>
+<text x="1685" y="136" text-anchor="middle" fill="#4ade80" font-size="10">Navbar · Sidebar</text>
+<text x="1685" y="150" text-anchor="middle" fill="#4ade80" font-size="10">SmoothScrollProvider</text>
+
+<!-- components/shared: x=1800 y=100 w=190 -->
+<rect x="1800" y="100" width="190" height="60" rx="6" fill="#0f2110" stroke="#4ade80" stroke-width="1.5"/>
+<text x="1895" y="120" text-anchor="middle" fill="#86efac" font-size="12" font-weight="600">components/shared</text>
+<text x="1895" y="136" text-anchor="middle" fill="#4ade80" font-size="10">ErrorAlert · Skeletons</text>
+<text x="1895" y="150" text-anchor="middle" fill="#4ade80" font-size="10">StatusBadge · Loaders</text>
+
+<!-- components/ui: x=2010 y=100 w=190 -->
+<rect x="2010" y="100" width="190" height="60" rx="6" fill="#0f2110" stroke="#4ade80" stroke-width="1.5"/>
+<text x="2105" y="120" text-anchor="middle" fill="#86efac" font-size="12" font-weight="600">components/ui</text>
+<text x="2105" y="136" text-anchor="middle" fill="#4ade80" font-size="10">badge · button · card</text>
+<text x="2105" y="150" text-anchor="middle" fill="#4ade80" font-size="10">modal · tabs · tooltip · input</text>
+
+<!-- components/pipeline: x=2220 y=100 w=190 -->
+<rect x="2220" y="100" width="190" height="60" rx="6" fill="#0f2110" stroke="#4ade80" stroke-width="1.5"/>
+<text x="2315" y="120" text-anchor="middle" fill="#86efac" font-size="12" font-weight="600">components/pipeline</text>
+<text x="2315" y="136" text-anchor="middle" fill="#4ade80" font-size="10">AnimatedPipeline.tsx</text>
+<text x="2315" y="150" text-anchor="middle" fill="#4ade80" font-size="10">pipeline visualiser</text>
+
+<!-- components/landing: x=2010 y=178 w=190 -->
+<rect x="2010" y="178" width="190" height="60" rx="6" fill="#0f2110" stroke="#4ade80" stroke-width="1.5"/>
+<text x="2105" y="198" text-anchor="middle" fill="#86efac" font-size="12" font-weight="600">components/landing</text>
+<text x="2105" y="214" text-anchor="middle" fill="#4ade80" font-size="10">Hero · HowItWorks · About</text>
+<text x="2105" y="227" text-anchor="middle" fill="#4ade80" font-size="10">Awards · Footer · Header</text>
+
+<!-- lib/utils: x=2220 y=178 w=190 -->
+<rect x="2220" y="178" width="190" height="60" rx="6" fill="#1e1b3a" stroke="#a78bfa" stroke-width="1.5"/>
+<text x="2315" y="198" text-anchor="middle" fill="#c4b5fd" font-size="12" font-weight="600">lib/utils/ + types/</text>
+<text x="2315" y="214" text-anchor="middle" fill="#a78bfa" font-size="10">cn · formatDate · motion</text>
+<text x="2315" y="227" text-anchor="middle" fill="#a78bfa" font-size="10">api.types.ts · cache.ts</text>
+
+<!-- ========================================================= -->
+<!-- ROW 2 · BACKEND API  y=308 → y=578  (h=270) -->
+<!-- ========================================================= -->
+<rect x="60" y="308" width="2480" height="270" rx="10" fill="#111827" stroke="#2d1b4e" stroke-width="2"/>
+<text x="80" y="330" fill="#8b5cf6" font-size="13" font-weight="700" letter-spacing="0.8">
+  BACKEND · FastAPI  (src/cortex)  ·  Clean Architecture: Presentation → Application → Domain ← Infrastructure
+</text>
+
+<!-- main.py + CORS: x=80 y=340 w=180 h=70 -->
+<rect x="80" y="340" width="180" height="70" rx="6" fill="#0e2218" stroke="#10b981" stroke-width="1.5"/>
+<text x="170" y="362" text-anchor="middle" fill="#6ee7b7" font-size="12" font-weight="600">main.py</text>
+<text x="170" y="378" text-anchor="middle" fill="#34d399" font-size="10">create_app() · lifespan()</text>
+<text x="170" y="392" text-anchor="middle" fill="#34d399" font-size="10">CORS · router registration</text>
+
+<!-- shared/ + config: x=280 y=340 w=180 h=70 -->
+<rect x="280" y="340" width="180" height="70" rx="6" fill="#0e2218" stroke="#10b981" stroke-width="1.5"/>
+<text x="370" y="362" text-anchor="middle" fill="#6ee7b7" font-size="12" font-weight="600">shared/ · config.py</text>
+<text x="370" y="378" text-anchor="middle" fill="#34d399" font-size="10">CorrelationMiddleware</text>
+<text x="370" y="392" text-anchor="middle" fill="#34d399" font-size="10">Settings (pydantic) · logging</text>
+
+<!-- schema/ : x=480 y=340 w=165 h=70 -->
+<rect x="480" y="340" width="165" height="70" rx="6" fill="#0e2218" stroke="#10b981" stroke-width="1.5"/>
+<text x="562" y="362" text-anchor="middle" fill="#6ee7b7" font-size="12" font-weight="600">schema/</text>
+<text x="562" y="378" text-anchor="middle" fill="#34d399" font-size="10">models.py (SQLAlchemy)</text>
+<text x="562" y="392" text-anchor="middle" fill="#34d399" font-size="10">migrations/ (Alembic)</text>
+
+<!-- ── Module blocks (each 4-layer: presentation / application / domain / infra) ── -->
+<!-- Module helper: 240 wide, 185 tall, inner rows 30px each -->
+
+<!-- jobs/ : x=680 y=330 w=245 h=200 -->
+<rect x="680" y="330" width="245" height="200" rx="7" fill="#130e28" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="802" y="352" text-anchor="middle" fill="#c4b5fd" font-size="13" font-weight="700">jobs/</text>
+<rect x="692" y="358" width="220" height="34" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="802" y="372" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">PRESENTATION</text>
+<text x="802" y="384" text-anchor="middle" fill="#c4b5fd" font-size="10">router.py · models.py</text>
+<rect x="692" y="397" width="220" height="30" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="802" y="411" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">APPLICATION</text>
+<text x="802" y="422" text-anchor="middle" fill="#c4b5fd" font-size="10">use_cases.py</text>
+<rect x="692" y="432" width="220" height="30" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="802" y="446" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">DOMAIN</text>
+<text x="802" y="457" text-anchor="middle" fill="#c4b5fd" font-size="10">entities.py · interfaces.py</text>
+<rect x="692" y="467" width="220" height="30" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="802" y="481" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">INFRASTRUCTURE</text>
+<text x="802" y="492" text-anchor="middle" fill="#c4b5fd" font-size="10">pg_repository.py</text>
+
+<!-- artifacts/ : x=940 y=330 w=245 h=200 -->
+<rect x="940" y="330" width="245" height="200" rx="7" fill="#130e28" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="1062" y="352" text-anchor="middle" fill="#c4b5fd" font-size="13" font-weight="700">artifacts/</text>
+<rect x="952" y="358" width="220" height="34" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="1062" y="372" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">PRESENTATION</text>
+<text x="1062" y="384" text-anchor="middle" fill="#c4b5fd" font-size="10">router.py · models.py</text>
+<rect x="952" y="397" width="220" height="30" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="1062" y="411" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">APPLICATION</text>
+<text x="1062" y="422" text-anchor="middle" fill="#c4b5fd" font-size="10">use_cases.py</text>
+<rect x="952" y="432" width="220" height="30" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="1062" y="446" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">DOMAIN</text>
+<text x="1062" y="457" text-anchor="middle" fill="#c4b5fd" font-size="10">entities.py · interfaces.py</text>
+<rect x="952" y="467" width="220" height="30" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="1062" y="481" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">INFRASTRUCTURE</text>
+<text x="1062" y="492" text-anchor="middle" fill="#c4b5fd" font-size="10">pg_repository.py</text>
+
+<!-- graph/ : x=1200 y=330 w=245 h=200 -->
+<rect x="1200" y="330" width="245" height="200" rx="7" fill="#130e28" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="1322" y="352" text-anchor="middle" fill="#c4b5fd" font-size="13" font-weight="700">graph/</text>
+<rect x="1212" y="358" width="220" height="34" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="1322" y="372" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">PRESENTATION</text>
+<text x="1322" y="384" text-anchor="middle" fill="#c4b5fd" font-size="10">router.py · models.py</text>
+<rect x="1212" y="397" width="220" height="30" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="1322" y="411" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">APPLICATION</text>
+<text x="1322" y="422" text-anchor="middle" fill="#c4b5fd" font-size="10">use_cases.py</text>
+<rect x="1212" y="432" width="220" height="30" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="1322" y="446" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">DOMAIN</text>
+<text x="1322" y="457" text-anchor="middle" fill="#c4b5fd" font-size="10">entities.py · interfaces.py</text>
+<rect x="1212" y="467" width="220" height="30" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="1322" y="481" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">INFRASTRUCTURE</text>
+<text x="1322" y="492" text-anchor="middle" fill="#c4b5fd" font-size="10">neo4j_repo · sqlite_repo</text>
+
+<!-- insights/ : x=1460 y=330 w=245 h=200 -->
+<rect x="1460" y="330" width="245" height="200" rx="7" fill="#130e28" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="1582" y="352" text-anchor="middle" fill="#c4b5fd" font-size="13" font-weight="700">insights/</text>
+<rect x="1472" y="358" width="220" height="34" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="1582" y="372" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">PRESENTATION</text>
+<text x="1582" y="384" text-anchor="middle" fill="#c4b5fd" font-size="10">router.py · models.py</text>
+<rect x="1472" y="397" width="220" height="30" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="1582" y="411" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">APPLICATION</text>
+<text x="1582" y="422" text-anchor="middle" fill="#c4b5fd" font-size="10">engine.py · file_classifier.py</text>
+<rect x="1472" y="432" width="220" height="30" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="1582" y="446" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">DOMAIN</text>
+<text x="1582" y="457" text-anchor="middle" fill="#c4b5fd" font-size="10">entities · thresholds · language_rules</text>
+<rect x="1472" y="467" width="220" height="30" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="1582" y="481" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">INFRASTRUCTURE</text>
+<text x="1582" y="492" text-anchor="middle" fill="#c4b5fd" font-size="10">(no infra — pure analysis)</text>
+
+<!-- chat/ : x=1720 y=330 w=245 h=200 -->
+<rect x="1720" y="330" width="245" height="200" rx="7" fill="#130e28" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="1842" y="352" text-anchor="middle" fill="#c4b5fd" font-size="13" font-weight="700">chat/</text>
+<rect x="1732" y="358" width="220" height="34" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="1842" y="372" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">PRESENTATION</text>
+<text x="1842" y="384" text-anchor="middle" fill="#c4b5fd" font-size="10">router.py</text>
+<rect x="1732" y="397" width="220" height="30" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="1842" y="411" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">APPLICATION</text>
+<text x="1842" y="422" text-anchor="middle" fill="#c4b5fd" font-size="10">chat_service.py</text>
+<rect x="1732" y="432" width="220" height="30" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="1842" y="446" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">DOMAIN</text>
+<text x="1842" y="457" text-anchor="middle" fill="#c4b5fd" font-size="10">entities.py · interfaces.py</text>
+<rect x="1732" y="467" width="220" height="30" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="1842" y="481" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">INFRASTRUCTURE</text>
+<text x="1842" y="492" text-anchor="middle" fill="#c4b5fd" font-size="10">nim_client · pg_repo · ctx_retriever</text>
+
+<!-- health/ : x=1980 y=330 w=185 h=80 -->
+<rect x="1980" y="330" width="185" height="80" rx="7" fill="#130e28" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="2072" y="352" text-anchor="middle" fill="#c4b5fd" font-size="13" font-weight="700">health/</text>
+<rect x="1992" y="358" width="160" height="44" rx="4" fill="#1e1040" stroke="#5b21b6" stroke-width="1"/>
+<text x="2072" y="375" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="600">PRESENTATION</text>
+<text x="2072" y="390" text-anchor="middle" fill="#c4b5fd" font-size="10">router.py (GET /health)</text>
+
+<!-- API Routes summary: x=2190 y=330 w=330 h=80 -->
+<rect x="2190" y="330" width="330" height="80" rx="7" fill="#0e2218" stroke="#10b981" stroke-width="1.5"/>
+<text x="2355" y="352" text-anchor="middle" fill="#6ee7b7" font-size="13" font-weight="700">API Routes  /api/v1/</text>
+<text x="2355" y="370" text-anchor="middle" fill="#34d399" font-size="10">/health · /jobs · /artifacts</text>
+<text x="2355" y="384" text-anchor="middle" fill="#34d399" font-size="10">/graph · /insights · /chat</text>
+<text x="2355" y="398" text-anchor="middle" fill="#34d399" font-size="10">docs: /api/docs  (OpenAPI)</text>
+
+<!-- ========================================================= -->
+<!-- ROW 3 · WORKER / PIPELINE  y=608 → y=848  (h=240) -->
+<!-- ========================================================= -->
+<rect x="60" y="608" width="2480" height="240" rx="10" fill="#111827" stroke="#2d1a00" stroke-width="2"/>
+<text x="80" y="630" fill="#fb923c" font-size="13" font-weight="700" letter-spacing="0.8">
+  WORKER · Celery  (src/worker/ + src/cortex/pipeline/)
+</text>
+
+<!-- Redis Queue: x=80 y=640 w=190 h=80 -->
+<rect x="80" y="640" width="190" height="80" rx="6" fill="#1f0f00" stroke="#fb923c" stroke-width="2"/>
+<text x="175" y="664" text-anchor="middle" fill="#fed7aa" font-size="13" font-weight="700">Redis Queue</text>
+<text x="175" y="680" text-anchor="middle" fill="#fb923c" font-size="10">redis://localhost:6379/0</text>
+<text x="175" y="694" text-anchor="middle" fill="#fb923c" font-size="10">Celery broker + backend</text>
+<text x="175" y="708" text-anchor="middle" fill="#fb923c" font-size="10">job task queue</text>
+
+<!-- celery_app.py: x=300 y=640 w=185 h=80 -->
+<rect x="300" y="640" width="185" height="80" rx="6" fill="#1f0f00" stroke="#fb923c" stroke-width="1.5"/>
+<text x="392" y="664" text-anchor="middle" fill="#fed7aa" font-size="13" font-weight="700">celery_app.py</text>
+<text x="392" y="680" text-anchor="middle" fill="#fb923c" font-size="10">src/worker/</text>
+<text x="392" y="694" text-anchor="middle" fill="#fb923c" font-size="10">Celery app factory</text>
+<text x="392" y="708" text-anchor="middle" fill="#fb923c" font-size="10">worker entrypoint</text>
+
+<!-- celery_tasks.py: x=515 y=640 w=195 h=80 -->
+<rect x="515" y="640" width="195" height="80" rx="6" fill="#1f0f00" stroke="#fb923c" stroke-width="1.5"/>
+<text x="612" y="664" text-anchor="middle" fill="#fed7aa" font-size="13" font-weight="700">celery_tasks.py</text>
+<text x="612" y="680" text-anchor="middle" fill="#fb923c" font-size="10">pipeline/infrastructure/</text>
+<text x="612" y="694" text-anchor="middle" fill="#fb923c" font-size="10">@task run_analysis()</text>
+<text x="612" y="708" text-anchor="middle" fill="#fb923c" font-size="10">update job status</text>
+
+<!-- orchestrator.py: x=740 y=640 w=195 h=80 -->
+<rect x="740" y="640" width="195" height="80" rx="6" fill="#0d1a2a" stroke="#60a5fa" stroke-width="1.5"/>
+<text x="837" y="664" text-anchor="middle" fill="#bfdbfe" font-size="13" font-weight="700">orchestrator.py</text>
+<text x="837" y="680" text-anchor="middle" fill="#60a5fa" font-size="10">pipeline/application/</text>
+<text x="837" y="694" text-anchor="middle" fill="#60a5fa" font-size="10">PipelineOrchestrator</text>
+<text x="837" y="708" text-anchor="middle" fill="#60a5fa" font-size="10">runs all stages in order</text>
+
+<!-- stages.py: x=965 y=640 w=185 h=80 -->
+<rect x="965" y="640" width="185" height="80" rx="6" fill="#0d1a2a" stroke="#60a5fa" stroke-width="1.5"/>
+<text x="1057" y="664" text-anchor="middle" fill="#bfdbfe" font-size="13" font-weight="700">stages.py</text>
+<text x="1057" y="680" text-anchor="middle" fill="#60a5fa" font-size="10">pipeline/infrastructure/</text>
+<text x="1057" y="694" text-anchor="middle" fill="#60a5fa" font-size="10">concrete stage impls</text>
+<text x="1057" y="708" text-anchor="middle" fill="#60a5fa" font-size="10">Clone→Parse→Build→Gen</text>
+
+<!-- pipeline/domain: x=1180 y=640 w=195 h=80 -->
+<rect x="1180" y="640" width="195" height="80" rx="6" fill="#0e2218" stroke="#10b981" stroke-width="1.5"/>
+<text x="1277" y="664" text-anchor="middle" fill="#6ee7b7" font-size="13" font-weight="700">pipeline/domain/</text>
+<text x="1277" y="680" text-anchor="middle" fill="#34d399" font-size="10">interfaces.py</text>
+<text x="1277" y="694" text-anchor="middle" fill="#34d399" font-size="10">IStage · IPipelineRunner</text>
+<text x="1277" y="708" text-anchor="middle" fill="#34d399" font-size="10">domain contracts</text>
+
+<!-- github_client: x=80 y=740 w=185 h=80 -->
+<rect x="80" y="740" width="185" height="80" rx="6" fill="#0d1a2a" stroke="#60a5fa" stroke-width="1.5"/>
+<text x="172" y="762" text-anchor="middle" fill="#bfdbfe" font-size="13" font-weight="700">github_client.py</text>
+<text x="172" y="778" text-anchor="middle" fill="#60a5fa" font-size="10">pipeline/infrastructure/</text>
+<text x="172" y="792" text-anchor="middle" fill="#60a5fa" font-size="10">clone repo (git)</text>
+<text x="172" y="806" text-anchor="middle" fill="#60a5fa" font-size="10">GitHub token auth</text>
+
+<!-- github_analyzer: x=285 y=740 w=190 h=80 -->
+<rect x="285" y="740" width="190" height="80" rx="6" fill="#0d1a2a" stroke="#60a5fa" stroke-width="1.5"/>
+<text x="380" y="762" text-anchor="middle" fill="#bfdbfe" font-size="13" font-weight="700">github_analyzer.py</text>
+<text x="380" y="778" text-anchor="middle" fill="#60a5fa" font-size="10">pipeline/infrastructure/</text>
+<text x="380" y="792" text-anchor="middle" fill="#60a5fa" font-size="10">file traversal</text>
+<text x="380" y="806" text-anchor="middle" fill="#60a5fa" font-size="10">repo structure analysis</text>
+
+<!-- ast_parser: x=495 y=740 w=185 h=80 -->
+<rect x="495" y="740" width="185" height="80" rx="6" fill="#0d1a2a" stroke="#60a5fa" stroke-width="1.5"/>
+<text x="587" y="762" text-anchor="middle" fill="#bfdbfe" font-size="13" font-weight="700">ast_parser.py</text>
+<text x="587" y="778" text-anchor="middle" fill="#60a5fa" font-size="10">pipeline/infrastructure/</text>
+<text x="587" y="792" text-anchor="middle" fill="#60a5fa" font-size="10">Python AST parsing</text>
+<text x="587" y="806" text-anchor="middle" fill="#60a5fa" font-size="10">symbol/import extraction</text>
+
+<!-- vibe_detector: x=700 y=740 w=185 h=80 -->
+<rect x="700" y="740" width="185" height="80" rx="6" fill="#0d1a2a" stroke="#60a5fa" stroke-width="1.5"/>
+<text x="792" y="762" text-anchor="middle" fill="#bfdbfe" font-size="13" font-weight="700">vibe_detector.py</text>
+<text x="792" y="778" text-anchor="middle" fill="#60a5fa" font-size="10">pipeline/infrastructure/</text>
+<text x="792" y="792" text-anchor="middle" fill="#60a5fa" font-size="10">framework detection</text>
+<text x="792" y="806" text-anchor="middle" fill="#60a5fa" font-size="10">language · patterns</text>
+
+<!-- artifact_generator: x=905 y=740 w=195 h=80 -->
+<rect x="905" y="740" width="195" height="80" rx="6" fill="#0d1a2a" stroke="#60a5fa" stroke-width="1.5"/>
+<text x="1002" y="762" text-anchor="middle" fill="#bfdbfe" font-size="13" font-weight="700">artifact_generator.py</text>
+<text x="1002" y="778" text-anchor="middle" fill="#60a5fa" font-size="10">pipeline/infrastructure/</text>
+<text x="1002" y="792" text-anchor="middle" fill="#60a5fa" font-size="10">Mermaid · Markdown · JSON</text>
+<text x="1002" y="806" text-anchor="middle" fill="#60a5fa" font-size="10">generate all artifact types</text>
+
+<!-- graph_builder: x=1120 y=740 w=185 h=80 -->
+<rect x="1120" y="740" width="185" height="80" rx="6" fill="#0d1a2a" stroke="#60a5fa" stroke-width="1.5"/>
+<text x="1212" y="762" text-anchor="middle" fill="#bfdbfe" font-size="13" font-weight="700">graph_builder.py</text>
+<text x="1212" y="778" text-anchor="middle" fill="#60a5fa" font-size="10">pipeline/infrastructure/</text>
+<text x="1212" y="792" text-anchor="middle" fill="#60a5fa" font-size="10">build Neo4j graph</text>
+<text x="1212" y="806" text-anchor="middle" fill="#60a5fa" font-size="10">nodes + relationships</text>
+
+<!-- db_schema_generator: x=1325 y=740 w=215 h=80 -->
+<rect x="1325" y="740" width="215" height="80" rx="6" fill="#0d1a2a" stroke="#60a5fa" stroke-width="1.5"/>
+<text x="1432" y="762" text-anchor="middle" fill="#bfdbfe" font-size="13" font-weight="700">db_schema_generator.py</text>
+<text x="1432" y="778" text-anchor="middle" fill="#60a5fa" font-size="10">pipeline/infrastructure/</text>
+<text x="1432" y="792" text-anchor="middle" fill="#60a5fa" font-size="10">extract DB schema</text>
+<text x="1432" y="806" text-anchor="middle" fill="#60a5fa" font-size="10">ERD artifact generation</text>
+
+<!-- nim_client (worker-side): x=1570 y=640 w=190 h=80 -->
+<rect x="1570" y="640" width="190" height="80" rx="6" fill="#170d2e" stroke="#a78bfa" stroke-width="1.5"/>
+<text x="1665" y="664" text-anchor="middle" fill="#c4b5fd" font-size="13" font-weight="700">nim_client.py</text>
+<text x="1665" y="680" text-anchor="middle" fill="#a78bfa" font-size="10">chat/infrastructure/</text>
+<text x="1665" y="694" text-anchor="middle" fill="#a78bfa" font-size="10">NVIDIA NIM LLM calls</text>
+<text x="1665" y="708" text-anchor="middle" fill="#a78bfa" font-size="10">offline inference</text>
+
+<!-- context_retriever: x=1780 y=640 w=195 h=80 -->
+<rect x="1780" y="640" width="195" height="80" rx="6" fill="#170d2e" stroke="#a78bfa" stroke-width="1.5"/>
+<text x="1877" y="664" text-anchor="middle" fill="#c4b5fd" font-size="13" font-weight="700">context_retriever.py</text>
+<text x="1877" y="680" text-anchor="middle" fill="#a78bfa" font-size="10">chat/infrastructure/</text>
+<text x="1877" y="694" text-anchor="middle" fill="#a78bfa" font-size="10">fetch graph context</text>
+<text x="1877" y="708" text-anchor="middle" fill="#a78bfa" font-size="10">Neo4j → prompt context</text>
+
+<!-- chat/pg_repository: x=1995 y=640 w=195 h=80 -->
+<rect x="1995" y="640" width="195" height="80" rx="6" fill="#170d2e" stroke="#a78bfa" stroke-width="1.5"/>
+<text x="2092" y="664" text-anchor="middle" fill="#c4b5fd" font-size="13" font-weight="700">chat/pg_repository.py</text>
+<text x="2092" y="680" text-anchor="middle" fill="#a78bfa" font-size="10">chat/infrastructure/</text>
+<text x="2092" y="694" text-anchor="middle" fill="#a78bfa" font-size="10">persist chat history</text>
+<text x="2092" y="708" text-anchor="middle" fill="#a78bfa" font-size="10">SQLAlchemy async</text>
+
+<!-- docker + infra: x=2210 y=640 w=310 h=80 -->
+<rect x="2210" y="640" width="310" height="80" rx="6" fill="#0e2110" stroke="#22c55e" stroke-width="1.5"/>
+<text x="2365" y="664" text-anchor="middle" fill="#86efac" font-size="13" font-weight="700">docker/ + infrastructure/</text>
+<text x="2365" y="680" text-anchor="middle" fill="#4ade80" font-size="10">docker-compose.yml · override</text>
+<text x="2365" y="694" text-anchor="middle" fill="#4ade80" font-size="10">.env.example · scripts/</text>
+<text x="2365" y="708" text-anchor="middle" fill="#4ade80" font-size="10">seed-db · seed-graph · setup-dev · lint-all</text>
+
+<!-- ========================================================= -->
+<!-- ROW 4 · DATA STORES  y=878 → y=1108  (h=230) -->
+<!-- ========================================================= -->
+<rect x="60" y="878" width="2480" height="230" rx="10" fill="#111827" stroke="#0c2233" stroke-width="2"/>
+<text x="80" y="900" fill="#38bdf8" font-size="13" font-weight="700" letter-spacing="0.8">DATA STORES  ·  External Services</text>
+
+<!-- PostgreSQL/SQLite: x=80 y=912 w=360 h=168 -->
+<rect x="80" y="912" width="360" height="168" rx="8" fill="#071828" stroke="#38bdf8" stroke-width="2"/>
+<text x="260" y="936" text-anchor="middle" fill="#7dd3fc" font-size="14" font-weight="700">PostgreSQL 16  /  SQLite</text>
+<text x="260" y="954" text-anchor="middle" fill="#38bdf8" font-size="10">dev: SQLite (cortex.db)  ·  prod: PostgreSQL 16</text>
+<rect x="96" y="962" width="328" height="28" rx="4" fill="#0a1f30" stroke="#0369a1" stroke-width="1"/>
+<text x="260" y="981" text-anchor="middle" fill="#bae6fd" font-size="11">jobs  (id · status · repo_url · artifact_type · options)</text>
+<rect x="96" y="996" width="328" height="28" rx="4" fill="#0a1f30" stroke="#0369a1" stroke-width="1"/>
+<text x="260" y="1015" text-anchor="middle" fill="#bae6fd" font-size="11">artifacts  (id · job_id FK · content_type · content_inline)</text>
+<rect x="96" y="1030" width="328" height="28" rx="4" fill="#0a1f30" stroke="#0369a1" stroke-width="1"/>
+<text x="260" y="1049" text-anchor="middle" fill="#bae6fd" font-size="11">chat_messages  (session_id · role · content)</text>
+<text x="260" y="1072" text-anchor="middle" fill="#475569" font-size="10">Managed by SQLAlchemy async + Alembic migrations</text>
+
+<!-- Redis: x=460 y=912 w=290 h=168 -->
+<rect x="460" y="912" width="290" height="168" rx="8" fill="#1a0a00" stroke="#f97316" stroke-width="2"/>
+<text x="605" y="936" text-anchor="middle" fill="#fdba74" font-size="14" font-weight="700">Redis 7</text>
+<text x="605" y="954" text-anchor="middle" fill="#f97316" font-size="10">redis://localhost:6379/0</text>
+<rect x="476" y="962" width="258" height="28" rx="4" fill="#120600" stroke="#c2410c" stroke-width="1"/>
+<text x="605" y="981" text-anchor="middle" fill="#fed7aa" font-size="11">Celery task broker</text>
+<rect x="476" y="996" width="258" height="28" rx="4" fill="#120600" stroke="#c2410c" stroke-width="1"/>
+<text x="605" y="1015" text-anchor="middle" fill="#fed7aa" font-size="11">Celery result backend</text>
+<rect x="476" y="1030" width="258" height="28" rx="4" fill="#120600" stroke="#c2410c" stroke-width="1"/>
+<text x="605" y="1049" text-anchor="middle" fill="#fed7aa" font-size="11">Job task queue (analysis jobs)</text>
+
+<!-- Neo4j: x=770 y=912 w=310 h=168 -->
+<rect x="770" y="912" width="310" height="168" rx="8" fill="#001a10" stroke="#34d399" stroke-width="2"/>
+<text x="925" y="936" text-anchor="middle" fill="#6ee7b7" font-size="14" font-weight="700">Neo4j Graph DB</text>
+<text x="925" y="954" text-anchor="middle" fill="#34d399" font-size="10">bolt://localhost:7687  (neo4j / cortexpass)</text>
+<rect x="786" y="962" width="278" height="28" rx="4" fill="#00100a" stroke="#047857" stroke-width="1"/>
+<text x="925" y="981" text-anchor="middle" fill="#a7f3d0" font-size="11">(:Module) · (:Function) · (:Class) nodes</text>
+<rect x="786" y="996" width="278" height="28" rx="4" fill="#00100a" stroke="#047857" stroke-width="1"/>
+<text x="925" y="1015" text-anchor="middle" fill="#a7f3d0" font-size="11">[:IMPORTS] · [:CALLS] · [:DEFINES] edges</text>
+<rect x="786" y="1030" width="278" height="28" rx="4" fill="#00100a" stroke="#047857" stroke-width="1"/>
+<text x="925" y="1049" text-anchor="middle" fill="#a7f3d0" font-size="11">SQLite fallback (sqlite_repository.py)</text>
+
+<!-- GitHub: x=1100 y=912 w=290 h=168 -->
+<rect x="1100" y="912" width="290" height="168" rx="8" fill="#111111" stroke="#94a3b8" stroke-width="2"/>
+<text x="1245" y="936" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="700">GitHub (External)</text>
+<text x="1245" y="954" text-anchor="middle" fill="#94a3b8" font-size="10">GITHUB_TOKEN (optional, offline capable)</text>
+<rect x="1116" y="962" width="258" height="28" rx="4" fill="#0a0a0a" stroke="#475569" stroke-width="1"/>
+<text x="1245" y="981" text-anchor="middle" fill="#cbd5e1" font-size="11">git clone (repo URL)</text>
+<rect x="1116" y="996" width="258" height="28" rx="4" fill="#0a0a0a" stroke="#475569" stroke-width="1"/>
+<text x="1245" y="1015" text-anchor="middle" fill="#cbd5e1" font-size="11">REST API (metadata)</text>
+<rect x="1116" y="1030" width="258" height="28" rx="4" fill="#0a0a0a" stroke="#475569" stroke-width="1"/>
+<text x="1245" y="1049" text-anchor="middle" fill="#cbd5e1" font-size="11">via github_client.py</text>
+
+<!-- NVIDIA NIM: x=1410 y=912 w=300 h=168 -->
+<rect x="1410" y="912" width="300" height="168" rx="8" fill="#0d0825" stroke="#818cf8" stroke-width="2"/>
+<text x="1560" y="936" text-anchor="middle" fill="#c7d2fe" font-size="14" font-weight="700">NVIDIA NIM  (LLM)</text>
+<text x="1560" y="954" text-anchor="middle" fill="#818cf8" font-size="10">NIM_API_KEY  ·  offline LLM inference</text>
+<rect x="1426" y="962" width="268" height="28" rx="4" fill="#070418" stroke="#4338ca" stroke-width="1"/>
+<text x="1560" y="981" text-anchor="middle" fill="#e0e7ff" font-size="11">LLM inference endpoint</text>
+<rect x="1426" y="996" width="268" height="28" rx="4" fill="#070418" stroke="#4338ca" stroke-width="1"/>
+<text x="1560" y="1015" text-anchor="middle" fill="#e0e7ff" font-size="11">chat response generation</text>
+<rect x="1426" y="1030" width="268" height="28" rx="4" fill="#070418" stroke="#4338ca" stroke-width="1"/>
+<text x="1560" y="1049" text-anchor="middle" fill="#e0e7ff" font-size="11">via nim_client.py (chat module)</text>
+
+<!-- File System: x=1730 y=912 w=265 h=168 -->
+<rect x="1730" y="912" width="265" height="168" rx="8" fill="#0d0d00" stroke="#ca8a04" stroke-width="2"/>
+<text x="1862" y="936" text-anchor="middle" fill="#fde68a" font-size="14" font-weight="700">File System</text>
+<text x="1862" y="954" text-anchor="middle" fill="#ca8a04" font-size="10">temporary cloned repos</text>
+<rect x="1746" y="962" width="233" height="28" rx="4" fill="#080800" stroke="#92400e" stroke-width="1"/>
+<text x="1862" y="981" text-anchor="middle" fill="#fef3c7" font-size="11">cloned repo workspace</text>
+<rect x="1746" y="996" width="233" height="28" rx="4" fill="#080800" stroke="#92400e" stroke-width="1"/>
+<text x="1862" y="1015" text-anchor="middle" fill="#fef3c7" font-size="11">artifact storage_path (large)</text>
+<rect x="1746" y="1030" width="233" height="28" rx="4" fill="#080800" stroke="#92400e" stroke-width="1"/>
+<text x="1862" y="1049" text-anchor="middle" fill="#fef3c7" font-size="11">via github_client.py</text>
+
+<!-- CI/CD: x=2015 y=912 w=250 h=168 -->
+<rect x="2015" y="912" width="250" height="168" rx="8" fill="#100011" stroke="#f472b6" stroke-width="2"/>
+<text x="2140" y="936" text-anchor="middle" fill="#fbcfe8" font-size="14" font-weight="700">.github/workflows</text>
+<text x="2140" y="954" text-anchor="middle" fill="#f472b6" font-size="10">GitHub Actions CI/CD</text>
+<rect x="2031" y="962" width="218" height="28" rx="4" fill="#090009" stroke="#9d174d" stroke-width="1"/>
+<text x="2140" y="981" text-anchor="middle" fill="#fce7f3" font-size="11">ci.yml  ·  release.yml</text>
+<rect x="2031" y="996" width="218" height="28" rx="4" fill="#090009" stroke="#9d174d" stroke-width="1"/>
+<text x="2140" y="1015" text-anchor="middle" fill="#fce7f3" font-size="11">security.yml</text>
+<rect x="2031" y="1030" width="218" height="28" rx="4" fill="#090009" stroke="#9d174d" stroke-width="1"/>
+<text x="2140" y="1049" text-anchor="middle" fill="#fce7f3" font-size="11">labels · PR template</text>
+
+<!-- docs/: x=2285 y=912 w=235 h=168 -->
+<rect x="2285" y="912" width="235" height="168" rx="8" fill="#0a1a1a" stroke="#22d3ee" stroke-width="2"/>
+<text x="2402" y="936" text-anchor="middle" fill="#a5f3fc" font-size="14" font-weight="700">docs/</text>
+<text x="2402" y="954" text-anchor="middle" fill="#22d3ee" font-size="10">project documentation</text>
+<rect x="2301" y="962" width="203" height="28" rx="4" fill="#051010" stroke="#0e7490" stroke-width="1"/>
+<text x="2402" y="981" text-anchor="middle" fill="#cffafe" font-size="11">architecture/  ·  api/</text>
+<rect x="2301" y="996" width="203" height="28" rx="4" fill="#051010" stroke="#0e7490" stroke-width="1"/>
+<text x="2402" y="1015" text-anchor="middle" fill="#cffafe" font-size="11">development/  ·  deployment/</text>
+<rect x="2301" y="1030" width="203" height="28" rx="4" fill="#051010" stroke="#0e7490" stroke-width="1"/>
+<text x="2402" y="1049" text-anchor="middle" fill="#cffafe" font-size="11">contributing/security.md</text>
+
+<!-- ========================================================= -->
+<!-- ARROWS — all orthogonal (elbow paths, no diagonals) -->
+<!-- Uses waypoints: go down to mid-gap, then across, then down -->
+<!-- Gap between Row1 & Row2: y=278–308 → midpoint y=293 -->
+<!-- Gap between Row2 & Row3: y=578–608 → midpoint y=593 -->
+<!-- Gap between Row3 & Row4: y=848–878 → midpoint y=863 -->
+<!-- ========================================================= -->
+
+<!-- ── ROW 1 → ROW 2: lib/api → FastAPI ── -->
+<!-- lib/api center-bottom = (190, 238) → down to y=293 → across to x=2355 → down to y=308 -->
+<path d="M190,238 L190,293 L2355,293 L2355,308" fill="none" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arr-p)"/>
+<text x="1280" y="289" text-anchor="middle" fill="#a78bfa" font-size="10">HTTP /api/v1  (REST)</text>
+
+<!-- ── ROW 2 → ROW 3: jobs router → enqueue Celery task ── -->
+<!-- jobs module bottom-center = (802, 530) → down to y=593 → left to x=612 → down to y=608 -->
+<path d="M802,530 L802,593 L612,593 L612,608" fill="none" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-o)"/>
+<text x="706" y="589" text-anchor="middle" fill="#fb923c" font-size="10">enqueue analysis task</text>
+
+<!-- ── ROW 3 internal: Redis → celery_app → celery_tasks → orchestrator → stages ── -->
+<line x1="270" y1="680" x2="300" y2="680" stroke="#fb923c" stroke-width="2" marker-end="url(#arr-o)"/>
+<line x1="485" y1="680" x2="515" y2="680" stroke="#fb923c" stroke-width="2" marker-end="url(#arr-o)"/>
+<line x1="710" y1="680" x2="740" y2="680" stroke="#60a5fa" stroke-width="2" marker-end="url(#arr-b)"/>
+<line x1="935" y1="680" x2="965" y2="680" stroke="#60a5fa" stroke-width="2" marker-end="url(#arr-b)"/>
+<!-- orchestrator references domain interfaces -->
+<line x1="1150" y1="680" x2="1180" y2="680" stroke="#34d399" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr-g)"/>
+
+<!-- ── ROW 3: stages dispatches to sub-components (vertical, clean) ── -->
+<!-- stages bottom (1057,720) → down to y=740 for each sub-tool -->
+<line x1="172" y1="720" x2="172" y2="740" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arr-b)"/>
+<line x1="380" y1="720" x2="380" y2="740" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arr-b)"/>
+<line x1="587" y1="720" x2="587" y2="740" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arr-b)"/>
+<line x1="792" y1="720" x2="792" y2="740" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arr-b)"/>
+<line x1="1002" y1="720" x2="1002" y2="740" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arr-b)"/>
+<line x1="1212" y1="720" x2="1212" y2="740" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arr-b)"/>
+<line x1="1432" y1="720" x2="1432" y2="740" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arr-b)"/>
+<!-- label showing stages drives sub-components -->
+<text x="1057" y="733" text-anchor="middle" fill="#60a5fa" font-size="9">dispatches →</text>
+<!-- horizontal connector from stages (1057,720) to first sub-tool group -->
+<path d="M1057,720 L1057,731 L172,731 L172,740" fill="none" stroke="#60a5fa" stroke-width="1" stroke-dasharray="3,2"/>
+<path d="M1057,720 L1057,731 L380,731 L380,740" fill="none" stroke="#60a5fa" stroke-width="1" stroke-dasharray="3,2"/>
+<path d="M1057,720 L1057,731 L587,731 L587,740" fill="none" stroke="#60a5fa" stroke-width="1" stroke-dasharray="3,2"/>
+<path d="M1057,720 L1057,731 L792,731 L792,740" fill="none" stroke="#60a5fa" stroke-width="1" stroke-dasharray="3,2"/>
+<path d="M1057,720 L1057,731 L1002,731 L1002,740" fill="none" stroke="#60a5fa" stroke-width="1" stroke-dasharray="3,2"/>
+<path d="M1057,720 L1057,731 L1212,731" fill="none" stroke="#60a5fa" stroke-width="1" stroke-dasharray="3,2"/>
+<path d="M1057,720 L1057,731 L1432,731 L1432,740" fill="none" stroke="#60a5fa" stroke-width="1" stroke-dasharray="3,2"/>
+
+<!-- ── ROW 3 → ROW 4: orthogonal elbow paths ── -->
+<!-- github_client → GitHub (x=1245) via gap midpoint y=863 -->
+<path d="M172,820 L172,863 L1245,863 L1245,912" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+<text x="700" y="858" text-anchor="middle" fill="#94a3b8" font-size="10">git clone / REST API</text>
+
+<!-- github_client → File System (x=1862) -->
+<path d="M172,820 L172,855 L1862,855 L1862,912" fill="none" stroke="#ca8a04" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+
+<!-- artifact_generator → PostgreSQL (x=260) -->
+<path d="M1002,820 L1002,863 L260,863 L260,912" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-b)"/>
+<text x="620" y="876" text-anchor="middle" fill="#38bdf8" font-size="10">store artifacts</text>
+
+<!-- graph_builder → Neo4j (x=925) -->
+<path d="M1212,820 L1212,863 L925,863 L925,912" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#arr-g)"/>
+<text x="1070" y="876" text-anchor="middle" fill="#34d399" font-size="10">write graph</text>
+
+<!-- db_schema_generator → PostgreSQL (secondary write) -->
+<path d="M1432,820 L1432,863 L260,863" fill="none" stroke="#38bdf8" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arr-b)"/>
+
+<!-- celery_tasks → PostgreSQL (update job status) -->
+<path d="M612,720 L612,863 L260,863" fill="none" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr-o)"/>
+<text x="420" y="843" text-anchor="middle" fill="#fb923c" font-size="10">update job status</text>
+
+<!-- nim_client → NVIDIA NIM (x=1560) -->
+<path d="M1665,720 L1665,863 L1560,863 L1560,912" fill="none" stroke="#818cf8" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-p)"/>
+<text x="1612" y="858" text-anchor="middle" fill="#818cf8" font-size="10">LLM call</text>
+
+<!-- chat/pg_repository → PostgreSQL (x=260) -->
+<path d="M2092,720 L2092,863 L260,863" fill="none" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr-p)"/>
+<text x="1200" y="870" text-anchor="middle" fill="#a78bfa" font-size="10">persist chat messages</text>
+
+<!-- ── ROW 2 → ROW 4: direct module → DB (via gap y=593 then separate y=863) ── -->
+<!-- jobs/pg_repository → Redis (enqueue): already covered above -->
+<!-- graph/neo4j_repo → Neo4j: from graph module bottom (1322,530) → y=593 → x=925 → y=863 → y=912 -->
+<path d="M1322,530 L1322,593 L925,593" fill="none" stroke="#34d399" stroke-width="1" stroke-dasharray="3,2"/>
+<!-- (completes via graph_builder path above) -->
+
+<!-- ========================================================= -->
+<!-- LEGEND  y=1120 → y=1240 -->
+<!-- ========================================================= -->
+<rect x="60" y="1120" width="2480" height="120" rx="10" fill="#0d1117" stroke="#1e293b" stroke-width="1.5"/>
+<text x="80" y="1144" fill="#94a3b8" font-size="13" font-weight="700">LEGEND</text>
+
+<!-- line samples -->
+<line x1="80" y1="1170" x2="160" y2="1170" stroke="#60a5fa" stroke-width="2" marker-end="url(#arr-b)"/>
+<text x="168" y="1174" fill="#94a3b8" font-size="11">HTTP / sync call</text>
+
+<line x1="320" y1="1170" x2="400" y2="1170" stroke="#60a5fa" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arr-b)"/>
+<text x="408" y="1174" fill="#94a3b8" font-size="11">Async / DB write</text>
+
+<line x1="570" y1="1170" x2="650" y2="1170" stroke="#34d399" stroke-width="2" marker-end="url(#arr-g)"/>
+<text x="658" y="1174" fill="#94a3b8" font-size="11">Neo4j graph write</text>
+
+<line x1="830" y1="1170" x2="910" y2="1170" stroke="#fb923c" stroke-width="2" marker-end="url(#arr-o)"/>
+<text x="918" y="1174" fill="#94a3b8" font-size="11">Redis / Celery task</text>
+
+<line x1="1100" y1="1170" x2="1180" y2="1170" stroke="#a78bfa" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arr-p)"/>
+<text x="1188" y="1174" fill="#94a3b8" font-size="11">Chat / LLM call</text>
+
+<line x1="1360" y1="1170" x2="1440" y2="1170" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+<text x="1448" y="1174" fill="#94a3b8" font-size="11">External service</text>
+
+<!-- colour boxes -->
+<rect x="80" y="1196" width="14" height="14" rx="2" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1"/>
+<text x="100" y="1208" fill="#94a3b8" font-size="11">Next.js Pages</text>
+
+<rect x="230" y="1196" width="14" height="14" rx="2" fill="#0c2233" stroke="#06b6d4" stroke-width="1"/>
+<text x="250" y="1208" fill="#94a3b8" font-size="11">Frontend Features / API Client</text>
+
+<rect x="490" y="1196" width="14" height="14" rx="2" fill="#0f2110" stroke="#4ade80" stroke-width="1"/>
+<text x="510" y="1208" fill="#94a3b8" font-size="11">UI Components</text>
+
+<rect x="660" y="1196" width="14" height="14" rx="2" fill="#130e28" stroke="#7c3aed" stroke-width="1"/>
+<text x="680" y="1208" fill="#94a3b8" font-size="11">Backend Modules (Clean Arch)</text>
+
+<rect x="940" y="1196" width="14" height="14" rx="2" fill="#0e2218" stroke="#10b981" stroke-width="1"/>
+<text x="960" y="1208" fill="#94a3b8" font-size="11">Infra / Config / Schema</text>
+
+<rect x="1130" y="1196" width="14" height="14" rx="2" fill="#1f0f00" stroke="#fb923c" stroke-width="1"/>
+<text x="1150" y="1208" fill="#94a3b8" font-size="11">Celery Worker</text>
+
+<rect x="1290" y="1196" width="14" height="14" rx="2" fill="#0d1a2a" stroke="#60a5fa" stroke-width="1"/>
+<text x="1310" y="1208" fill="#94a3b8" font-size="11">Pipeline Stages</text>
+
+<rect x="1470" y="1196" width="14" height="14" rx="2" fill="#170d2e" stroke="#a78bfa" stroke-width="1"/>
+<text x="1490" y="1208" fill="#94a3b8" font-size="11">Chat Infrastructure</text>
+
+<rect x="1660" y="1196" width="14" height="14" rx="2" fill="#071828" stroke="#38bdf8" stroke-width="1"/>
+<text x="1680" y="1208" fill="#94a3b8" font-size="11">PostgreSQL / SQLite</text>
+
+<rect x="1850" y="1196" width="14" height="14" rx="2" fill="#1a0a00" stroke="#f97316" stroke-width="1"/>
+<text x="1870" y="1208" fill="#94a3b8" font-size="11">Redis</text>
+
+<rect x="1960" y="1196" width="14" height="14" rx="2" fill="#001a10" stroke="#34d399" stroke-width="1"/>
+<text x="1980" y="1208" fill="#94a3b8" font-size="11">Neo4j</text>
+
+<rect x="2080" y="1196" width="14" height="14" rx="2" fill="#0d0825" stroke="#818cf8" stroke-width="1"/>
+<text x="2100" y="1208" fill="#94a3b8" font-size="11">NVIDIA NIM LLM</text>
+
+<rect x="2270" y="1196" width="14" height="14" rx="2" fill="#100011" stroke="#f472b6" stroke-width="1"/>
+<text x="2290" y="1208" fill="#94a3b8" font-size="11">CI/CD</text>
+
+<!-- footer -->
+<text x="1300" y="1260" text-anchor="middle" fill="#334155" font-size="11">
+  Cortex · Fully Offline Engineering Reasoning Engine · Architecture · All rows horizontal · Arrows orthogonal
+</text>
+</svg>

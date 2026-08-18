@@ -11,6 +11,7 @@ from cortex.jobs.domain.entities import JobStatus, ArtifactType
 from cortex.artifacts.domain.entities import ArtifactContentType
 from cortex.graph.domain.entities import NodeType, RelationshipType
 from cortex.chat.domain.entities import MessageRole
+from cortex.memory.domain.entities import RepositoryFact
 
 
 class Base(DeclarativeBase):
@@ -155,3 +156,42 @@ class ChatMessageModel(Base):
     session: Mapped["ChatSessionModel"] = relationship("ChatSessionModel", back_populates="messages")
 
     __table_args__ = (Index("ix_chat_messages_session_created", "session_id", "created_at"),)
+
+class RepositorySummaryModel(Base):
+    """Accumulated cross-job knowledge about a single repository, keyed
+    by repo_url (not job_id) so repeat analyses build up history instead
+    of starting from zero each time. NEW — Repository Memory feature."""
+    __tablename__ = "repository_summaries"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    repo_url: Mapped[str] = mapped_column(String(500), nullable=False, unique=True, index=True)
+    repo_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    last_job_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    analysis_count: Mapped[int] = mapped_column(nullable=False, default=1)
+    overall_score: Mapped[int | None] = mapped_column(nullable=True)
+    overall_grade: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    dominant_language: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    total_files: Mapped[int] = mapped_column(nullable=False, default=0)
+    total_classes: Mapped[int] = mapped_column(nullable=False, default=0)
+    total_functions: Mapped[int] = mapped_column(nullable=False, default=0)
+    headline: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now, onupdate=_now)
+
+
+class RepositoryFactModel(Base):
+    """One durable, searchable fact extracted from a completed analysis
+    (e.g. "UserManager is a god class with 12 methods"). NEW — Repository
+    Memory feature. Facts are the unit of keyword/semantic search."""
+    __tablename__ = "repository_facts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    repo_url: Mapped[str] = mapped_column(String(500), nullable=False, index=True)
+    job_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    category: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    source_symbol: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    source_file: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now, index=True)
+
+    __table_args__ = (Index("ix_repo_facts_repo_category", "repo_url", "category"),)

@@ -15,6 +15,7 @@ const mockJob: Job = {
   repo_url: 'https://github.com/cortex-ai/cortex',
   created_at: '2024-06-01T10:00:00Z',
   updated_at: '2024-06-01T10:05:00Z',
+  is_terminal: true,
 };
 
 describe('JobCard', () => {

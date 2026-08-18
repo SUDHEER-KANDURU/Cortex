@@ -46,6 +46,8 @@ interface TabsTriggerProps
   extends React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger> {
   /** layoutId prefix — use the same prefix across all triggers in a TabsList */
   layoutGroupId?: string;
+  /** Radix sets this attribute at runtime for the active/inactive state */
+  'data-state'?: 'active' | 'inactive';
 }
 
 const TabsTrigger = React.forwardRef<

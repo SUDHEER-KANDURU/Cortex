@@ -379,30 +379,24 @@ class GraphBuilder:
         self,
         parsed_files: list[ParsedFile],
     ) -> list[str]:
-        """Detect modules — uses the last meaningful directory segment."""
-        modules: set[str] = set()
-        for f in parsed_files:
-            parts = f.path.split("/")
-            # For Java: find the package folder after 'dosebuddy' or 'java'
-            meaningful_dirs = {
-                "controller", "service", "repository",
-                "model", "security", "config", "dto",
-                "domain", "application", "infrastructure",
-                "presentation", "shared", "pipeline",
-            }
-            found = False
-            for i, part in enumerate(parts):
-                if part in meaningful_dirs:
-                    modules.add("/".join(parts[:i + 1]))
-                    found = True
-                    break
-            if not found:
-                if len(parts) >= 3:
-                    modules.add("/".join(parts[:3]))
-                elif len(parts) >= 2:
-                    modules.add("/".join(parts[:2]))
+        """Detect repository-relative module paths, including root folders.
 
-        return sorted(modules)[:10]
+        The production graph expects module boundaries to include the repo root
+        and the top-level directory segments, not only the deepest package folder.
+        This keeps the graph hierarchical and matches the module expectations in
+        the tests.
+        """
+        modules: set[str] = set()
+        for parsed_file in parsed_files:
+            parts = [part for part in self._normalize_path(parsed_file.path).split("/") if part]
+            if not parts:
+                continue
+
+            max_depth = min(len(parts) - 1, 4)
+            for end in range(1, max_depth + 1):
+                modules.add("/".join(parts[:end]))
+
+        return sorted(modules)
 
     def _get_parent_module_path(self, module_path: str) -> str | None:
         """Return the parent directory module path for a module."""

@@ -385,8 +385,18 @@ class InsightsEngine:
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.CRITICAL,
                     title="Critical cyclomatic complexity",
-                    description=f"`{name}` has cyclomatic complexity {cyclomatic} (threshold: {int(T.CYCLOMATIC_CRITICAL.value)}). Statistically untestable.",
-                    recommendation="Decompose this function. Each branch path needs its own test — at {cyclomatic} paths this is unrealistic.",
+                    description=(
+                        f"This function contains {cyclomatic} independent execution paths — "
+                        f"meaning a complete test suite needs at least {cyclomatic} test cases "
+                        f"just to cover every branch once. McCabe's research found that functions "
+                        f"above 15 paths have statistically higher defect rates and are "
+                        f"effectively impossible to fully test."
+                    ),
+                    recommendation=(
+                        f"Break this function into smaller pieces, each handling one decision. "
+                        f"Start by identifying the largest `if/elif` chain or loop and extracting "
+                        f"it into a named helper. Aim for each piece to have complexity ≤ 5."
+                    ),
                     file_path=filepath, line_start=line_no, line_end=line_no + lines,
                     affected_symbol=name,
                     evidence={"cyclomatic": cyclomatic, "threshold": int(T.CYCLOMATIC_CRITICAL.value), "lines": lines},
@@ -397,8 +407,17 @@ class InsightsEngine:
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.HIGH,
                     title="High cyclomatic complexity",
-                    description=f"`{name}` has cyclomatic complexity {cyclomatic} (threshold: {int(T.CYCLOMATIC_HIGH.value)}).",
-                    recommendation="Refactor by extracting conditions and early returns to reduce branching.",
+                    description=(
+                        f"This function has {cyclomatic} independent execution paths. "
+                        f"Functions above 10 are harder to read, test, and safely modify — "
+                        f"each new branch multiplies the number of states a reader must track "
+                        f"simultaneously to understand what the function does."
+                    ),
+                    recommendation=(
+                        "Replace nested conditionals with early returns to flatten the structure. "
+                        "Extract each logical step into a clearly named helper function. "
+                        "If several branches do similar things, consider a lookup table or strategy pattern."
+                    ),
                     file_path=filepath, line_start=line_no, line_end=line_no + lines,
                     affected_symbol=name,
                     evidence={"cyclomatic": cyclomatic, "threshold": int(T.CYCLOMATIC_HIGH.value)},
@@ -409,8 +428,16 @@ class InsightsEngine:
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.MEDIUM,
                     title="Moderate cyclomatic complexity",
-                    description=f"`{name}` has cyclomatic complexity {cyclomatic}.",
-                    recommendation="Consider splitting into smaller functions with focused responsibilities.",
+                    description=(
+                        f"This function has {cyclomatic} decision points, which is above the "
+                        f"recommended limit of 5. It can still be understood, but adding more "
+                        f"logic here will quickly push it into hard-to-maintain territory."
+                    ),
+                    recommendation=(
+                        "Review whether each condition is truly necessary at this level. "
+                        "Consider extracting the body of any loop or `else` branch into a "
+                        "separate function with a descriptive name."
+                    ),
                     file_path=filepath, line_start=line_no, line_end=line_no + lines,
                     affected_symbol=name,
                     evidence={"cyclomatic": cyclomatic},
@@ -419,15 +446,26 @@ class InsightsEngine:
 
             # Also flag nesting depth independently
             if _int(fn, "nesting_depth") >= T.NESTING_CRITICAL.value:
+                nd = _int(fn, "nesting_depth")
                 issues.append(CodeIssue(
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.HIGH,
                     title="Deep nesting",
-                    description=f"`{name}` has nesting depth {_int(fn, 'nesting_depth')} (threshold: {int(T.NESTING_CRITICAL.value)}).",
-                    recommendation="Use early returns, extract nested blocks into helper functions.",
+                    description=(
+                        f"This function reaches {nd} levels of indentation. "
+                        f"Deep nesting forces readers to hold multiple conditions in their "
+                        f"head at once just to understand what a single line does. "
+                        f"Research consistently links nesting depth above 3 to higher bug rates."
+                    ),
+                    recommendation=(
+                        "Invert conditions to return early instead of nesting deeper "
+                        "(\"guard clauses\"). Extract the body of deeply nested blocks into "
+                        "helper functions. If nesting comes from a loop inside a loop, "
+                        "consider extracting the inner loop."
+                    ),
                     file_path=filepath, line_start=line_no, line_end=line_no + lines,
                     affected_symbol=name,
-                    evidence={"nesting_depth": _int(fn, "nesting_depth"), "threshold": int(T.NESTING_CRITICAL.value)},
+                    evidence={"nesting_depth": nd, "threshold": int(T.NESTING_CRITICAL.value)},
                     confidence=0.95,
                 ))
 
@@ -453,9 +491,21 @@ class InsightsEngine:
                 issues.append(CodeIssue(
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.HIGH,
-                    title="God function — multiple complexity signals",
-                    description=f"`{name}` shows {lines} lines and {eff_params} parameters with composite complexity score {composite:.2f}.",
-                    recommendation="Extract logical blocks into named helpers. Each function should have one clearly named responsibility.",
+                    title="God function — doing too much",
+                    description=(
+                        f"This function scores {composite:.2f} on a combined complexity index "
+                        f"that weighs size ({lines} lines), branching, parameter count ({eff_params}), "
+                        f"nesting depth, and the number of other functions it calls. "
+                        f"A score above 0.55 means multiple independent warning signals fired "
+                        f"at once — a strong indicator the function has grown beyond a single "
+                        f"responsibility and will become progressively harder to change safely."
+                    ),
+                    recommendation=(
+                        "Identify the distinct jobs this function does — give each one a name. "
+                        "Extract each named job into its own function. The original function "
+                        "should then read like a summary: calling helpers in sequence, "
+                        "with no logic of its own beyond orchestration."
+                    ),
                     file_path=filepath, line_start=line_no, line_end=line_no + lines,
                     affected_symbol=name, evidence=evidence,
                     confidence=min(1.0, 0.5 + composite * 0.5),
@@ -465,9 +515,18 @@ class InsightsEngine:
                 issues.append(CodeIssue(
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.MEDIUM,
-                    title="Large function",
-                    description=f"`{name}` is {lines} lines with {eff_params} parameters.",
-                    recommendation="Consider extracting helper functions for distinct steps.",
+                    title="Large function — approaching complexity limit",
+                    description=(
+                        f"At {lines} lines with {eff_params} parameters, this function is "
+                        f"large enough that a new reader will need to scroll to understand it. "
+                        f"It hasn't crossed the god-function threshold yet, but adding more "
+                        f"logic here will make future changes risky."
+                    ),
+                    recommendation=(
+                        "Look for steps that have a clear start and end — loops, validation "
+                        "blocks, transformation logic — and extract each into a named helper. "
+                        "Even moving 10–15 lines out can dramatically improve readability."
+                    ),
                     file_path=filepath, line_start=line_no, line_end=line_no + lines,
                     affected_symbol=name, evidence=evidence,
                     confidence=0.8,
@@ -480,8 +539,18 @@ class InsightsEngine:
                         category=IssueCategory.COMPLEXITY,
                         severity=IssueSeverity.HIGH,
                         title="Too many parameters",
-                        description=f"`{name}` takes {eff_params} parameters (threshold: {int(T.FN_PARAMS_CRITICAL.value)}).",
-                        recommendation="Group related parameters into a dataclass or options object.",
+                        description=(
+                            f"This function takes {eff_params} parameters. Functions with more "
+                            f"than 5–7 parameters are hard to call correctly — callers must "
+                            f"remember the order, meaning, and valid range of every argument. "
+                            f"This also makes the function hard to mock in tests."
+                        ),
+                        recommendation=(
+                            "Group related parameters into a dataclass or options object. "
+                            "If several parameters always appear together, they likely belong "
+                            "in a single config or context object. If the function does different "
+                            "things based on which params are set, consider splitting it."
+                        ),
                         file_path=filepath, line_start=line_no, line_end=line_no,
                         affected_symbol=name,
                         evidence={"param_count": eff_params, "threshold": int(T.FN_PARAMS_CRITICAL.value)},
@@ -522,9 +591,20 @@ class InsightsEngine:
                 issues.append(CodeIssue(
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.HIGH,
-                    title="God class — Single Responsibility Principle violated",
-                    description=f"`{name}` has {', '.join(detail) if detail else 'unusually many responsibilities'}.",
-                    recommendation="Apply SRP: split into focused classes. Extract services, validators, or helpers.",
+                    title="God class — too many responsibilities",
+                    description=(
+                        f"This class has {', '.join(detail) if detail else 'an unusually large surface area'}. "
+                        f"A class this large almost certainly handles more than one concern — "
+                        f"meaning a change to one responsibility risks breaking another, "
+                        f"and the class is difficult to test in isolation. "
+                        f"This is the most common symptom of the Single Responsibility Principle being violated."
+                    ),
+                    recommendation=(
+                        "List every distinct verb this class does (validate, persist, notify, transform...). "
+                        "Each distinct verb is a candidate for its own class. "
+                        "Extract services, validators, and data-mappers first — "
+                        "they tend to be the easiest to pull out without breaking things."
+                    ),
                     file_path=filepath, line_start=line_no, line_end=line_no + cls_lines,
                     affected_symbol=name, evidence=evidence,
                     confidence=0.85,
@@ -534,9 +614,18 @@ class InsightsEngine:
                 issues.append(CodeIssue(
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.MEDIUM,
-                    title="Large class",
-                    description=f"`{name}` has {methods} methods.",
-                    recommendation="Consider splitting responsibilities. Aim for <10 public methods.",
+                    title="Large class — starting to accumulate responsibilities",
+                    description=(
+                        f"This class has {methods} public methods. While not yet at god-class "
+                        f"level, a class with this many methods is often doing more than one "
+                        f"thing. Every new method added now increases the risk of unintended "
+                        f"interactions between responsibilities."
+                    ),
+                    recommendation=(
+                        "Review the method list and group them by what concept they operate on. "
+                        "If two groups emerge that never call each other's methods, "
+                        "they likely belong in separate classes."
+                    ),
                     file_path=filepath, line_start=line_no, line_end=line_no + cls_lines,
                     affected_symbol=name, evidence=evidence,
                     confidence=0.75,
@@ -659,9 +748,20 @@ class InsightsEngine:
                 issues.append(CodeIssue(
                     category=IssueCategory.COUPLING,
                     severity=IssueSeverity.HIGH,
-                    title="High efferent coupling (fan-out)",
-                    description=f"`{label}` imports {ce} internal modules (threshold: {int(T.FANOUT_CRITICAL.value)}).",
-                    recommendation="Apply Facade or Mediator. Consider dependency injection to reduce direct references.",
+                    title="High efferent coupling — too many outgoing dependencies",
+                    description=(
+                        f"This file directly imports {ce} other internal modules. "
+                        f"High fan-out means this file is tightly coupled to many parts of "
+                        f"the codebase — changes anywhere in those {ce} modules may require "
+                        f"changes here too, and this file cannot be understood or tested "
+                        f"without understanding all of its dependencies."
+                    ),
+                    recommendation=(
+                        "Introduce a Facade or service layer that consolidates related "
+                        "imports behind a single interface. Use dependency injection to "
+                        "receive collaborators rather than importing them directly — "
+                        "this makes the dependencies explicit and easy to swap in tests."
+                    ),
                     file_path=filepath, affected_symbol=label,
                     evidence={"efferent_coupling": ce, "threshold": int(T.FANOUT_CRITICAL.value)},
                     confidence=0.90,
@@ -671,8 +771,16 @@ class InsightsEngine:
                     category=IssueCategory.COUPLING,
                     severity=IssueSeverity.MEDIUM,
                     title="Elevated efferent coupling",
-                    description=f"`{label}` imports {ce} internal modules.",
-                    recommendation="Review whether all dependencies are necessary.",
+                    description=(
+                        f"This file imports from {ce} other internal modules, which is above "
+                        f"the recommended limit. The more modules a file depends on directly, "
+                        f"the harder it becomes to change any one of them without ripple effects."
+                    ),
+                    recommendation=(
+                        "Review each import and ask whether it's truly needed at this level. "
+                        "If several imports serve a single purpose, wrap them in a helper module "
+                        "so this file only sees one dependency instead of many."
+                    ),
                     file_path=filepath, affected_symbol=label,
                     evidence={"efferent_coupling": ce},
                     confidence=0.75,
@@ -683,9 +791,20 @@ class InsightsEngine:
                 issues.append(CodeIssue(
                     category=IssueCategory.COUPLING,
                     severity=IssueSeverity.MEDIUM,
-                    title="Critical dependency hub (high fan-in)",
-                    description=f"`{label}` is imported by {ca} files. Changes have wide blast radius.",
-                    recommendation="Freeze this file's public interface. Add comprehensive tests. Document invariants.",
+                    title="Critical dependency hub — wide blast radius",
+                    description=(
+                        f"This file is imported by {ca} other files across the codebase. "
+                        f"That makes it a critical hub: any breaking change to its public "
+                        f"interface — a renamed function, a changed return type, a removed "
+                        f"constant — will require fixes in up to {ca} other places simultaneously."
+                    ),
+                    recommendation=(
+                        "Treat this file's public interface as frozen. "
+                        "Add comprehensive tests before touching it. "
+                        "Document exactly what it exports and the contract each export guarantees. "
+                        "If it has grown to serve too many consumers, consider splitting it "
+                        "so unrelated consumers can be decoupled."
+                    ),
                     file_path=filepath, affected_symbol=label,
                     evidence={"afferent_coupling": ca, "threshold": int(T.FANIN_CRITICAL.value)},
                     confidence=0.85,
@@ -759,8 +878,18 @@ class InsightsEngine:
                     category=IssueCategory.SIZE,
                     severity=IssueSeverity.HIGH,
                     title="Oversized source file",
-                    description=f"`{label}` is {lines} lines (threshold: {int(T.FILE_LINES_CRITICAL.value)}).",
-                    recommendation="Split into focused modules by responsibility.",
+                    description=(
+                        f"This file is {lines} lines long. Files this large are difficult to "
+                        f"navigate, tend to accumulate unrelated responsibilities over time, "
+                        f"and produce larger, harder-to-review pull requests. "
+                        f"SonarQube's default quality gate flags files above 500 lines."
+                    ),
+                    recommendation=(
+                        "Look for natural seams in the file — groups of functions that only "
+                        "call each other, or distinct data types defined together. "
+                        "Each seam is a candidate for its own module. "
+                        "Split by responsibility, not by file size alone."
+                    ),
                     file_path=filepath, affected_symbol=label,
                     evidence={"lines": lines, "threshold": int(T.FILE_LINES_CRITICAL.value)},
                     confidence=0.90,
@@ -771,8 +900,16 @@ class InsightsEngine:
                     category=IssueCategory.SIZE,
                     severity=IssueSeverity.LOW,
                     title="Large file — approaching split threshold",
-                    description=f"`{label}` is {lines} lines.",
-                    recommendation="Consider splitting if complexity grows.",
+                    description=(
+                        f"At {lines} lines this file is not yet critical, but it is large "
+                        f"enough that the next feature added here should trigger a review "
+                        f"of whether the file should be split."
+                    ),
+                    recommendation=(
+                        "No action needed now, but keep an eye on growth. "
+                        "If you find yourself adding another class or a second major "
+                        "utility group here, that's the signal to split."
+                    ),
                     file_path=filepath, affected_symbol=label,
                     evidence={"lines": lines},
                     confidence=0.80,
@@ -784,8 +921,19 @@ class InsightsEngine:
                     category=IssueCategory.SIZE,
                     severity=IssueSeverity.MEDIUM,
                     title="Multiple classes in one file",
-                    description=f"`{label}` defines {cls_count} classes (threshold: {int(T.CLASSES_PER_FILE_CRITICAL.value)}).",
-                    recommendation="One primary class per file is standard in all major style guides.",
+                    description=(
+                        f"This file defines {cls_count} classes. All major style guides "
+                        f"(Google, Airbnb, PEP 8) recommend one primary class per file. "
+                        f"When multiple classes share a file, it becomes unclear which is "
+                        f"the primary concern, and changes to one class can accidentally "
+                        f"affect the others."
+                    ),
+                    recommendation=(
+                        "Move each non-primary class to its own file. "
+                        "Small helper classes used only by one other class can stay "
+                        "as an exception, but anything with more than a few methods "
+                        "deserves its own file."
+                    ),
                     file_path=filepath, affected_symbol=label,
                     evidence={"class_count": cls_count},
                     confidence=0.85,
@@ -931,9 +1079,22 @@ class InsightsEngine:
             issues.append(CodeIssue(
                 category=IssueCategory.ARCHITECTURE,
                 severity=sev,
-                title=f"Circular dependency ({len(scc)}-node cycle)",
-                description=f"Import cycle of {len(scc)} files: {path_str}",
-                recommendation="Break cycles by extracting shared interfaces to a separate module, or inverting dependencies using the Dependency Inversion Principle.",
+                title=f"Circular dependency — {len(scc)} files in a cycle",
+                description=(
+                    f"These {len(scc)} files import each other in a loop: {path_str}. "
+                    f"Circular imports mean none of these files can be loaded, tested, "
+                    f"or reused independently — they are permanently fused together. "
+                    f"This also prevents any of them from being moved to a shared library "
+                    f"without dragging the entire cycle along."
+                ),
+                recommendation=(
+                    "Identify what the files in the cycle share — it's usually a type, "
+                    "constant, or small interface. Extract that shared thing into a new "
+                    "module that none of the cycle members import from each other. "
+                    "Alternatively, apply the Dependency Inversion Principle: "
+                    "define an abstract interface in the lower-level module and have "
+                    "the higher-level module implement it."
+                ),
                 file_path=node_path.get(scc[0], ""),
                 affected_symbol=path_str,
                 evidence={
@@ -953,8 +1114,19 @@ class InsightsEngine:
                 category=IssueCategory.ARCHITECTURE,
                 severity=IssueSeverity.MEDIUM,
                 title="Low abstraction coverage",
-                description=f"Only {round(abstraction_r*100)}% of classes are abstract ({len(abstract_cls)}/{len(src_classes)}).",
-                recommendation="Define interfaces or ABCs for core domain concepts. Program to abstractions, not concretions.",
+                description=(
+                    f"Only {round(abstraction_r*100)}% of classes ({len(abstract_cls)} out of "
+                    f"{len(src_classes)}) are abstract. A codebase with few abstractions is "
+                    f"hard to extend — adding a new implementation requires modifying existing "
+                    f"callers rather than just plugging in a new class. It also makes testing "
+                    f"harder because you cannot easily swap real implementations for fakes."
+                ),
+                recommendation=(
+                    "Identify the core operations in your domain (store, notify, validate, render) "
+                    "and define an abstract interface or protocol for each. "
+                    "Concrete classes implement the interface; callers depend on the interface. "
+                    "Start with the most-imported modules — those are the highest-value abstractions."
+                ),
                 affected_symbol="codebase",
                 evidence={"abstract_classes": len(abstract_cls), "total_classes": len(src_classes)},
                 confidence=0.75,
@@ -974,9 +1146,22 @@ class InsightsEngine:
             issues.append(CodeIssue(
                 category=IssueCategory.ARCHITECTURE,
                 severity=IssueSeverity.MEDIUM,
-                title="Poor modularisation",
-                description=f"{n_files} source files across only {n_modules} top-level packages.",
-                recommendation="Organise files into sub-packages by responsibility (e.g. domain/, application/, infrastructure/).",
+                title="Poor modularisation — flat file structure",
+                description=(
+                    f"This codebase has {n_files} source files spread across only "
+                    f"{n_modules} top-level package{'s' if n_modules != 1 else ''}. "
+                    f"A flat structure means every file is in the same namespace, "
+                    f"making it hard to understand what belongs together, hard to "
+                    f"enforce boundaries between concerns, and harder to onboard "
+                    f"new contributors who need a mental map of the codebase."
+                ),
+                recommendation=(
+                    "Group files by responsibility into sub-packages. "
+                    "A clean split for most backends is domain/ (core types), "
+                    "application/ (use cases), infrastructure/ (databases, APIs), "
+                    "and presentation/ (routes, controllers). "
+                    "Even just separating domain types from I/O code is a big improvement."
+                ),
                 evidence={"files": n_files, "modules": n_modules},
                 confidence=0.70,
             ))
@@ -999,8 +1184,20 @@ class InsightsEngine:
                     category=IssueCategory.ARCHITECTURE,
                     severity=IssueSeverity.MEDIUM,
                     title="Deep inheritance chain",
-                    description=f"`{cls.label}` has inheritance depth {d} (threshold: {int(T.INHERIT_DEPTH_CRITICAL.value)}).",
-                    recommendation="Prefer composition over inheritance. Deep hierarchies are fragile.",
+                    description=(
+                        f"This class sits {d} levels deep in an inheritance hierarchy. "
+                        f"Deep inheritance chains are fragile — a change to any ancestor "
+                        f"class can silently break every class below it. "
+                        f"They are also hard to understand: to know what this class does, "
+                        f"a reader must trace through {d} parent classes first."
+                    ),
+                    recommendation=(
+                        "Favour composition over inheritance. Instead of inheriting behaviour, "
+                        "accept collaborators as constructor arguments. "
+                        "If the hierarchy exists to share code, extract that shared code "
+                        "into a standalone helper and call it from each class directly. "
+                        "Inheritance chains deeper than 3 levels are almost always a design smell."
+                    ),
                     file_path=_str(cls, "file"),
                     affected_symbol=cls.label,
                     evidence={"depth": d, "threshold": int(T.INHERIT_DEPTH_CRITICAL.value)},
@@ -1092,15 +1289,26 @@ class InsightsEngine:
         if undoc_cls:
             worst_cls = sorted(undoc_cls, key=lambda c: -_int(c, "lines"))[:5]
             for cls in worst_cls:
+                lines_c = _int(cls, "lines")
                 issues.append(CodeIssue(
                     category=IssueCategory.DOCUMENTATION,
                     severity=IssueSeverity.MEDIUM,
                     title="Public class missing docstring",
-                    description=f"`{cls.label}` ({_int(cls,'lines')} lines) has no docstring.",
-                    recommendation="Add a class-level docstring: purpose, responsibilities, and usage example.",
+                    description=(
+                        f"This class ({lines_c} lines) has no docstring. "
+                        f"Without a docstring, the only way to understand what this class "
+                        f"does, what it owns, and how to use it safely is to read the entire "
+                        f"implementation — there is no written contract."
+                    ),
+                    recommendation=(
+                        "Add a class-level docstring covering: what this class represents, "
+                        "what responsibilities it owns, and a one-line usage example. "
+                        "This is the single highest-value documentation you can add — "
+                        "it's read every time someone imports this class."
+                    ),
                     file_path=_str(cls, "file"), line_start=_int(cls, "line"),
                     affected_symbol=cls.label,
-                    evidence={"has_docstring": False, "lines": _int(cls, "lines")},
+                    evidence={"has_docstring": False, "lines": lines_c},
                     confidence=1.0,
                 ))
 
@@ -1109,9 +1317,25 @@ class InsightsEngine:
                 category=IssueCategory.DOCUMENTATION,
                 severity=IssueSeverity.HIGH,
                 title="Critical documentation gap",
-                description=f"Only {round(doc_coverage*100)}% of public symbols documented ({total_public-total_undoc}/{total_public}).",
-                recommendation="Adopt a docstring policy. Start with public classes and non-trivial functions.",
-                evidence={"coverage_pct": round(doc_coverage*100,1), "total_public": total_public, "documented": total_public-total_undoc},
+                description=(
+                    f"Only {round(doc_coverage*100)}% of public symbols have docstrings "
+                    f"({total_public - total_undoc} of {total_public}). "
+                    f"This means most of the public API has no written contract — "
+                    f"callers cannot know what to pass, what is returned, or what errors "
+                    f"to expect without reading the implementation. "
+                    f"This significantly increases onboarding time and the risk of misuse."
+                ),
+                recommendation=(
+                    "Set a team policy that every new public class and non-trivial function "
+                    "gets a docstring before merging. "
+                    "For existing code, start with the most-imported files — "
+                    "they have the widest impact per docstring written."
+                ),
+                evidence={
+                    "coverage_pct": round(doc_coverage * 100, 1),
+                    "total_public": total_public,
+                    "documented": total_public - total_undoc,
+                },
                 confidence=0.95,
             ))
         elif doc_coverage < T.DOC_COVERAGE_HIGH.value:
@@ -1119,9 +1343,18 @@ class InsightsEngine:
                 category=IssueCategory.DOCUMENTATION,
                 severity=IssueSeverity.MEDIUM,
                 title="Low documentation coverage",
-                description=f"{round(doc_coverage*100)}% of public symbols documented. Target ≥{round(T.DOC_COVERAGE_HIGH.value*100)}%.",
-                recommendation="Add docstrings to all public classes and non-trivial functions.",
-                evidence={"coverage_pct": round(doc_coverage*100,1)},
+                description=(
+                    f"{round(doc_coverage*100)}% of public symbols are documented. "
+                    f"The remaining {total_undoc} undocumented symbols have no written "
+                    f"contract, which forces readers to reverse-engineer intent from "
+                    f"the implementation whenever they encounter them."
+                ),
+                recommendation=(
+                    f"Target ≥{round(T.DOC_COVERAGE_HIGH.value*100)}% coverage. "
+                    "Prioritise classes and functions that are imported by many other files — "
+                    "a single docstring there saves every reader who uses that symbol."
+                ),
+                evidence={"coverage_pct": round(doc_coverage * 100, 1)},
                 confidence=0.90,
             ))
         elif doc_coverage < T.DOC_COVERAGE_MEDIUM.value:
@@ -1129,9 +1362,18 @@ class InsightsEngine:
                 category=IssueCategory.DOCUMENTATION,
                 severity=IssueSeverity.LOW,
                 title="Documentation below recommended threshold",
-                description=f"{round(doc_coverage*100)}% documented. Recommended: ≥{round(T.DOC_COVERAGE_MEDIUM.value*100)}%.",
-                recommendation="Consider documenting remaining public APIs.",
-                evidence={"coverage_pct": round(doc_coverage*100,1)},
+                description=(
+                    f"{round(doc_coverage*100)}% of public symbols are documented. "
+                    f"You're close to the recommended threshold — "
+                    f"a small effort now would bring full coverage."
+                ),
+                recommendation=(
+                    f"Aim for ≥{round(T.DOC_COVERAGE_MEDIUM.value*100)}%. "
+                    "Run a quick pass over undocumented public functions and add a "
+                    "single-sentence summary to each — even a brief description is "
+                    "better than nothing."
+                ),
+                evidence={"coverage_pct": round(doc_coverage * 100, 1)},
                 confidence=0.80,
             ))
 
@@ -1204,15 +1446,26 @@ class InsightsEngine:
             sym_type = "method" if _bool(fn, "is_method") else "function"
             if not fn_rules.naming_ok(name, sym_type):
                 bad_fn.append(fn)
+                convention = fn_rules.description()
+                expected   = "snake_case" if "snake" in convention.lower() else "camelCase"
                 issues.append(CodeIssue(
                     category=IssueCategory.NAMING,
                     severity=IssueSeverity.LOW,
                     title="Non-standard function name",
-                    description=f"`{name}` does not follow {fn_rules.description()} function naming.",
-                    recommendation="Rename to match language conventions for readability.",
+                    description=(
+                        f"The name `{name}` doesn't follow the {convention} convention "
+                        f"expected for {fn_lang} {sym_type}s. "
+                        f"Inconsistent naming breaks the visual rhythm readers rely on to "
+                        f"scan code quickly — a name that doesn't match the pattern "
+                        f"draws attention even when there's nothing special about it."
+                    ),
+                    recommendation=(
+                        f"Rename to {expected} to match the rest of the codebase. "
+                        f"Use your IDE's rename refactor so all call sites update automatically."
+                    ),
                     file_path=_str(fn, "file"), line_start=_int(fn, "line"),
                     affected_symbol=name,
-                    evidence={"name": name, "convention": fn_rules.description(), "language": fn_lang},
+                    evidence={"name": name, "convention": convention, "language": fn_lang},
                     confidence=0.80,
                 ))
 
@@ -1226,15 +1479,27 @@ class InsightsEngine:
             name = cls.label
             if not cls_rules.naming_ok(name, "class"):
                 bad_cls.append(cls)
+                convention = cls_rules.description()
                 issues.append(CodeIssue(
                     category=IssueCategory.NAMING,
                     severity=IssueSeverity.LOW,
                     title="Non-standard class name",
-                    description=f"`{name}` does not follow {cls_rules.description()} class naming.",
-                    recommendation="Rename to PascalCase.",
+                    description=(
+                        f"The class name `{name}` doesn't follow the PascalCase convention "
+                        f"expected by {convention}. "
+                        f"Class names are used constantly across a codebase — in imports, "
+                        f"type annotations, and instantiation. A non-standard name makes "
+                        f"it unclear at a glance whether a symbol is a class, a function, "
+                        f"or a constant."
+                    ),
+                    recommendation=(
+                        "Rename to PascalCase using your IDE's rename refactor. "
+                        "For example: `my_service` → `MyService`, `myService` → `MyService`. "
+                        "All import sites will update automatically."
+                    ),
                     file_path=_str(cls, "file"), line_start=_int(cls, "line"),
                     affected_symbol=name,
-                    evidence={"name": name, "convention": cls_rules.description(), "language": cls_lang},
+                    evidence={"name": name, "convention": convention, "language": cls_lang},
                     confidence=0.80,
                 ))
 

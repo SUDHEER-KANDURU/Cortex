@@ -3,7 +3,6 @@
 import { SectionTitle } from "@/components/ui/section-title"
 import { useEffect, useRef, useState } from "react"
 import { motion, useReducedMotion, useInView } from "framer-motion"
-import gsap from "gsap"
 import { fadeUp, staggerContainer, staggerChild, SPRING, DURATION, EASE } from "@/lib/utils/motion"
 
 // ── useInViewOnce — fires once when element enters viewport ─────────────────

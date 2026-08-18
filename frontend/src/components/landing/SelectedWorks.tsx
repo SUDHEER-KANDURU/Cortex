@@ -1,13 +1,12 @@
 "use client"
 
 import type React from "react"
-import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 import { SectionTitle } from "@/components/ui/section-title"
 import { DashboardLink } from "@/components/shared/DashboardLink"
 import { useEffect, useRef, useState } from "react"
-import { motion, useReducedMotion, useInView } from "framer-motion"
-import { fadeUp, staggerContainer, staggerChild, SPRING, DURATION, EASE } from "@/lib/utils/motion"
+import { motion, useReducedMotion } from "framer-motion"
+import { SPRING, DURATION, EASE } from "@/lib/utils/motion"
 
 // ── Visuals — ink palette only, zero blue/purple ──────────────────────────────
 

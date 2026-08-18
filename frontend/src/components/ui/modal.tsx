@@ -22,7 +22,7 @@
 
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { SPRING, DURATION, EASE } from '@/lib/utils/motion';

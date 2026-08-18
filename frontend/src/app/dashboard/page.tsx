@@ -583,26 +583,95 @@ function PanelHeader({ activeJob, isDark }: { activeJob: Job; isDark: boolean })
   );
 }
 
+// ── Insights error classifier ─────────────────────────────────────────────────
+function classifyInsightsError(message: string): { heading: string; detail: string } {
+  const msg = message.toLowerCase();
+
+  if (msg.includes('job not found')) {
+    return {
+      heading: 'Job not found',
+      detail: 'This job ID does not exist. It may have been deleted or never created.',
+    };
+  }
+  if (msg.includes('not completed') || msg.includes('status:')) {
+    // Extract the raw status from the backend message e.g. "status: running"
+    const match = message.match(/status[:\s]+([a-z_]+)/i);
+    const status = match ? match[1] : 'unknown';
+    return {
+      heading: `Analysis is not complete yet (status: ${status})`,
+      detail: 'Engineering insights are computed from the finished knowledge graph. Wait for the analysis to complete, then reload.',
+    };
+  }
+  if (msg.includes('no graph data')) {
+    return {
+      heading: 'No graph data found for this job',
+      detail: 'The analysis ran but did not produce a knowledge graph. This can happen if the repository had no parseable source files, or if the graph build step failed.',
+    };
+  }
+  if (msg.includes('insights computation failed')) {
+    // Surface the inner error from the backend message
+    const inner = message.replace(/^insights computation failed[:\s]*/i, '').trim();
+    return {
+      heading: 'Insights computation failed',
+      detail: inner || 'An error occurred while computing metrics from the graph. Check the backend logs for details.',
+    };
+  }
+  if (msg.includes('network error') || msg.includes('econnrefused') || msg.includes('backend running')) {
+    return {
+      heading: 'Cannot reach the Cortex backend',
+      detail: 'Make sure the backend is running on http://localhost:8000 and try again.',
+    };
+  }
+  if (msg.includes('timeout')) {
+    return {
+      heading: 'Request timed out',
+      detail: 'The insights request took too long. The repository may be very large. Try again — subsequent loads are cached.',
+    };
+  }
+
+  // Fallback — surface whatever the server returned verbatim
+  return {
+    heading: 'Failed to load engineering insights',
+    detail: message,
+  };
+}
+
 // ── Insights tab — lazy-loaded inside the right panel ────────────────────────
 function InsightsTab({ jobId, isDark }: { jobId: string; isDark: boolean }) {
-  const { report, isLoading, error } = useInsights(jobId);
+  const { report, isLoading, error, refetch } = useInsights(jobId);
 
   if (isLoading) {
     return <InsightsSkeleton />;
   }
 
   if (error) {
+    const { heading, detail } = classifyInsightsError(error);
     return (
       <div style={{
         padding: '20px 24px', borderRadius: 'var(--radius-md)',
         background: 'var(--danger-dim)', border: '1px solid rgba(239,83,80,0.22)',
+        display: 'flex', flexDirection: 'column', gap: 10,
       }}>
-        <p style={{ fontSize: 13, color: 'var(--danger)', margin: 0 }}>
-          Could not load insights: {error}
+        <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)', margin: 0 }}>
+          {heading}
         </p>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6, margin: 0 }}>
-          Make sure the analysis completed successfully and graph data was saved.
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>
+          {detail}
         </p>
+        <button
+          onClick={refetch}
+          style={{
+            alignSelf: 'flex-start', marginTop: 4,
+            padding: '5px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+            background: 'transparent', border: '1px solid var(--border)',
+            color: 'var(--text-muted)', cursor: 'pointer',
+            transition: 'color 0.15s, border-color 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--border-hover)'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -826,8 +895,17 @@ export default function DashboardPage() {
   // hydration mismatch — same pattern as the landing Header.
   const [isDark, setIsDark] = useState(true);
 
+  // Controls the full-screen splash shown during hydration + initial data fetch.
+  // Starts true so the server-rendered shell never shows blank content.
+  // Set to false only after the jobs list resolves (or errors) AND the
+  // component has been mounted on the client.
+  const [initialLoading, setInitialLoading] = useState(true);
+  // Track whether we are mounted on client (avoids SSR mismatch)
+  const [mounted, setMounted] = useState(false);
+
   // Hydration-safe theme init — runs only on client after first paint
   React.useEffect(() => {
+    setMounted(true);
     try {
       const stored = localStorage.getItem('cortex-theme');
       if (stored) setIsDark(stored === 'dark');
@@ -848,7 +926,8 @@ export default function DashboardPage() {
     if (cached) {
       setJobs(cached);
       setJobsLoading(false);
-      // Still refresh in background after 10s
+      setInitialLoading(false);
+      // Still refresh in background
     }
 
     let active = true;
@@ -861,7 +940,12 @@ export default function DashboardPage() {
         }
       })
       .catch(err => { if (active) setJobsError(err instanceof Error ? err.message : 'Failed'); })
-      .finally(() => { if (active) setJobsLoading(false); });
+      .finally(() => {
+        if (active) {
+          setJobsLoading(false);
+          setInitialLoading(false);
+        }
+      });
     return () => { active = false; };
   }, []);
 
@@ -912,6 +996,73 @@ export default function DashboardPage() {
       });
     });
   }, []);
+
+  // Show full-screen loader until: (a) client is hydrated AND (b) first data fetch done.
+  // This replaces the blank flash — the loader stays until the dashboard is ready to paint.
+  if (!mounted || initialLoading) {
+    return (
+      <div
+        aria-live="polite"
+        aria-busy="true"
+        style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'var(--bg, #060810)',
+        }}
+      >
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20,
+          padding: '36px 32px',
+          borderRadius: 26,
+          background: 'rgba(14,18,28,0.88)',
+          border: '1px solid rgba(255,255,255,0.07)',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
+          backdropFilter: 'blur(32px) saturate(200%)',
+          WebkitBackdropFilter: 'blur(32px) saturate(200%)',
+          minWidth: 260, maxWidth: 360,
+        }}>
+          {/* Cortex icon */}
+          <div style={{
+            width: 56, height: 56, borderRadius: 16,
+            background: 'radial-gradient(circle at 35% 35%, rgba(0,229,168,0.18) 0%, rgba(108,124,255,0.08) 60%, transparent 100%)',
+            border: '1px solid rgba(0,229,168,0.28)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 0 32px rgba(0,229,168,0.12)',
+          }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                stroke="#00E5A8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          {/* Text */}
+          <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{
+              fontFamily: 'var(--font-display, Syne, sans-serif)',
+              fontSize: 15, fontWeight: 700, letterSpacing: '-0.03em',
+              color: '#F0F4FF',
+            }}>Cortex</span>
+            <span style={{
+              fontFamily: 'var(--font-mono, "JetBrains Mono", monospace)',
+              fontSize: 11, letterSpacing: '0.07em',
+              color: '#6E7A90', textTransform: 'uppercase' as const,
+            }}>Loading Dashboard…</span>
+          </div>
+          {/* Indeterminate bar */}
+          <div style={{
+            width: '100%', height: 2, borderRadius: 9999,
+            background: 'rgba(255,255,255,0.06)', overflow: 'hidden', position: 'relative',
+          }}>
+            <div style={{
+              position: 'absolute', top: 0, left: 0, height: '100%', width: '40%',
+              borderRadius: 9999,
+              background: 'linear-gradient(90deg, transparent 0%, #00E5A8 50%, transparent 100%)',
+              animation: 'cortex-bar-sweep 1.8s cubic-bezier(0.4,0,0.2,1) infinite',
+            }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

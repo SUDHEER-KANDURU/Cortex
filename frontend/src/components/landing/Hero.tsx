@@ -3,10 +3,10 @@
 import Link from "next/link"
 import { ArrowDown, GitBranch, Cpu, Database, FileCode } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
-import { motion, useReducedMotion, AnimatePresence } from "framer-motion"
+import { motion, useReducedMotion } from "framer-motion"
 import { DashboardLink } from "@/components/shared/DashboardLink"
 import dynamic from "next/dynamic"
-import { fadeUp, heroWord, staggerContainer, staggerChild, DURATION, EASE, SPRING } from "@/lib/utils/motion"
+import { fadeUp, heroWord, staggerContainer, DURATION, EASE, SPRING } from "@/lib/utils/motion"
 
 // Lazy-load the heavy 3D RepoTree only after the page has painted.
 const RepoTree = dynamic(() => import("@/features/tree/RepoTree"), {

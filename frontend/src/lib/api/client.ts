@@ -3,9 +3,14 @@
 // Axios instance configured to talk exclusively to the local FastAPI backend.
 // =============================================================================
 
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+
+type SlowRequestConfig = InternalAxiosRequestConfig & {
+  __slowTimer?: ReturnType<typeof setTimeout>;
+  __wasSlow?: boolean;
+};
 
 export const apiClient = axios.create({
   baseURL: `${BASE_URL}/api/v1`,
@@ -31,28 +36,29 @@ function notifySlowListeners() {
 
 // ── Request interceptor — start slow-request timer ───────────────────────────
 apiClient.interceptors.request.use(config => {
+  const slowConfig = config as SlowRequestConfig;
   const timer = setTimeout(() => {
     _slowCount++;
     notifySlowListeners();
     // Store cleanup on config so response interceptor can clear it
-    (config as Record<string, unknown>).__slowTimer = timer;
-    (config as Record<string, unknown>).__wasSlow = true;
+    slowConfig.__slowTimer = timer;
+    slowConfig.__wasSlow = true;
   }, 400);
-  (config as Record<string, unknown>).__slowTimer = timer;
+  slowConfig.__slowTimer = timer;
   return config;
 });
 
 // ── Response interceptor — clear timer, decrement slow count ─────────────────
 apiClient.interceptors.response.use(
   response => {
-    const cfg = response.config as Record<string, unknown>;
-    if (cfg.__slowTimer) clearTimeout(cfg.__slowTimer as ReturnType<typeof setTimeout>);
+    const cfg = response.config as SlowRequestConfig;
+    if (cfg.__slowTimer) clearTimeout(cfg.__slowTimer);
     if (cfg.__wasSlow) { _slowCount = Math.max(0, _slowCount - 1); notifySlowListeners(); }
     return response;
   },
   (error: AxiosError<{ detail?: string }>) => {
-    const cfg = (error.config ?? {}) as Record<string, unknown>;
-    if (cfg.__slowTimer) clearTimeout(cfg.__slowTimer as ReturnType<typeof setTimeout>);
+    const cfg = (error.config ?? {}) as SlowRequestConfig;
+    if (cfg.__slowTimer) clearTimeout(cfg.__slowTimer);
     if (cfg.__wasSlow) { _slowCount = Math.max(0, _slowCount - 1); notifySlowListeners(); }
 
     const status = error.response?.status ?? 0;

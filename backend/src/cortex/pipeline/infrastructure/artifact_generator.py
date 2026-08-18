@@ -44,91 +44,441 @@ logger = structlog.get_logger()
 
 
 class MermaidGenerator:
-    """Generates Mermaid architecture diagrams from the knowledge graph."""
+    """Generates clean, readable Mermaid architecture diagrams.
 
-    def generate(
-        self,
-        graph: GraphBuildResult,
-        repo_name: str,
-    ) -> str:
-        lines = ["graph TD"]
-    
-        lines.append("  classDef repo fill:#7C3AED,stroke:#5B21B6,color:#fff")
-        lines.append("  classDef module fill:#1D4ED8,stroke:#1E40AF,color:#fff")
-        lines.append("  classDef cls fill:#065F46,stroke:#064E3B,color:#fff")
+    Layout strategy — top-down layered swimlanes:
+      - graph TB (top-bottom) for the outer flow
+      - One subgraph per architecture layer, arranged vertically
+      - Files are nodes INSIDE their layer's subgraph
+      - Import edges only cross between layers (no intra-layer clutter)
+      - Class nodes shown inline in the label, not as separate nodes
+      - Edges strictly capped and deduplicated
 
-        repo_nodes = graph.nodes_by_type(NodeType.REPOSITORY)
-        all_modules = graph.nodes_by_type(NodeType.MODULE)
-        classes = graph.nodes_by_type(NodeType.CLASS)
+    This eliminates the spaghetti fan-out from a single REPO root and
+    keeps lines short — each edge only spans one or two layers.
+    """
 
-        # Skip generic container modules
-        skip_labels = {"main/", "test/", "src/", "java/"}
-        good_modules = [
-            m for m in all_modules
-            if m.label not in skip_labels
-        ][:8]
+    _LAYER_PATTERNS: list = [
+        ("domain",         "Domain",       "domain"),
+        ("entities",       "Domain",       "domain"),
+        ("models",         "Domain",       "domain"),
+        ("model",          "Domain",       "domain"),
+        ("entity",         "Domain",       "domain"),
+        ("dto",            "Domain",       "domain"),
+        ("application",    "Application",  "app"),
+        ("use_cases",      "Application",  "app"),
+        ("services",       "Application",  "app"),
+        ("service",        "Application",  "app"),
+        ("usecase",        "Application",  "app"),
+        ("infrastructure", "Infra",        "infra"),
+        ("repository",     "Infra",        "infra"),
+        ("repositories",   "Infra",        "infra"),
+        ("persistence",    "Infra",        "infra"),
+        ("database",       "Infra",        "infra"),
+        ("dao",            "Infra",        "infra"),
+        ("presentation",   "Presentation", "pres"),
+        ("routers",        "Presentation", "pres"),
+        ("controllers",    "Presentation", "pres"),
+        ("controller",     "Presentation", "pres"),
+        ("router",         "Presentation", "pres"),
+        ("handler",        "Presentation", "pres"),
+        ("components",     "Frontend",     "front"),
+        ("frontend",       "Frontend",     "front"),
+        ("pages",          "Frontend",     "front"),
+        ("hooks",          "Frontend",     "front"),
+        ("features",       "Frontend",     "front"),
+        ("shared",         "Shared",       "shared"),
+        ("utils",          "Shared",       "shared"),
+        ("common",         "Shared",       "shared"),
+        ("config",         "Shared",       "shared"),
+        ("exception",      "Shared",       "shared"),
+        ("exceptions",     "Shared",       "shared"),
+    ]
 
-        if not good_modules:
-            good_modules = all_modules[:8]
+    # Canonical layer order — top of diagram (user-facing) → bottom (data)
+    LAYER_ORDER = [
+        "Frontend",
+        "Presentation",
+        "Application",
+        "Domain",
+        "Infra",
+        "Shared",
+        "Other",
+    ]
 
-        # Repo node
-        repo_id = "REPO"
-        if repo_nodes:
-            lines.append(f'  {repo_id}["{repo_nodes[0].label}"]:::repo')
-        else:
-            lines.append(f'  {repo_id}["{repo_name}"]:::repo')
+    _SKIP_FILES = {
+        "__init__.py", "__init__.ts", "index.ts", "index.js", "conftest.py",
+    }
+    _SKIP_DIRS = {
+        "__pycache__", ".git", "node_modules", ".venv", "venv",
+        "dist", "build", ".next", "coverage", ".pytest_cache",
+    }
 
-        # One unique ID per module — never reuse
-        module_id_map: dict[str, str] = {}
-        for i, module in enumerate(good_modules):
-            mid = f"MOD{i}"
-            module_id_map[module.id] = mid
-            path = str(module.properties.get("path", ""))
-            parts = [p for p in path.split("/") if p]
-            label = parts[-1] if parts else module.label.rstrip("/")
-            lines.append(f'  {mid}["{label}/"]:::module')
-            # One arrow from repo to this module
-            lines.append(f"  {repo_id} --> {mid}")
-
-        # Classes — connect to best matching module
-        important_classes = sorted(
-            classes,
-            key=lambda c: int(str(c.properties.get("methods", 0))),
-            reverse=True,
-        )[:10]
-
-        for i, cls in enumerate(important_classes):
-            cid = f"CLS{i}"
-            file_path = str(cls.properties.get("file", ""))
-            lines.append(f'  {cid}["{cls.label}"]:::cls')
-
-            best_mid = None
-            best_len = 0
-            for module in good_modules:
-                mpath = str(module.properties.get("path", ""))
-                if file_path.startswith(mpath) and len(mpath) > best_len:
-                    best_mid = module_id_map[module.id]
-                    best_len = len(mpath)
-
-            if best_mid:
-                lines.append(f"  {best_mid} --> {cid}")
-            else:
-                lines.append(f"  {repo_id} --> {cid}")
-
-        return "\n".join(lines)
-
-    def _safe_id(self, raw_id: str) -> str:
-        """Convert a node ID to a Mermaid-safe identifier."""
-        clean = (
-            raw_id
-            .replace("-", "_")
-            .replace(".", "_")
-            .replace("/", "_")
-            .replace(" ", "_")
+    @staticmethod
+    def _esc(text: str) -> str:
+        """Make text safe for Mermaid double-quoted labels."""
+        return (
+            text.replace('"', "'")
+                .replace("\n", " ")
+                .replace("[", "(").replace("]", ")")
+                .replace("<", "").replace(">", "")
+                .replace("#", "").replace("&", "and")
+                .replace("{", "").replace("}", "")
+                .replace("|", "-")
+                .strip()[:40]
         )
-        if clean and not clean[0].isalpha():
-            clean = "n_" + clean
-        return clean[:24]
+
+    def _detect_layer(self, path: str) -> tuple[str, str]:
+        pl = path.lower().replace("\\", "/")
+        for frag, name, css in self._LAYER_PATTERNS:
+            if f"/{frag}/" in pl or f"/{frag}." in pl:
+                return name, css
+        # Java suffix fallback
+        fname = pl.split("/")[-1]
+        java_suffix_map = [
+            ("repository",  "Infra",        "infra"),
+            ("dao",         "Infra",        "infra"),
+            ("service",     "Application",  "app"),
+            ("usecase",     "Application",  "app"),
+            ("controller",  "Presentation", "pres"),
+            ("handler",     "Presentation", "pres"),
+            ("router",      "Presentation", "pres"),
+            ("entity",      "Domain",       "domain"),
+            ("model",       "Domain",       "domain"),
+            ("dto",         "Domain",       "domain"),
+            ("exception",   "Shared",       "shared"),
+            ("config",      "Shared",       "shared"),
+            ("util",        "Shared",       "shared"),
+        ]
+        for suffix, name, css in java_suffix_map:
+            base = fname.replace(".java","").replace(".py","").replace(".ts","")
+            if base.endswith(suffix) or base.endswith(f"_{suffix}") or base.endswith(f"-{suffix}"):
+                return name, css
+        return "Other", "other"
+
+    def generate(self, graph: GraphBuildResult, repo_name: str) -> str:
+        from collections import defaultdict
+        import re
+
+        nby_id: dict[str, GraphNode] = {n.id: n for n in graph.nodes}
+
+        import_edges = [
+            e for e in graph.edges
+            if e.relationship in (RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON)
+        ]
+        inherits_edges = [
+            e for e in graph.edges
+            if e.relationship == RelationshipType.INHERITS
+        ]
+
+        files   = graph.nodes_by_type(NodeType.FILE)
+        classes = graph.nodes_by_type(NodeType.CLASS)
+        modules = graph.nodes_by_type(NodeType.MODULE)
+        all_files = graph.nodes_by_type(NodeType.FILE)
+
+        # ── Filter noise ──────────────────────────────────────────────────────
+        _TEST_PATH_RE = re.compile(
+            r'(^|/)(tests?/|__tests__/|test_[^/]+\.|[^/]+_test\.[^/]+$)',
+            re.IGNORECASE,
+        )
+        _TEST_LABELS  = re.compile(r'^(test_|.*_test$|conftest)', re.IGNORECASE)
+        _NOISE_LABELS = re.compile(
+            r'^(tmp_|temp_|\.env|env\.|debug_|check_|rebuild_|run_)', re.IGNORECASE
+        )
+
+        def _skip(f: GraphNode) -> bool:
+            if f.label in self._SKIP_FILES:
+                return True
+            path  = str(f.properties.get("path", ""))
+            label = f.label
+            for d in self._SKIP_DIRS:
+                if f"/{d}/" in path:
+                    return True
+            if _TEST_PATH_RE.search(path) or _TEST_LABELS.match(label):
+                return True
+            if _NOISE_LABELS.match(label):
+                return True
+            if label in (".env", "env", ".env.local", ".env.example"):
+                return True
+            return (
+                int(f.properties.get("lines", 0)) == 0
+                and int(f.properties.get("classes", 0)) == 0
+                and int(f.properties.get("functions", 0)) == 0
+            )
+
+        src_files = [f for f in files if not _skip(f)]
+
+        # ── Score by structural importance ────────────────────────────────────
+        fan_in:  dict[str, int] = defaultdict(int)
+        fan_out: dict[str, int] = defaultdict(int)
+        seen_p:  set = set()
+        for e in import_edges:
+            p = (e.source_id, e.target_id)
+            if p not in seen_p:
+                seen_p.add(p)
+                fan_in[e.target_id]  += 1
+                fan_out[e.source_id] += 1
+
+        def _score(f: GraphNode) -> float:
+            return (
+                fan_in.get(f.id, 0)  * 3
+                + int(f.properties.get("classes",   0)) * 2
+                + fan_out.get(f.id, 0) * 1.5
+                + min(int(f.properties.get("lines", 0)) / 100, 4)
+            )
+
+        # ── Group files into layers ───────────────────────────────────────────
+        layer_files: dict[str, list[GraphNode]] = defaultdict(list)
+        file_layer:  dict[str, str] = {}
+        file_css:    dict[str, str] = {}
+
+        for f in src_files:
+            path       = str(f.properties.get("path", f.label))
+            ln, css    = self._detect_layer(path)
+            layer_files[ln].append(f)
+            file_layer[f.id] = ln
+            file_css[f.id]   = css
+
+        for f in all_files:
+            if f.id in file_layer:
+                continue
+            path = str(f.properties.get("path", f.label))
+            ln, css = self._detect_layer(path)
+            file_layer[f.id] = ln
+            file_css[f.id] = css
+
+        # Cap: max 6 files per layer, max 30 total
+        # Keep files with real architecture content even when their structural
+        # score is low; otherwise small but important files (e.g., config files
+        # containing classes) disappear from the generated diagram.
+        MAX_PER_LAYER = 6
+        MAX_TOTAL     = 30
+        selected: list[GraphNode] = []
+        for ln in self.LAYER_ORDER:
+            lf = layer_files.get(ln, [])
+            selected.extend(sorted(lf, key=_score, reverse=True)[:MAX_PER_LAYER])
+
+        all_files = graph.nodes_by_type(NodeType.FILE)
+        keep_ids = {
+            f.id
+            for f in all_files
+            if int(f.properties.get("classes", 0)) > 0 or int(f.properties.get("functions", 0)) > 0
+        }
+        keep_ids |= {
+            e.source_id
+            for e in graph.edges
+            if e.relationship == RelationshipType.CONTAINS
+            and nby_id.get(e.target_id) is not None
+            and nby_id[e.target_id].node_type == NodeType.CLASS
+            and nby_id.get(e.source_id) is not None
+            and nby_id[e.source_id].node_type == NodeType.FILE
+        }
+        selected.extend(f for f in all_files if f.id in keep_ids and f not in selected)
+        selected = sorted({f.id: f for f in selected}.values(), key=_score, reverse=True)[:MAX_TOTAL]
+
+        required_class_ids = {
+            e.target_id
+            for e in graph.edges
+            if e.relationship == RelationshipType.CONTAINS
+            and nby_id.get(e.target_id) is not None
+            and nby_id[e.target_id].node_type == NodeType.CLASS
+            and nby_id.get(e.source_id) is not None
+            and nby_id[e.source_id].node_type == NodeType.FILE
+        }
+        for cls in classes:
+            if cls.id in required_class_ids and cls not in selected:
+                selected.append(cls)
+
+        selected = sorted({f.id: f for f in selected}.values(), key=_score, reverse=True)[:MAX_TOTAL]
+        sel_ids  = {f.id for f in selected}
+
+        # ── Map classes to files ──────────────────────────────────────────────
+        cls_file: dict[str, str] = {}
+        for e in graph.edges:
+            if e.relationship != RelationshipType.CONTAINS:
+                continue
+            s = nby_id.get(e.source_id)
+            t = nby_id.get(e.target_id)
+            if s and t and s.node_type == NodeType.FILE and t.node_type == NodeType.CLASS:
+                cls_file[t.id] = s.id
+
+        module_by_layer: dict[str, list[GraphNode]] = defaultdict(list)
+        for module in modules:
+            path = str(module.properties.get("path", ""))
+            layer, _ = self._detect_layer(path)
+            module_by_layer[layer].append(module)
+
+        # Top 2 classes per file (by method count, methods > 0 only)
+        file_top_cls: dict[str, list[GraphNode]] = defaultdict(list)
+        for cls in classes:
+            fid     = cls_file.get(cls.id, "")
+            methods = int(cls.properties.get("methods", 0))
+            if fid in sel_ids and methods > 0:
+                file_top_cls[fid].append(cls)
+        for fid in file_top_cls:
+            file_top_cls[fid] = sorted(
+                file_top_cls[fid],
+                key=lambda c: int(c.properties.get("methods", 0)),
+                reverse=True,
+            )[:2]
+
+        # ── Assign stable Mermaid IDs ─────────────────────────────────────────
+        id_map: dict[str, str] = {}
+        ctr = [0]
+
+        def _mid(nid: str, pfx: str) -> str:
+            if nid not in id_map:
+                ctr[0] += 1
+                id_map[nid] = f"{pfx}{ctr[0]}"
+            return id_map[nid]
+
+        for module in modules:
+            _mid(module.id, "M")
+        for f in selected:
+            _mid(f.id, "F")
+        for f in selected:
+            for cls in file_top_cls.get(f.id, []):
+                _mid(cls.id, "C")
+
+        # ── Disambiguate duplicate file labels ────────────────────────────────
+        name_count: dict[str, int] = defaultdict(int)
+        for f in selected:
+            name_count[f.label] += 1
+
+        def _file_label(f: GraphNode) -> str:
+            label = f.label
+            for ext in (".tsx", ".jsx", ".ts", ".js", ".py", ".java", ".kt"):
+                label = label.replace(ext, "")
+            if name_count[f.label] > 1:
+                path  = str(f.properties.get("path", "")).replace("\\", "/")
+                parts = [p for p in path.split("/")[:-1]
+                         if p not in ("src", "lib", "app", "")]
+                if parts:
+                    label = f"{parts[-1]}/{label}"
+            fn_c  = int(f.properties.get("functions", 0))
+            cls_c = int(f.properties.get("classes",   0))
+            hint  = f" [{cls_c}c/{fn_c}f]" if (cls_c or fn_c) else ""
+            return self._esc(label + hint)
+
+        # ── Build diagram ─────────────────────────────────────────────────────
+        # graph LR gives a cleaner horizontal flow for layered architectures.
+        # Each layer is a subgraph; nodes sit inside their layer — this is the
+        # key change that eliminates the spaghetti: nodes are co-located with
+        # their peers, so intra-layer edges are zero-length.
+        out: list[str] = ["graph LR"]
+
+        # Colour palette — one classDef per layer
+        out += [
+            "  classDef repo   fill:#7C3AED,stroke:#5B21B6,color:#fff,font-weight:bold",
+            "  classDef domain fill:#064E3B,stroke:#10B981,color:#D1FAE5",
+            "  classDef app    fill:#1E3A8A,stroke:#3B82F6,color:#DBEAFE",
+            "  classDef infra  fill:#7C2D12,stroke:#F97316,color:#FED7AA",
+            "  classDef pres   fill:#4C1D95,stroke:#8B5CF6,color:#EDE9FE",
+            "  classDef front  fill:#831843,stroke:#EC4899,color:#FCE7F3",
+            "  classDef shared fill:#1F2937,stroke:#6B7280,color:#D1D5DB",
+            "  classDef cls    fill:#0C1929,stroke:#38BDF8,color:#7DD3FC",
+            "  classDef other  fill:#111827,stroke:#374151,color:#9CA3AF",
+            "",
+        ]
+
+        # ── Subgraph per layer (only non-empty layers) ────────────────────────
+        # Subgraph IDs must be alphanumeric — we use SG + layer abbreviation
+        sg_id: dict[str, str] = {
+            "Frontend":    "SGFRONT",
+            "Presentation":"SGPRES",
+            "Application": "SGAPP",
+            "Domain":      "SGDOM",
+            "Infra":       "SGINF",
+            "Shared":      "SGSHR",
+            "Other":       "SGOTH",
+        }
+
+        present_layers = [ln for ln in self.LAYER_ORDER
+                          if any(file_layer.get(f.id) == ln for f in selected)
+                          or module_by_layer.get(ln)]
+
+        for ln in present_layers:
+            lfiles = [f for f in selected if file_layer.get(f.id) == ln]
+            lmodules = module_by_layer.get(ln, [])
+            if not lfiles and not lmodules:
+                continue
+
+            sid = sg_id.get(ln, f"SG{ln[:4].upper()}")
+            out.append(f"  subgraph {sid} [{ln}]")
+            out.append(f"    direction TB")
+
+            for module in lmodules:
+                mid = id_map[module.id]
+                mlabel = self._esc(f"{module.label}")
+                out.append(f'    {mid}["{mlabel}"]:::shared')
+
+            for f in lfiles:
+                fmid   = id_map[f.id]
+                flabel = _file_label(f)
+                css    = file_css.get(f.id, "other")
+                out.append(f'    {fmid}["{flabel}"]:::{css}')
+
+                # Class nodes directly beneath their file, inside same subgraph
+                for cls in file_top_cls.get(f.id, []):
+                    cmid   = id_map[cls.id]
+                    m      = int(cls.properties.get("methods", 0))
+                    clabel = self._esc(f"{cls.label} ({m}m)")
+                    out.append(f'    {cmid}("{clabel}"):::cls')
+                    out.append(f"    {fmid} --> {cmid}")
+
+            out.append("  end")
+            out.append("")
+
+        # ── Inter-layer import edges ──────────────────────────────────────────
+        # ONLY show edges that cross layer boundaries — intra-layer edges
+        # add visual noise without conveying architectural information.
+        # Cap at 20 edges, sorted by fan-in (most-depended-on targets first).
+        import_lines: list[str] = []
+        seen_e: set = set()
+
+        sorted_imports = sorted(
+            import_edges,
+            key=lambda e: fan_in.get(e.target_id, 0),
+            reverse=True,
+        )
+        for e in sorted_imports:
+            if e.source_id not in sel_ids or e.target_id not in sel_ids:
+                continue
+            sm = id_map.get(e.source_id)
+            tm = id_map.get(e.target_id)
+            if not sm or not tm or sm == tm:
+                continue
+            # Skip intra-layer edges — they just create noise inside the subgraph
+            src_layer = file_layer.get(e.source_id, "")
+            tgt_layer = file_layer.get(e.target_id, "")
+            if src_layer == tgt_layer:
+                continue
+            pair = (sm, tm)
+            if pair in seen_e:
+                continue
+            seen_e.add(pair)
+            import_lines.append(f"  {sm} --> {tm}")
+            if len(import_lines) >= 20:
+                break
+
+        if import_lines:
+            out.append("  %% Cross-layer dependencies")
+            out.extend(import_lines)
+            out.append("")
+
+        # ── Inheritance edges (capped at 6) ───────────────────────────────────
+        inh_lines: list[str] = []
+        for e in inherits_edges:
+            sm = id_map.get(e.source_id)
+            tm = id_map.get(e.target_id)
+            if sm and tm and len(inh_lines) < 6:
+                inh_lines.append(f"  {sm} -.->|extends| {tm}")
+
+        if inh_lines:
+            out.append("  %% Inheritance")
+            out.extend(inh_lines)
+
+        return "\n".join(out)
 
 
 class GraphInterviewQuestionGenerator:

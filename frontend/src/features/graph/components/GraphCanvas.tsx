@@ -132,7 +132,7 @@ function NodeDetailPanel({ node, onClose, t }: {
             display: 'inline-block', borderRadius: 9999,
             padding: '2px 10px', fontSize: 11, fontWeight: 600, marginBottom: 6,
             background: `${color}22`, color, border: `1px solid ${color}44`,
-          }}>{node.type}</span>
+          }}>{node.node_type}</span>
           <h3 style={{ fontSize: 13, fontWeight: 600, color: t.panelText, wordBreak: 'break-all', margin: 0 }}>
             {node.label}
           </h3>

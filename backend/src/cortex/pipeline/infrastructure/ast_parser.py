@@ -428,17 +428,50 @@ class JavaASTParser:
                     elif content[pos] == "}": depth -= 1
                     pos += 1
                 line_end = content[:pos].count("\n") + 1
+                fn_body  = content[body_start:pos]
             else:
                 line_end = line_num + 10
+                fn_body  = ""
 
-            result.functions.append(ParsedFunction(
+            # ── Complexity metrics (regex-based, same approach as TS) ────────
+            fn_body_clean = re.sub(r'/\*.*?\*/', ' ', fn_body, flags=re.DOTALL)
+            fn_body_clean = re.sub(r'//[^\n]*', ' ', fn_body_clean)
+            fn_body_clean = re.sub(r'"(?:[^"\\]|\\.)*"', '""', fn_body_clean)
+            _java_branch_re = re.compile(
+                r'\bif\b|\belse\s+if\b|\bfor\b|\bwhile\b|\bswitch\b|\bcatch\b'
+                r'|\?\s*(?![\?\.:])|&&|\|\|'
+            )
+            branch_c = len(_java_branch_re.findall(fn_body_clean))
+            cyclo    = 1 + branch_c
+            max_d, cur_d = 0, 0
+            for ch in fn_body_clean:
+                if ch == '{':
+                    cur_d += 1
+                    max_d = max(max_d, cur_d)
+                elif ch == '}':
+                    cur_d -= 1
+            nest_d   = max(0, max_d - 1)
+            _call_re = re.compile(r'\b\w+\s*\(')
+            _java_kw = {'if','for','while','switch','catch','new','return',
+                        'throw','instanceof','typeof'}
+            call_c   = sum(
+                1 for cm in _call_re.finditer(fn_body_clean)
+                if cm.group(0).split('(')[0].strip() not in _java_kw
+            )
+
+            fn = ParsedFunction(
                 name=method_name,
                 file_path=file_path,
                 line_start=line_num,
                 line_end=line_end,
                 is_method=True,
                 parameters=params,
-            ))
+            )
+            fn._cyclomatic   = cyclo    # type: ignore[attr-defined]
+            fn._branch_count = branch_c  # type: ignore[attr-defined]
+            fn._nesting_depth= nest_d    # type: ignore[attr-defined]
+            fn._call_count   = call_c    # type: ignore[attr-defined]
+            result.functions.append(fn)
 
         logger.info("java_file_parsed", file=file_path, **result.summary())
         return result
@@ -544,6 +577,78 @@ class TypeScriptASTParser:
 
     # ── Decorator ─────────────────────────────────────────────────────────────
     _DECORATOR_RE = re.compile(r'@(\w+)(?:\([^)]*\))?')
+
+    # ── Complexity: branch-counting keywords & operators ─────────────────────
+    # Matches: if / else if, for, while, switch, catch, ternary (?),
+    # logical AND (&&) and OR (||) — each adds a branch point.
+    # Word-boundary anchored to avoid matching inside identifiers.
+    _BRANCH_KW_RE = re.compile(
+        r'\bif\b|\belse\s+if\b|\bfor\b|\bwhile\b|\bswitch\b|\bcatch\b'
+        r'|\?\s*(?![\?\.:])'   # ternary ? — exclude ??, ?., ?:
+        r'|&&|\|\|',
+    )
+    # Function calls: identifier followed by (
+    _CALL_RE = re.compile(r'\b\w+\s*\(')
+
+    @staticmethod
+    def _strip_strings_and_comments(src: str) -> str:
+        """Remove string literals and comments so they don't pollute
+        branch/call counting.  Not 100% perfect but good enough for
+        token-level pattern matching."""
+        # Strip block comments
+        src = re.sub(r'/\*.*?\*/', ' ', src, flags=re.DOTALL)
+        # Strip line comments
+        src = re.sub(r'//[^\n]*', ' ', src)
+        # Strip template literals (basic — no nested ${} support needed)
+        src = re.sub(r'`[^`]*`', '""', src, flags=re.DOTALL)
+        # Strip double-quoted strings
+        src = re.sub(r'"(?:[^"\\]|\\.)*"', '""', src)
+        # Strip single-quoted strings
+        src = re.sub(r"'(?:[^'\\]|\\.)*'", "''", src)
+        return src
+
+    def _compute_ts_complexity(self, body: str) -> tuple[int, int, int, int]:
+        """Compute (branch_count, cyclomatic, nesting_depth, call_count)
+        for a TS/JS function body string (the text between the outer braces,
+        including the braces themselves).
+
+        Algorithm:
+          branch_count  — count of if/else if/for/while/switch/catch/?/&&/||
+                          tokens in the cleaned body (strings/comments stripped)
+          cyclomatic    — 1 + branch_count   (McCabe formula)
+          nesting_depth — maximum brace-nesting depth reached inside the body
+                          (outer { } of the function itself counts as depth 1,
+                          so the first nested block is depth 2, reported as 1
+                          relative nesting level)
+          call_count    — approximate count of function-call expressions
+        """
+        cleaned = self._strip_strings_and_comments(body)
+
+        branch_count = len(self._BRANCH_KW_RE.findall(cleaned))
+        cyclomatic   = 1 + branch_count
+
+        # Nesting depth via brace scanning
+        max_depth = 0
+        depth     = 0
+        for ch in cleaned:
+            if ch == '{':
+                depth += 1
+                if depth > max_depth:
+                    max_depth = depth
+            elif ch == '}':
+                depth -= 1
+        # depth 1 = the function's own outer braces; relative nesting = max_depth - 1
+        nesting_depth = max(0, max_depth - 1)
+
+        # Call count: rough approximation — word( patterns, minus keywords
+        _kw = {'if','for','while','switch','catch','function','return',
+               'typeof','instanceof','new','delete','throw','await','yield'}
+        call_count = sum(
+            1 for m in self._CALL_RE.finditer(cleaned)
+            if m.group(0).split('(')[0].strip() not in _kw
+        )
+
+        return branch_count, cyclomatic, nesting_depth, call_count
 
     def parse(self, content: str, file_path: str) -> ParsedFile:
         lines = content.splitlines()
@@ -694,6 +799,9 @@ class TypeScriptASTParser:
                 line_end   = pos_to_line(body_end_abs)
                 jsdoc      = get_jsdoc_before(abs_start)
 
+                fn_body = content[abs_start:body_end_abs]
+                branch_c, cyclo, nest_d, call_c = self._compute_ts_complexity(fn_body)
+
                 method = ParsedFunction(
                     name=name,
                     file_path=file_path,
@@ -705,6 +813,10 @@ class TypeScriptASTParser:
                     is_async=is_async,
                     docstring=jsdoc,
                 )
+                method._cyclomatic   = cyclo    # type: ignore[attr-defined]
+                method._branch_count = branch_c  # type: ignore[attr-defined]
+                method._nesting_depth= nest_d    # type: ignore[attr-defined]
+                method._call_count   = call_c    # type: ignore[attr-defined]
                 cls.methods.append(method)
 
         # ── Parse top-level function declarations ─────────────────────────────
@@ -724,7 +836,10 @@ class TypeScriptASTParser:
             line_end  = pos_to_line(body_end)
             jsdoc     = get_jsdoc_before(m.start())
 
-            result.functions.append(ParsedFunction(
+            fn_body = content[m.start():body_end]
+            branch_c, cyclo, nest_d, call_c = self._compute_ts_complexity(fn_body)
+
+            fn = ParsedFunction(
                 name=name,
                 file_path=file_path,
                 line_start=line_start,
@@ -733,7 +848,12 @@ class TypeScriptASTParser:
                 parameters=params,
                 is_async=is_async,
                 docstring=jsdoc,
-            ))
+            )
+            fn._cyclomatic   = cyclo    # type: ignore[attr-defined]
+            fn._branch_count = branch_c  # type: ignore[attr-defined]
+            fn._nesting_depth= nest_d    # type: ignore[attr-defined]
+            fn._call_count   = call_c    # type: ignore[attr-defined]
+            result.functions.append(fn)
 
         # ── Parse top-level arrow functions ───────────────────────────────────
         for m in self._ARROW_RE.finditer(content):
@@ -746,20 +866,27 @@ class TypeScriptASTParser:
             line_start = pos_to_line(m.start())
             # Arrow body: either { block } or expression
             arrow_pos = content.find("=>", m.start())
+            arrow_body_start = -1
             if arrow_pos == -1:
                 line_end = line_start
+                body_end = m.end()
             else:
                 after_arrow = content[arrow_pos + 2:].lstrip()
                 if after_arrow.startswith("{"):
-                    body_end = find_body_end(arrow_pos + 2 + content[arrow_pos + 2:].index("{"))
+                    arrow_body_start = arrow_pos + 2 + content[arrow_pos + 2:].index("{")
+                    body_end = find_body_end(arrow_body_start)
                     line_end = pos_to_line(body_end)
                 else:
                     # expression arrow — ends at next newline
                     nl = content.find("\n", arrow_pos)
                     line_end = pos_to_line(nl) if nl != -1 else line_start
+                    body_end = nl if nl != -1 else arrow_pos + 2
             jsdoc = get_jsdoc_before(m.start())
 
-            result.functions.append(ParsedFunction(
+            fn_body = content[m.start():body_end]
+            branch_c, cyclo, nest_d, call_c = self._compute_ts_complexity(fn_body)
+
+            arrow_fn = ParsedFunction(
                 name=name,
                 file_path=file_path,
                 line_start=line_start,
@@ -768,7 +895,12 @@ class TypeScriptASTParser:
                 parameters=params,
                 is_async=is_async,
                 docstring=jsdoc,
-            ))
+            )
+            arrow_fn._cyclomatic   = cyclo    # type: ignore[attr-defined]
+            arrow_fn._branch_count = branch_c  # type: ignore[attr-defined]
+            arrow_fn._nesting_depth= nest_d    # type: ignore[attr-defined]
+            arrow_fn._call_count   = call_c    # type: ignore[attr-defined]
+            result.functions.append(arrow_fn)
 
         logger.info("ts_file_parsed", file=file_path, **result.summary())
         return result

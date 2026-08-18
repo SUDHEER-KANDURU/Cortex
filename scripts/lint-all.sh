@@ -20,14 +20,17 @@ echo ""
 echo "── Frontend: TypeScript ──────────────────────"
 cd frontend && npx tsc --noEmit && cd ..
 
-# Backend (placeholder)
+# Backend
 echo ""
-echo "── Backend: ruff (placeholder) ───────────────"
-if command -v ruff &>/dev/null; then
-  ruff check backend/
+echo "── Backend: Ruff ───────────────────────────"
+cd backend
+if python -m ruff --version >/dev/null 2>&1; then
+  python -m ruff check src tests
 else
-  echo "ruff not installed — skipping backend lint."
+  echo "ruff is not installed in the current backend environment. Install backend dev dependencies first."
+  exit 1
 fi
+cd ..
 
 echo ""
 echo "✅ All linters passed."

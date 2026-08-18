@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Cortex — Architecture Diagram</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#07090f;font-family:'Segoe UI',system-ui,sans-serif;color:#e2e8f0;padding:32px 24px;min-width:1400px}
+
+h1{text-align:center;font-size:22px;font-weight:700;letter-spacing:1px;color:#f1f5f9;margin-bottom:6px}
+.subtitle{text-align:center;font-size:12px;color:#475569;margin-bottom:36px;letter-spacing:.5px}
+
+/* ── SWIMLANE WRAPPER ─────────────────────────────── */
+.lane{
+  display:flex;
+  flex-direction:row;
+  align-items:stretch;
+  margin-bottom:0;
+  position:relative;
+}
+
+.lane-label{
+  writing-mode:vertical-rl;
+  text-orientation:mixed;
+  transform:rotate(180deg);
+  font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:#475569;
+  background:#0d1117;
+  border:1px solid #1e293b;
+  border-radius:6px;
+  padding:12px 6px;
+  margin-right:14px;
+  flex-shrink:0;
+  width:28px;
+  display:flex;align-items:center;justify-content:center;
+}
+
+.lane-body{
+  flex:1;
+  border:1px solid #1e293b;
+  border-radius:12px;
+  padding:18px 20px 14px;
+  background:#0d1117;
+  display:flex;
+  flex-direction:row;
+  flex-wrap:wrap;
+  gap:12px;
+  align-items:flex-start;
+}
+
+/* Connector between lanes */
+.connector-row{
+  display:flex;
+  align-items:center;
+  margin-left:42px; /* align with lane-body */
+  height:36px;
+  gap:0;
+  position:relative;
+}
+
+/* ── BOX STYLES ───────────────────────────────────── */
+.box{
+  border-radius:8px;
+  padding:9px 13px;
+  font-size:11px;
+  font-weight:600;
+  border:1px solid transparent;
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  min-width:140px;
+}
+.box-title{font-size:12px;font-weight:700;white-space:nowrap}
+.box-sub{font-size:9.5px;font-weight:400;opacity:.75;line-height:1.4}
+
+/* Colour themes */
+.page   {background:#0e2240;border-color:#3b82f6;color:#93c5fd}
+.feat   {background:#0a1f2e;border-color:#06b6d4;color:#67e8f9}
+.comp   {background:#0e1f0e;border-color:#22c55e;color:#86efac}
+.apicli {background:#1a1040;border-color:#a78bfa;color:#c4b5fd}
+.module {background:#130e28;border-color:#7c3aed;color:#c4b5fd}
+.infra  {background:#0e2018;border-color:#10b981;color:#6ee7b7}
+.worker {background:#1a0d00;border-color:#f97316;color:#fed7aa}
+.pipe   {background:#0a1525;border-color:#3b82f6;color:#93c5fd}
+.db-pg  {background:#071828;border-color:#38bdf8;color:#7dd3fc}
+.db-rd  {background:#1a0800;border-color:#f97316;color:#fdba74}
+.db-neo {background:#00130c;border-color:#34d399;color:#6ee7b7}
+.db-gh  {background:#111;border-color:#64748b;color:#cbd5e1}
+.db-nim {background:#0c0820;border-color:#818cf8;color:#c7d2fe}
+.db-fs  {background:#0d0d00;border-color:#ca8a04;color:#fde68a}
+
+/* ── GROUP inside a lane ─────────────────────────── */
+.group{
+  border:1px solid #1e293b;
+  border-radius:10px;
+  padding:10px 12px 10px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  background:#0a0e18;
+}
+.group-title{
+  font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:#475569;margin-bottom:2px;
+}
+.group-row{display:flex;flex-direction:row;gap:8px;flex-wrap:wrap;align-items:flex-start}
+
+/* ── ARROW SECTION between lanes ─────────────────── */
+.arrows{
+  margin-left:42px;
+  padding:8px 20px;
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+}
+.arrow-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:10.5px;
+  color:#64748b;
+}
+.arrow-line{
+  height:1px;
+  flex:1;
+  max-width:120px;
+  position:relative;
+}
+.arrow-line::after{
+  content:'';
+  position:absolute;
+  right:-5px;top:-3px;
+  border:4px solid transparent;
+  border-left-width:7px;
+}
+.al-blue{background:#3b82f6}.al-blue::after{border-left-color:#3b82f6}
+.al-green{background:#34d399;border-style:dashed}.al-green::after{border-left-color:#34d399}
+.al-orange{background:#f97316}.al-orange::after{border-left-color:#f97316}
+.al-purple{background:#a78bfa;border-style:dashed}.al-purple::after{border-left-color:#a78bfa}
+.al-gray{background:#475569;border-style:dashed}.al-gray::after{border-left-color:#475569}
+.al-cyan{background:#06b6d4}.al-cyan::after{border-left-color:#06b6d4}
+.arrow-from{color:#94a3b8;font-weight:600;min-width:160px;text-align:right}
+.arrow-label{color:#94a3b8;font-weight:500}
+.arrow-to{color:#94a3b8;font-weight:600;min-width:120px}
+
+/* divider */
+.divider{height:1px;background:#1e293b;margin:0 0 0 42px}
+
+/* legend */
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px;padding:16px 20px;background:#0d1117;border:1px solid #1e293b;border-radius:10px}
+.leg-item{display:flex;align-items:center;gap:6px;font-size:10.5px;color:#94a3b8}
+.leg-dot{width:12px;height:12px;border-radius:3px;border:1.5px solid}
+</style>
+</head>
+<body>
+
+<h1>CORTEX · Engineering Reasoning Engine</h1>
+<p class="subtitle">Full-Stack Architecture Diagram · Left → Right · Horizontal · All Components</p>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- LANE 1: FRONTEND -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="lane">
+  <div class="lane-label" style="background:#0a1520;border-color:#1e3a5f;color:#3b82f6">FRONTEND</div>
+  <div class="lane-body" style="border-color:#1e3a5f">
+
+    <!-- Pages group -->
+    <div class="group">
+      <div class="group-title">Pages · Next.js App Router</div>
+      <div class="group-row">
+        <div class="box page">
+          <span class="box-title">app/page.tsx</span>
+          <span class="box-sub">Landing Page</span>
+        </div>
+        <div class="box page">
+          <span class="box-title">dashboard/page.tsx</span>
+          <span class="box-sub">Dashboard · loading.tsx</span>
+        </div>
+        <div class="box page">
+          <span class="box-title">jobs/[jobId]/page.tsx</span>
+          <span class="box-sub">Job Detail Page</span>
+        </div>
+        <div class="box feat" style="min-width:120px">
+          <span class="box-title">app/_landing/</span>
+          <span class="box-sub">KnowledgeGraph.tsx</span>
+          <span class="box-sub">JourneyNav.tsx</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Features group -->
+    <div class="group">
+      <div class="group-title">Features</div>
+      <div class="group-row">
+        <div class="box feat">
+          <span class="box-title">features/jobs</span>
+          <span class="box-sub">useSubmitJob · useJobPolling</span>
+          <span class="box-sub">useRetryJob · jobs.types.ts</span>
+        </div>
+        <div class="box feat">
+          <span class="box-title">features/artifacts</span>
+          <span class="box-sub">useArtifact · ArtifactViewer</span>
+          <span class="box-sub">artifacts.types.ts</span>
+        </div>
+        <div class="box feat">
+          <span class="box-title">features/graph</span>
+          <span class="box-sub">useGraphData · GraphCanvas</span>
+          <span class="box-sub">graph.types.ts</span>
+        </div>
+        <div class="box feat">
+          <span class="box-title">features/insights</span>
+          <span class="box-sub">useInsights</span>
+          <span class="box-sub">InsightsDashboard</span>
+        </div>
+        <div class="box feat">
+          <span class="box-title">features/tree</span>
+          <span class="box-sub">RepoTree.tsx</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- API Client group -->
+    <div class="group">
+      <div class="group-title">API Client · lib/api/</div>
+      <div class="group-row">
+        <div class="box apicli">
+          <span class="box-title">client.ts</span>
+          <span class="box-sub">Base fetch client</span>
+          <span class="box-sub">NEXT_PUBLIC_API_URL</span>
+        </div>
+        <div class="box apicli">
+          <span class="box-title">jobs.api.ts</span>
+          <span class="box-sub">POST/GET /jobs</span>
+        </div>
+        <div class="box apicli">
+          <span class="box-title">artifacts.api.ts</span>
+          <span class="box-sub">GET /artifacts</span>
+        </div>
+        <div class="box apicli">
+          <span class="box-title">graph.api.ts</span>
+          <span class="box-sub">GET /graph</span>
+        </div>
+        <div class="box apicli">
+          <span class="box-title">insights.api.ts</span>
+          <span class="box-sub">GET /insights</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- UI Components group -->
+    <div class="group">
+      <div class="group-title">Components</div>
+      <div class="group-row">
+        <div class="box comp">
+          <span class="box-title">layout/</span>
+          <span class="box-sub">Navbar · Sidebar</span>
+          <span class="box-sub">SmoothScrollProvider</span>
+        </div>
+        <div class="box comp">
+          <span class="box-title">shared/</span>
+          <span class="box-sub">BrandedLoader · Skeletons</span>
+          <span class="box-sub">StatusBadge · PageTransition</span>
+        </div>
+        <div class="box comp">
+          <span class="box-title">pipeline/</span>
+          <span class="box-sub">AnimatedPipeline.tsx</span>
+        </div>
+        <div class="box comp">
+          <span class="box-title">ui/ (design system)</span>
+          <span class="box-sub">button · card · badge</span>
+          <span class="box-sub">modal · tabs · glass-panel</span>
+        </div>
+        <div class="box comp">
+          <span class="box-title">landing/</span>
+          <span class="box-sub">Hero · HowItWorks · About</span>
+          <span class="box-sub">Awards · Footer · Header</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ARROW: Frontend → Backend -->
+<div class="arrows">
+  <div class="arrow-row">
+    <span class="arrow-from">lib/api/* (fetch)</span>
+    <div class="arrow-line al-blue"></div>
+    <span class="arrow-label">HTTP REST  /api/v1/*  :8000</span>
+    <div class="arrow-line al-blue"></div>
+    <span class="arrow-to">FastAPI Backend</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- LANE 2: BACKEND API -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="lane" style="margin-top:0">
+  <div class="lane-label" style="background:#12082a;border-color:#4c1d95;color:#8b5cf6">BACKEND API</div>
+  <div class="lane-body" style="border-color:#2d1b4e">
+
+    <!-- App Setup -->
+    <div class="group">
+      <div class="group-title">App Setup</div>
+      <div class="group-row">
+        <div class="box infra">
+          <span class="box-title">main.py</span>
+          <span class="box-sub">create_app() · lifespan()</span>
+          <span class="box-sub">CORS · middleware</span>
+        </div>
+        <div class="box infra">
+          <span class="box-title">config.py</span>
+          <span class="box-sub">Settings (pydantic)</span>
+          <span class="box-sub">DB · Redis · Neo4j · NIM</span>
+        </div>
+        <div class="box infra">
+          <span class="box-title">shared/</span>
+          <span class="box-sub">CorrelationMiddleware</span>
+          <span class="box-sub">logging · exceptions</span>
+        </div>
+        <div class="box infra">
+          <span class="box-title">schema/models.py</span>
+          <span class="box-sub">SQLAlchemy ORM models</span>
+          <span class="box-sub">migrations/ (Alembic)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Each module as a group -->
+
+    <div class="group">
+      <div class="group-title">Module: jobs/  ·  /api/v1/jobs</div>
+      <div class="group-row">
+        <div class="box module" style="min-width:130px">
+          <span class="box-title">Presentation</span>
+          <span class="box-sub">router.py · models.py</span>
+        </div>
+        <div style="color:#4c1d95;font-size:16px;align-self:center">→</div>
+        <div class="box module" style="min-width:130px">
+          <span class="box-title">Application</span>
+          <span class="box-sub">use_cases.py</span>
+        </div>
+        <div style="color:#4c1d95;font-size:16px;align-self:center">→</div>
+        <div class="box module" style="min-width:130px">
+          <span class="box-title">Domain</span>
+          <span class="box-sub">entities.py · interfaces.py</span>
+        </div>
+        <div style="color:#4c1d95;font-size:16px;align-self:center">↔</div>
+        <div class="box module" style="min-width:140px">
+          <span class="box-title">Infrastructure</span>
+          <span class="box-sub">pg_repository.py</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Module: artifacts/  ·  /api/v1/artifacts</div>
+      <div class="group-row">
+        <div class="box module" style="min-width:130px">
+          <span class="box-title">Presentation</span>
+          <span class="box-sub">router.py · models.py</span>
+        </div>
+        <div style="color:#4c1d95;font-size:16px;align-self:center">→</div>
+        <div class="box module" style="min-width:130px">
+          <span class="box-title">Application</span>
+          <span class="box-sub">use_cases.py</span>
+        </div>
+        <div style="color:#4c1d95;font-size:16px;align-self:center">→</div>
+        <div class="box module" style="min-width:130px">
+          <span class="box-title">Domain</span>
+          <span class="box-sub">entities.py · interfaces.py</span>
+        </div>
+        <div style="color:#4c1d95;font-size:16px;align-self:center">↔</div>
+        <div class="box module" style="min-width:140px">
+          <span class="box-title">Infrastructure</span>
+          <span class="box-sub">pg_repository.py · deps.py</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Module: graph/  ·  /api/v1/graph</div>
+      <div class="group-row">
+        <div class="box module" style="min-width:130px">
+          <span class="box-title">Presentation</span>
+          <span class="box-sub">router.py · models.py</span>
+        </div>
+        <div style="color:#4c1d95;font-size:16px;align-self:center">→</div>
+        <div class="box module" style="min-width:130px">
+          <span class="box-title">Application</span>
+          <span class="box-sub">use_cases.py</span>
+        </div>
+        <div style="color:#4c1d95;font-size:16px;align-self:center">→</div>
+        <div class="box module" style="min-width:130px">
+          <span class="box-title">Domain</span>
+          <span class="box-sub">entities.py · interfaces.py</span>
+        </div>
+        <div style="color:#4c1d95;font-size:16px;align-self:center">↔</div>
+        <div class="box module" style="min-width:180px">
+          <span class="box-title">Infrastructure</span>
+          <span class="box-sub">neo4j_repository.py</span>
+          <span class="box-sub">sqlite_repository.py</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Module: insights/  ·  /api/v1/insights</div>
+      <div class="group-row">
+        <div class="box module" style="min-width:130px">
+          <span class="box-title">Presentation</span>
+          <span class="box-sub">router.py · models.py</span>
+        </div>
+        <div style="color:#4c1d95;font-size:16px;align-self:center">→</div>
+        <div class="box module" style="min-width:180px">
+          <span class="box-title">Application</span>
+          <span class="box-sub">engine.py · file_classifier.py</span>
+          <span class="box-sub">language_rules.py</span>
+        </div>
+        <div style="color:#4c1d95;font-size:16px;align-self:center">→</div>
+        <div class="box module" style="min-width:160px">
+          <span class="box-title">Domain</span>
+          <span class="box-sub">entities.py · thresholds.py</span>
+        </div>
+        <div style="color:#475569;font-size:11px;align-self:center;padding:4px">(no infra — pure computation)</div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Module: chat/  ·  /api/v1/chat</div>
+      <div class="group-row">
+        <div class="box module" style="min-width:130px">
+          <span class="box-title">Presentation</span>
+          <span class="box-sub">router.py (SSE)</span>
+        </div>
+        <div style="color:#4c1d95;font-size:16px;align-self:center">→</div>
+        <div class="box module" style="min-width:140px">
+          <span class="box-title">Application</span>
+          <span class="box-sub">chat_service.py</span>
+        </div>
+        <div style="color:#4c1d95;font-size:16px;align-self:center">→</div>
+        <div class="box module" style="min-width:140px">
+          <span class="box-title">Domain</span>
+          <span class="box-sub">entities.py · interfaces.py</span>
+        </div>
+        <div style="color:#4c1d95;font-size:16px;align-self:center">↔</div>
+        <div class="box module" style="min-width:200px">
+          <span class="box-title">Infrastructure</span>
+          <span class="box-sub">nim_client.py · pg_repository.py</span>
+          <span class="box-sub">context_retriever.py · deps.py</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="group" style="align-self:flex-start">
+      <div class="group-title">Module: health/  ·  /api/v1/health</div>
+      <div class="group-row">
+        <div class="box module" style="min-width:160px">
+          <span class="box-title">Presentation only</span>
+          <span class="box-sub">router.py  (GET /health)</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ARROW: jobs → enqueue to Redis -->
+<div class="arrows">
+  <div class="arrow-row">
+    <span class="arrow-from">jobs/ (POST /jobs)</span>
+    <div class="arrow-line al-orange"></div>
+    <span class="arrow-label">enqueue Celery task</span>
+    <div class="arrow-line al-orange"></div>
+    <span class="arrow-to">Redis Queue :6379</span>
+  </div>
+  <div class="arrow-row">
+    <span class="arrow-from">jobs/, artifacts/ infra</span>
+    <div class="arrow-line al-cyan"></div>
+    <span class="arrow-label">read/write (SQLAlchemy async)</span>
+    <div class="arrow-line al-cyan"></div>
+    <span class="arrow-to">PostgreSQL :5432</span>
+  </div>
+  <div class="arrow-row">
+    <span class="arrow-from">graph/ infra</span>
+    <div class="arrow-line al-green"></div>
+    <span class="arrow-label">Cypher queries</span>
+    <div class="arrow-line al-green"></div>
+    <span class="arrow-to">Neo4j bolt :7687</span>
+  </div>
+  <div class="arrow-row">
+    <span class="arrow-from">chat/nim_client.py</span>
+    <div class="arrow-line al-purple"></div>
+    <span class="arrow-label">LLM inference (NIM_API_KEY)</span>
+    <div class="arrow-line al-purple"></div>
+    <span class="arrow-to">NVIDIA NIM API</span>
+  </div>
+  <div class="arrow-row">
+    <span class="arrow-from">chat/context_retriever.py</span>
+    <div class="arrow-line al-green"></div>
+    <span class="arrow-label">fetch graph context</span>
+    <div class="arrow-line al-green"></div>
+    <span class="arrow-to">Neo4j + PostgreSQL</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- LANE 3: WORKER / PIPELINE -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="lane" style="margin-top:0">
+  <div class="lane-label" style="background:#180e00;border-color:#7c2d12;color:#f97316">WORKER</div>
+  <div class="lane-body" style="border-color:#431407">
+
+    <!-- Celery app -->
+    <div class="group" style="align-self:flex-start">
+      <div class="group-title">Celery App · src/worker/</div>
+      <div class="group-row">
+        <div class="box worker">
+          <span class="box-title">celery_app.py</span>
+          <span class="box-sub">Celery factory</span>
+          <span class="box-sub">broker: Redis</span>
+          <span class="box-sub">autodiscover tasks</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pipeline entry -->
+    <div style="color:#f97316;font-size:20px;align-self:center;padding:0 4px">→</div>
+
+    <div class="group" style="align-self:flex-start">
+      <div class="group-title">Pipeline Entry · pipeline/infrastructure/</div>
+      <div class="group-row">
+        <div class="box worker">
+          <span class="box-title">celery_tasks.py</span>
+          <span class="box-sub">@task run_analysis()</span>
+          <span class="box-sub">updates job status</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Orchestrator -->
+    <div style="color:#f97316;font-size:20px;align-self:center;padding:0 4px">→</div>
+
+    <div class="group" style="align-self:flex-start">
+      <div class="group-title">Pipeline Orchestration</div>
+      <div class="group-row">
+        <div class="box pipe">
+          <span class="box-title">orchestrator.py</span>
+          <span class="box-sub">pipeline/application/</span>
+          <span class="box-sub">runs stages in order</span>
+        </div>
+        <div class="box infra" style="min-width:120px">
+          <span class="box-title">domain/interfaces.py</span>
+          <span class="box-sub">IStage · IPipelineRunner</span>
+          <span class="box-sub">contracts</span>
+        </div>
+        <div class="box pipe">
+          <span class="box-title">stages.py</span>
+          <span class="box-sub">pipeline/infrastructure/</span>
+          <span class="box-sub">stage implementations</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arrow into stages -->
+    <div style="color:#3b82f6;font-size:20px;align-self:center;padding:0 4px">→</div>
+
+    <!-- Individual stage tools -->
+    <div class="group">
+      <div class="group-title">Pipeline Stage Tools · pipeline/infrastructure/</div>
+      <div class="group-row">
+        <div class="box pipe">
+          <span class="box-title">github_client.py</span>
+          <span class="box-sub">clone repo via git</span>
+          <span class="box-sub">GitHub token auth</span>
+        </div>
+        <div class="box pipe">
+          <span class="box-title">github_analyzer.py</span>
+          <span class="box-sub">file traversal</span>
+          <span class="box-sub">repo structure</span>
+        </div>
+        <div class="box pipe">
+          <span class="box-title">ast_parser.py</span>
+          <span class="box-sub">Python AST parsing</span>
+          <span class="box-sub">symbol extraction</span>
+        </div>
+        <div class="box pipe">
+          <span class="box-title">vibe_detector.py</span>
+          <span class="box-sub">framework detection</span>
+          <span class="box-sub">language · patterns</span>
+        </div>
+        <div class="box pipe">
+          <span class="box-title">graph_builder.py</span>
+          <span class="box-sub">build Neo4j graph</span>
+          <span class="box-sub">nodes + relationships</span>
+        </div>
+        <div class="box pipe">
+          <span class="box-title">artifact_generator.py</span>
+          <span class="box-sub">Mermaid · Markdown</span>
+          <span class="box-sub">JSON artifacts</span>
+        </div>
+        <div class="box pipe">
+          <span class="box-title">db_schema_generator.py</span>
+          <span class="box-sub">extract DB schema</span>
+          <span class="box-sub">ERD artifact</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ARROW: Worker → Data Stores -->
+<div class="arrows">
+  <div class="arrow-row">
+    <span class="arrow-from">celery_app.py</span>
+    <div class="arrow-line al-orange"></div>
+    <span class="arrow-label">dequeue task (broker)</span>
+    <div class="arrow-line al-orange"></div>
+    <span class="arrow-to">Redis :6379</span>
+  </div>
+  <div class="arrow-row">
+    <span class="arrow-from">github_client.py</span>
+    <div class="arrow-line al-gray"></div>
+    <span class="arrow-label">git clone / REST API</span>
+    <div class="arrow-line al-gray"></div>
+    <span class="arrow-to">GitHub (external)</span>
+  </div>
+  <div class="arrow-row">
+    <span class="arrow-from">github_client.py</span>
+    <div class="arrow-line al-gray"></div>
+    <span class="arrow-label">writes cloned repo files</span>
+    <div class="arrow-line al-gray"></div>
+    <span class="arrow-to">File System (tmp)</span>
+  </div>
+  <div class="arrow-row">
+    <span class="arrow-from">graph_builder.py</span>
+    <div class="arrow-line al-green"></div>
+    <span class="arrow-label">write nodes / edges (Bolt)</span>
+    <div class="arrow-line al-green"></div>
+    <span class="arrow-to">Neo4j :7687</span>
+  </div>
+  <div class="arrow-row">
+    <span class="arrow-from">artifact_generator.py / celery_tasks.py</span>
+    <div class="arrow-line al-cyan"></div>
+    <span class="arrow-label">write artifacts + update job status</span>
+    <div class="arrow-line al-cyan"></div>
+    <span class="arrow-to">PostgreSQL :5432</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- LANE 4: DATA STORES -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="lane" style="margin-top:0">
+  <div class="lane-label" style="background:#071828;border-color:#0c4a6e;color:#38bdf8">DATA STORES</div>
+  <div class="lane-body" style="border-color:#0c4a6e">
+
+    <div class="box db-pg" style="min-width:220px">
+      <span class="box-title">PostgreSQL 16  /  SQLite</span>
+      <span class="box-sub">dev: SQLite (cortex.db)  ·  prod: PG 16 :5432</span>
+      <span class="box-sub" style="margin-top:4px">📋 jobs  (id · status · repo_url · artifact_type · options)</span>
+      <span class="box-sub">📋 artifacts  (id · job_id FK · content_type · content)</span>
+      <span class="box-sub">📋 chat_messages  (session_id · role · content)</span>
+    </div>
+
+    <div class="box db-rd" style="min-width:190px">
+      <span class="box-title">Redis 7  :6379</span>
+      <span class="box-sub">Celery task broker</span>
+      <span class="box-sub">Celery result backend</span>
+      <span class="box-sub">Job task queue</span>
+    </div>
+
+    <div class="box db-neo" style="min-width:220px">
+      <span class="box-title">Neo4j 5  bolt :7687</span>
+      <span class="box-sub">(:Module) · (:Function) · (:Class) nodes</span>
+      <span class="box-sub">[:IMPORTS] · [:CALLS] · [:DEFINES] edges</span>
+      <span class="box-sub">SQLite fallback (sqlite_repository.py)</span>
+    </div>
+
+    <div class="box db-gh" style="min-width:190px">
+      <span class="box-title">GitHub (External)</span>
+      <span class="box-sub">git clone (GITHUB_TOKEN)</span>
+      <span class="box-sub">REST API for metadata</span>
+      <span class="box-sub">via github_client.py</span>
+    </div>
+
+    <div class="box db-nim" style="min-width:200px">
+      <span class="box-title">NVIDIA NIM  (LLM)</span>
+      <span class="box-sub">NIM_API_KEY · offline capable</span>
+      <span class="box-sub">LLM inference endpoint</span>
+      <span class="box-sub">via nim_client.py</span>
+    </div>
+
+    <div class="box db-fs" style="min-width:180px">
+      <span class="box-title">File System</span>
+      <span class="box-sub">Temporary cloned repos</span>
+      <span class="box-sub">Large artifact storage_path</span>
+      <span class="box-sub">via github_client.py</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- LEGEND -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="legend">
+  <div class="leg-item"><div class="leg-dot" style="background:#0e2240;border-color:#3b82f6"></div>Next.js Pages</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#0a1f2e;border-color:#06b6d4"></div>Frontend Features</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#1a1040;border-color:#a78bfa"></div>API Client</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#0e1f0e;border-color:#22c55e"></div>UI Components</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#130e28;border-color:#7c3aed"></div>Backend Module (Clean Arch)</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#0e2018;border-color:#10b981"></div>Infra / Config / Schema</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#1a0d00;border-color:#f97316"></div>Celery Worker</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#0a1525;border-color:#3b82f6"></div>Pipeline Stages</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#071828;border-color:#38bdf8"></div>PostgreSQL/SQLite</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#1a0800;border-color:#f97316"></div>Redis</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#00130c;border-color:#34d399"></div>Neo4j</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#0c0820;border-color:#818cf8"></div>NVIDIA NIM</div>
+  <div class="leg-item">── solid = sync/HTTP &nbsp; ╌╌ dashed = async/ext</div>
+</div>
+
+</body>
+</html>

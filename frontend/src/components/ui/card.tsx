@@ -35,12 +35,16 @@ const CARD_REST = {
 
 // ── Card ───────────────────────────────────────────────────────────────────
 
-interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+type MotionDivProps = Omit<
+  React.ComponentPropsWithoutRef<typeof motion.div>,
+  'children' | 'onDrag' | 'onDragStart' | 'onDragEnd' | 'onDragCapture' | 'onDragEndCapture' | 'onDragStartCapture'
+>
+
+interface CardProps extends MotionDivProps {
   /** Disable hover spring animation (e.g. inside carousels) */
   noMotion?: boolean
   /** Whether to add data-spotlight for GSAP tilt */
   spotlight?: boolean
-  asChild?: boolean
 }
 
 const Card = React.forwardRef<HTMLDivElement, CardProps>(
@@ -146,7 +150,7 @@ CardFooter.displayName = 'CardFooter'
 
 // ── Glass variant ──────────────────────────────────────────────────────────
 
-interface GlassCardProps extends React.HTMLAttributes<HTMLDivElement> {
+interface GlassCardProps extends MotionDivProps {
   noMotion?: boolean
   spotlight?: boolean
 }

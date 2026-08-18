@@ -1,6 +1,6 @@
 """Health check endpoints — liveness and readiness probes."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from datetime import datetime, timezone
 
@@ -46,8 +46,19 @@ async def health() -> HealthResponse:
     summary="Readiness probe",
     description="Returns detailed status of all modules and registered endpoints.",
 )
-async def readiness() -> ReadinessResponse:
+async def readiness(request: Request) -> ReadinessResponse:
     """Readiness probe — checks all modules are loaded."""
+    api_routes = [
+        route.path for route in request.app.routes if hasattr(route, "path") and route.path.startswith("/api/v1")
+    ]
+    endpoint_counts = {
+        "health": sum(1 for path in api_routes if path.startswith("/api/v1/health")),
+        "jobs": sum(1 for path in api_routes if path.startswith("/api/v1/jobs")),
+        "artifacts": sum(1 for path in api_routes if path.startswith("/api/v1/artifacts")),
+        "graph": sum(1 for path in api_routes if path.startswith("/api/v1/graph")),
+        "total": len(api_routes),
+    }
+
     return ReadinessResponse(
         status="ready",
         version="0.1.0",
@@ -59,11 +70,5 @@ async def readiness() -> ReadinessResponse:
             "pipeline": "loaded",
             "health": "loaded",
         },
-        endpoints={
-            "health": 2,
-            "jobs": 8,
-            "artifacts": 5,
-            "graph": 6,
-            "total": 21,
-        },
+        endpoints=endpoint_counts,
     )
