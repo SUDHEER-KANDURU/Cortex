@@ -11,6 +11,7 @@ from cortex.chat.infrastructure.context_retriever import ContextRetriever
 from cortex.chat.infrastructure.nim_client import NIMClient
 from cortex.chat.infrastructure.dependencies import chat_repository
 from cortex.graph.infrastructure.sqlite_repository import SQLiteGraphRepository
+from cortex.jobs.infrastructure.pg_repository import PostgresJobRepository
 from cortex.config import get_settings
 import structlog
 
@@ -25,6 +26,10 @@ Rules:
 - Use code formatting for class names and file paths
 - When explaining architecture, trace the actual flow through real classes
 - Never make up class names or file paths that aren't in the context
+- If the context includes a "What's known from prior analyses" section, treat
+  that as history from earlier runs of this same repo — useful for questions
+  about how the codebase has changed, but don't confuse it with the current
+  state unless the question is explicitly about history
 """
 
 
@@ -33,6 +38,11 @@ class ChatService:
 
     Sessions and messages are persisted via `chat_repository` (SQLite by
     default) instead of an in-memory dict, so history survives a restart.
+
+    Context retrieval now blends the live graph with durable facts from
+    Repository Memory (prior analyses of the same repo_url), so chat can
+    answer questions like "has this always been a god class?" — not just
+    what's true of the current job alone.
     """
 
     def __init__(self) -> None:
@@ -41,6 +51,7 @@ class ChatService:
         self._nim = NIMClient(settings.nim_api_key)
         self._use_nim = bool(settings.nim_api_key)
         self._repo = chat_repository
+        self._job_repo = PostgresJobRepository(settings.database_url)
 
     async def create_session(self, job_id: str) -> ChatSession:
         """Create and persist a new chat session for a job."""
@@ -79,18 +90,24 @@ class ChatService:
 
         Flow:
         1. Add user message to session history (persisted immediately)
-        2. Retrieve relevant code context from graph
-        3. Build prompt with context + history
-        4. Stream response from NIM or fallback
-        5. Collect full response and save to session (persisted)
+        2. Resolve the session's job to a repo_url (for memory lookup)
+        3. Retrieve relevant context from the live graph + repository memory
+        4. Build prompt with context + history
+        5. Stream response from NIM or fallback
+        6. Collect full response and save to session (persisted)
         """
         # Add user message to history
         user_msg = session.add_message(MessageRole.USER, user_message)
         await self._repo.add_message(session.id, user_msg)
 
-        # Retrieve relevant context
+        # Resolve repo_url for this job so memory can be searched.
+        # Never let this block the conversation — if the job lookup fails
+        # for any reason, chat still works from the live graph alone.
+        repo_url = await self._resolve_repo_url(session.job_id)
+
+        # Retrieve relevant context (graph + memory)
         context = await self._retriever.retrieve(
-            session.job_id, user_message
+            session.job_id, user_message, repo_url=repo_url
         )
 
         # Build messages for NIM
@@ -144,7 +161,19 @@ class ChatService:
             job_id=session.job_id,
             response_length=len(complete),
             used_nim=self._use_nim,
+            used_memory=bool(repo_url),
         )
+
+    async def _resolve_repo_url(self, job_id: str) -> str | None:
+        """Look up the repo_url for a job, for repository-memory retrieval.
+        Returns None (never raises) if the job can't be found — memory
+        lookup is an enhancement, not a hard dependency for chat."""
+        try:
+            job = await self._job_repo.get_by_id(job_id)
+            return job.repo_url if job else None
+        except Exception as e:
+            logger.warning("chat_job_lookup_failed", job_id=job_id, error=str(e))
+            return None
 
     async def _generate_fallback(
         self,

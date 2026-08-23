@@ -97,4 +97,4 @@ class RepositorySummary:
         self.total_classes = total_classes
         self.total_functions = total_functions
         self.headline = headline
-        self.updated_at = _now()s
+        self.updated_at = _now()
