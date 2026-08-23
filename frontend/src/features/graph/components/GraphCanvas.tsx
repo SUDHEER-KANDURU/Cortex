@@ -29,41 +29,41 @@ export interface GraphCanvasProps {
 
 // ── Theme helpers (read at render time) ───────────────────────────────────────
 function isDarkTheme(): boolean {
-  if (typeof document === 'undefined') return true;
-  return document.documentElement.getAttribute('data-theme') !== 'light';
+  if (typeof document === 'undefined') return false;
+  return document.documentElement.getAttribute('data-theme') === 'dark';
 }
 
 function themeTokens() {
   const dark = isDarkTheme();
   return {
     dark,
-    // Canvas background
-    canvasBg:       dark ? '#060810' : '#f6f8fc',
+    // Canvas background — warm gray (light) / deep gray (dark)
+    canvasBg:        dark ? '#16171A' : '#EAEAEB',
     // Dot / grid color
-    dotColor:       dark ? '#1e2533' : '#d1d5db',
+    dotColor:        dark ? '#222428' : '#D4D4D6',
     // Edge line color
-    edgeStroke:     dark ? '#334155' : '#94a3b8',
-    edgeLabelFill:  dark ? '#94a3b8' : '#64748b',
+    edgeStroke:      dark ? '#3A3A42' : '#C4C4C8',
+    edgeLabelFill:   dark ? '#A0A0A8' : '#52525B',
     // Container border
-    containerBorder:dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)',
-    // Node text color — ensure contrast on both themes
-    nodeText:       dark ? '#e2e8f0' : '#1e293b',
+    containerBorder: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
+    // Node text color
+    nodeText:        dark ? '#E8E8EA' : '#18181B',
     // Detail panel
-    panelBg:        dark ? '#0f1117' : '#ffffff',
-    panelBorder:    dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.10)',
-    panelText:      dark ? '#f1f5f9' : '#1e293b',
-    panelMuted:     dark ? '#94a3b8' : '#64748b',
-    panelPropBg:    dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
-    panelPropBorder:dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-    closeBtnHover:  dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+    panelBg:         dark ? '#1C1D21' : '#FFFFFF',
+    panelBorder:     dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
+    panelText:       dark ? '#E8E8EA' : '#18181B',
+    panelMuted:      dark ? '#A0A0A8' : '#52525B',
+    panelPropBg:     dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+    panelPropBorder: dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)',
+    closeBtnHover:   dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
     // MiniMap
-    minimapBg:      dark ? '#0f1117' : '#f8fafc',
-    minimapBorder:  dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)',
-    minimapMask:    dark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.5)',
+    minimapBg:       dark ? '#1C1D21' : '#F4F4F5',
+    minimapBorder:   dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
+    minimapMask:     dark ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.6)',
     // Controls
-    controlBtn:     dark ? '#1e2533' : '#ffffff',
-    controlBtnBorder:dark? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)',
-    controlBtnText: dark ? '#94a3b8' : '#475569',
+    controlBtn:      dark ? '#222428' : '#FFFFFF',
+    controlBtnBorder:dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)',
+    controlBtnText:  dark ? '#A0A0A8' : '#52525B',
   };
 }
 
@@ -82,7 +82,7 @@ function toFlowNode(node: GraphNode, index: number, dark: boolean): Node<GraphNo
       border: `1px solid ${color}`,
       borderRadius: '8px',
       padding: '8px 12px',
-      color: dark ? '#e2e8f0' : '#1e293b',
+      color: dark ? '#E8E8EA' : '#18181B',
       fontSize: '12px',
       fontFamily: 'ui-monospace, monospace',
       minWidth: '120px',

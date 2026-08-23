@@ -24,17 +24,14 @@ import type {
 import { exportInsightsMarkdown } from '@/lib/api/insights.api';
 import { staggerFastContainer, staggerFastChild } from '@/lib/utils/motion';
 
-// ── Design tokens ─────────────────────────────────────────────────────────────
-// Severity: used only for left-border accents and filter buttons when active.
-// Nowhere else should raw color values appear for severity.
-
+// Severity — soft, not alarming
 const SEV: Record<IssueSeverity | 'default', string> = {
-  critical: '#e53e3e',
-  high:     '#d97706',
-  medium:   '#ca8a04',
-  low:      '#16a34a',
-  info:     '#6b7280',
-  default:  '#6b7280',
+  critical: '#B94040',
+  high:     '#A06828',
+  medium:   '#8A7820',
+  low:      '#4E9B6F',
+  info:     '#A1A1AA',
+  default:  '#A1A1AA',
 };
 
 function sevColor(s: IssueSeverity): string {
@@ -45,15 +42,14 @@ function sevLabel(s: IssueSeverity): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// Grade: only used for the letter display in DimensionCard and the ring.
-// Single muted palette — not green/red/yellow alarming.
+// Grade — muted, single accent for A, subtle steps for the rest
 function gradeColor(g: string): string {
   switch (g) {
     case 'A': return 'var(--primary)';
-    case 'B': return '#60a5fa';
-    case 'C': return '#f59e0b';
-    case 'D': return '#f97316';
-    case 'F': return '#e53e3e';
+    case 'B': return 'var(--primary)';
+    case 'C': return 'var(--warning)';
+    case 'D': return '#A06828';
+    case 'F': return 'var(--danger)';
     default:  return 'var(--text-muted)';
   }
 }
@@ -94,14 +90,14 @@ function ScoreBar({ score, height = 5 }: { score: number; height?: number }) {
   return (
     <div style={{
       width: '100%', height, borderRadius: height,
-      background: 'rgba(255,255,255,0.06)', overflow: 'hidden',
+      background: 'var(--border)', overflow: 'hidden',
     }}>
       <div style={{
         width: `${Math.max(0, Math.min(100, score))}%`,
         height: '100%',
         background: 'var(--primary)',
         borderRadius: height,
-        opacity: 0.8,
+        opacity: 0.75,
         transition: 'width 0.6s cubic-bezier(0.16,1,0.3,1)',
       }} />
     </div>
@@ -120,14 +116,14 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Inline pill — neutral, same style everywhere
+// Inline pill — neutral, token-driven
 function Pill({ children, active }: { children: React.ReactNode; active?: boolean }) {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center',
       fontSize: 10, padding: '2px 8px', borderRadius: 6,
-      background: active ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.04)',
-      border: `1px solid ${active ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)'}`,
+      background: active ? 'var(--surface)' : 'var(--bg)',
+      border: `1px solid ${active ? 'var(--border-hover)' : 'var(--border)'}`,
       color: active ? 'var(--text-secondary)' : 'var(--text-muted)',
       fontFamily: 'var(--font-mono)',
       whiteSpace: 'nowrap',
@@ -150,7 +146,7 @@ function ScoreRing({ score, grade }: { score: number; grade: string }) {
     <div style={{ position: 'relative', width: 112, height: 112, flexShrink: 0 }}>
       <svg width={112} height={112} style={{ transform: 'rotate(-90deg)' }}>
         <circle cx={56} cy={56} r={r} fill="none"
-          stroke="rgba(255,255,255,0.06)" strokeWidth={8} />
+          stroke="var(--border)" strokeWidth={8} />
         <circle cx={56} cy={56} r={r} fill="none"
           stroke={color} strokeWidth={8}
           strokeDasharray={`${fill} ${circ - fill}`}
@@ -201,7 +197,7 @@ function DimensionCard({ dim }: { dim: HealthDimension }) {
         outline: 'none',
         transition: 'background 0.15s',
       }}
-      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
       onMouseLeave={e => (e.currentTarget.style.background = 'var(--glass-card)')}
     >
       {/* Header */}
@@ -357,8 +353,8 @@ function IssueCard({ issue }: { issue: CodeIssue }) {
             <code style={{
               fontSize: 10, fontFamily: 'var(--font-mono)',
               color: 'var(--text-muted)',
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.07)',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
               borderRadius: 4, padding: '2px 7px',
             }}>
               {location}
@@ -418,7 +414,7 @@ function IssueCard({ issue }: { issue: CodeIssue }) {
         <div style={{
           borderTop: '1px solid var(--border)',
           padding: '12px 14px',
-          background: 'rgba(255,255,255,0.015)',
+          background: 'var(--surface)',
         }}>
           <p style={{
             fontSize: 12, color: 'var(--text-secondary)',
@@ -468,7 +464,7 @@ function FileGroup({ filePath, issues }: { filePath: string; issues: CodeIssue[]
         onClick={() => setOpen(o => !o)}
         style={{
           width: '100%', textAlign: 'left', cursor: 'pointer',
-          background: 'rgba(255,255,255,0.025)',
+          background: 'var(--surface)',
           border: 'none', padding: '9px 14px',
           display: 'flex', alignItems: 'center', gap: 10,
         }}
@@ -581,9 +577,9 @@ function IssuesPanel({ issues }: { issues: CodeIssue[] }) {
   const filterBtn = (active: boolean, activeColor?: string) => ({
     padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
     cursor: 'pointer' as const,
-    background: active ? 'rgba(255,255,255,0.08)' : 'transparent',
+    background: active ? 'var(--surface)' : 'transparent',
     color: active ? (activeColor ?? 'var(--text)') : 'var(--text-muted)',
-    border: `1px solid ${active ? 'rgba(255,255,255,0.15)' : 'var(--border)'}`,
+    border: `1px solid ${active ? 'var(--border-hover)' : 'var(--border)'}`,
     transition: 'all 0.15s',
   } as const);
 
@@ -660,7 +656,7 @@ function IssuesPanel({ issues }: { issues: CodeIssue[] }) {
             <button onClick={() => setShowAll(true)} style={{
               width: '100%', marginTop: 4, padding: '9px',
               background: 'transparent',
-              border: '1px dashed rgba(255,255,255,0.1)',
+              border: '1px dashed var(--border-hover)',
               borderRadius: 8, color: 'var(--text-muted)', fontSize: 12,
               cursor: 'pointer',
             }}>
@@ -687,7 +683,7 @@ function IssuesPanel({ issues }: { issues: CodeIssue[] }) {
             <button onClick={() => setShowAll(true)} style={{
               marginTop: 4, padding: '9px',
               background: 'transparent',
-              border: '1px dashed rgba(255,255,255,0.1)',
+              border: '1px dashed var(--border-hover)',
               borderRadius: 8, color: 'var(--text-muted)', fontSize: 12,
               cursor: 'pointer', width: '100%',
             }}>
@@ -791,14 +787,14 @@ export default function InsightsDashboard({ report }: Props) {
           disabled={exporting}
           style={{
             padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-            background: 'rgba(255,255,255,0.05)',
+            background: 'var(--surface)',
             color: 'var(--text-secondary)',
             border: '1px solid var(--border)',
             cursor: exporting ? 'wait' : 'pointer',
             transition: 'background 0.2s', flexShrink: 0,
           }}
-          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.09)')}
-          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--card)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface)')}
         >
           {exporting ? 'Exporting…' : 'Export .md'}
         </button>

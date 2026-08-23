@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import type { GraphNode, GraphEdge } from '@/types';
-import { getGraphNodes, getGraphEdges } from '@/lib/api/graph.api';
+import { getGraph } from '@/lib/api/graph.api';
 import { sessionCache, cacheKey, TTL } from '@/lib/cache';
 
 export interface UseGraphDataReturn {
@@ -47,14 +47,18 @@ export function useGraphData(jobId: string | null): UseGraphDataReturn {
       setIsLoading(true);
       setError(null);
       try {
-        const [fetchedNodes, fetchedEdges] = await Promise.all([
-          getGraphNodes(jobId),
-          getGraphEdges(jobId),
-        ]);
+        // Single call to GET /graph/jobs/:jobId returns both nodes and edges —
+        // previously made two parallel requests (getGraphNodes + getGraphEdges)
+        // which wasted one full round-trip per graph load.
+        const data = await getGraph(jobId);
         if (!isActive) return;
-        setNodes(fetchedNodes);
-        setEdges(fetchedEdges);
-        sessionCache.set(cacheKey.graph(jobId), { nodes: fetchedNodes, edges: fetchedEdges }, TTL.GRAPH);
+        setNodes(data.nodes);
+        setEdges(data.edges);
+        sessionCache.set(
+          cacheKey.graph(jobId),
+          { nodes: data.nodes, edges: data.edges },
+          TTL.GRAPH,
+        );
       } catch (err: unknown) {
         if (!isActive) return;
         setError(err instanceof Error ? err.message : 'Failed to fetch graph data.');
