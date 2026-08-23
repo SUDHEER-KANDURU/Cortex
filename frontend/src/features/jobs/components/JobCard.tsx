@@ -48,12 +48,12 @@ export default function JobCard({ job, isSelected = false, onClick, onRetried }:
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-1',
           isSelected
             ? [
-                'border-[rgba(0,229,168,0.35)] bg-[rgba(0,229,168,0.06)]',
-                'shadow-[0_0_0_1px_rgba(0,229,168,0.15),var(--shadow-sm)]',
+                'border-[var(--primary)] bg-[var(--primary-dim)]',
+                'shadow-[var(--shadow-sm)]',
               ].join(' ')
             : [
                 'border-[var(--border)] bg-[var(--card)]',
-                'hover:border-[var(--border-hover)] hover:bg-[rgba(255,255,255,0.04)]',
+                'hover:border-[var(--border-hover)] hover:bg-[var(--surface)]',
                 'hover:shadow-[var(--shadow-md)] hover:-translate-y-[1px]',
               ].join(' ')
         )}
@@ -102,8 +102,8 @@ export default function JobCard({ job, isSelected = false, onClick, onRetried }:
             className={cn(
               'flex items-center justify-center gap-1.5 w-full rounded-[var(--radius-sm)] border px-3 py-1.5',
               'text-[11px] font-medium transition-all duration-150',
-              'border-[rgba(239,68,68,0.3)] text-[var(--danger)] bg-[rgba(239,68,68,0.06)]',
-              'hover:bg-[rgba(239,68,68,0.12)] hover:border-[rgba(239,68,68,0.5)]',
+              'border-[var(--danger-dim)] text-[var(--danger)] bg-[var(--danger-dim)]',
+              'hover:opacity-80 hover:border-[var(--danger)]',
               'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--danger)]',
               'disabled:opacity-50 disabled:cursor-not-allowed'
             )}

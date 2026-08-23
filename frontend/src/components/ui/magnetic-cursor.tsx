@@ -46,7 +46,7 @@ export function MagneticCursor() {
       position:     "relative",
       transform:    "translate(-50%,-50%)",
       borderRadius: "50%",
-      background:   "#0a0a0a",
+      background:   "var(--text)",
       width:  "5px",
       height: "5px",
       // Size transitions — CSS handles it, no JS needed
@@ -60,7 +60,7 @@ export function MagneticCursor() {
       position:     "relative",
       transform:    "translate(-50%,-50%)",
       borderRadius: "50%",
-      border:       "1px solid rgba(10,10,10,0.22)",
+      border:       "1px solid rgba(24,24,27,0.22)",
       width:  "28px",
       height: "28px",
       transition: [
@@ -113,7 +113,7 @@ export function MagneticCursor() {
           dotInner.style.height = "3px"
           ringInner.style.width  = "40px"
           ringInner.style.height = "40px"
-          ringInner.style.borderColor = "rgba(10,10,10,0.14)"
+          ringInner.style.borderColor = "rgba(24,24,27,0.14)"
           break
         case "text":
           // Ring contracts to a narrow bar (I-beam feel)
@@ -122,7 +122,7 @@ export function MagneticCursor() {
           dotInner.style.borderRadius = "1px"
           ringInner.style.width  = "16px"
           ringInner.style.height = "16px"
-          ringInner.style.borderColor = "rgba(10,10,10,0.10)"
+          ringInner.style.borderColor = "rgba(24,24,27,0.10)"
           break
         default:
           dotInner.style.width  = "5px"
@@ -130,7 +130,7 @@ export function MagneticCursor() {
           dotInner.style.borderRadius = "50%"
           ringInner.style.width  = "28px"
           ringInner.style.height = "28px"
-          ringInner.style.borderColor = "rgba(10,10,10,0.22)"
+          ringInner.style.borderColor = "rgba(24,24,27,0.22)"
           ringInner.style.borderWidth = "1px"
           break
       }

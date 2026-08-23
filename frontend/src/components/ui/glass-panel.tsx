@@ -31,27 +31,28 @@ const GlassPanel = React.forwardRef<HTMLDivElement, GlassPanelProps>(
 
     const variantStyles: Record<string, React.CSSProperties> = {
       default: {
-        background: 'var(--glass-card, rgba(14,18,28,0.82))',
-        backdropFilter: 'blur(20px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-        boxShadow: 'var(--shadow-lg), var(--edge-top), var(--edge-inner)',
+        background: 'var(--glass-card)',
+        backdropFilter: 'blur(20px) saturate(160%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+        boxShadow: 'var(--shadow-lg), var(--edge-top)',
       },
       elevated: {
-        background: 'var(--glass-modal, rgba(11,15,24,0.94))',
-        backdropFilter: 'blur(36px) saturate(210%)',
-        WebkitBackdropFilter: 'blur(36px) saturate(210%)',
-        boxShadow: 'var(--shadow-xl), var(--edge-top-bright), var(--edge-inner)',
+        background: 'var(--glass-modal)',
+        backdropFilter: 'blur(32px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(32px) saturate(180%)',
+        boxShadow: 'var(--shadow-xl), var(--edge-top-bright)',
       },
       subtle: {
-        background: 'rgba(255,255,255,0.04)',
+        // Token-driven: light = near-white, dark = near-black
+        background: 'var(--surface)',
         backdropFilter: 'blur(8px) saturate(140%)',
         WebkitBackdropFilter: 'blur(8px) saturate(140%)',
         boxShadow: 'var(--shadow-sm), var(--edge-top)',
       },
       nav: {
-        background: 'var(--glass-nav, rgba(10,13,22,0.72))',
-        backdropFilter: 'blur(44px) saturate(220%)',
-        WebkitBackdropFilter: 'blur(44px) saturate(220%)',
+        background: 'var(--glass-nav)',
+        backdropFilter: 'blur(44px) saturate(200%)',
+        WebkitBackdropFilter: 'blur(44px) saturate(200%)',
         boxShadow: 'var(--shadow-nav)',
       },
     };

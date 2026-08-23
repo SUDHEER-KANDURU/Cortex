@@ -17,8 +17,8 @@ import { SPRING, DURATION, EASE } from '@/lib/utils/motion'
 // ── Motion presets ──────────────────────────────────────────────────────────
 
 const CARD_HOVER = {
-  y:          -6,
-  boxShadow:  'var(--shadow-xl), var(--edge-top)',
+  y:          -4,
+  boxShadow:  'var(--shadow-lg), var(--edge-top)',
   transition: SPRING.snappy,
 }
 
@@ -180,8 +180,8 @@ const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
         whileHover={
           applyMotion
             ? {
-                y:          -6,
-                boxShadow:  'var(--shadow-xl), var(--edge-top)',
+                y:          -4,
+                boxShadow:  'var(--shadow-lg), var(--edge-top)',
                 transition: SPRING.snappy,
               }
             : undefined

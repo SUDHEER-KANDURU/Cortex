@@ -44,6 +44,7 @@ const ArtifactViewer = dynamic(
 const ARTIFACT_TYPES: ArtifactType[] = [
   'folder_structure', 'module_breakdown', 'architecture_diagram',
   'database_schema', 'api_spec', 'learning_path', 'interview_questions',
+  'vibe_code_detection',
 ];
 const GITHUB_URL_RE = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/?$/;
 
@@ -64,7 +65,7 @@ function tint(d: boolean, s: 'xs' | 'sm' | 'md' = 'sm'): string {
 }
 function tintBorder(d: boolean) { return d ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)'; }
 function hoverBg(d: boolean)    { return d ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'; }
-function selectedBg(d: boolean) { return d ? 'rgba(0,229,168,0.08)'   : 'rgba(0,179,122,0.10)'; }
+function selectedBg(d: boolean) { return d ? 'rgba(139,175,201,0.10)'  : 'rgba(107,143,174,0.09)'; }
 function rowHoverBg(d: boolean) { return d ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'; }
 
 // ── Dashboard background ──────────────────────────────────────────────────────
@@ -84,7 +85,7 @@ function DashboardNavbar({ isDark, onToggleTheme }: NavbarProps) {
       <nav aria-label="Dashboard navigation" style={{
         pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 4,
         padding: '7px 10px', borderRadius: 9999, width: '100%', maxWidth: 960,
-        background: isDark ? 'rgba(10,13,22,0.55)' : 'rgba(250,252,255,0.62)',
+        background: isDark ? 'rgba(22,23,26,0.72)' : 'rgba(244,244,245,0.82)',
         backdropFilter: 'blur(44px) saturate(220%)', WebkitBackdropFilter: 'blur(44px) saturate(220%)',
         border: `1px solid ${bdr}`,
         boxShadow: 'var(--shadow-nav)',
@@ -94,7 +95,7 @@ function DashboardNavbar({ isDark, onToggleTheme }: NavbarProps) {
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', borderRadius: 16, textDecoration: 'none', flexShrink: 0, transition: 'background 0.2s ease' }}
           onMouseEnter={e => (e.currentTarget.style.background = hov)}
           onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0)')}>
-          <span style={{ width: 24, height: 24, borderRadius: 7, flexShrink: 0, background: 'var(--primary-dim)', border: '1px solid rgba(0,229,168,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ width: 24, height: 24, borderRadius: 7, flexShrink: 0, background: 'var(--primary-dim)', border: '1px solid var(--border-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <LayoutDashboard style={{ width: 12, height: 12, color: 'var(--primary)' }} />
           </span>
           <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--text)', fontFamily: 'var(--font-sans)' }}>Cortex</span>
@@ -198,7 +199,7 @@ function SidebarForm({ isDark, onJobSubmitted }: SidebarFormProps) {
         <Select.Portal>
           <Select.Content position="popper" sideOffset={6} style={{
             width: 'var(--radix-select-trigger-width)',
-            background: isDark ? 'rgba(11,15,24,0.97)' : 'rgba(255,255,255,0.98)',
+            background: isDark ? 'rgba(28,29,33,0.97)' : 'rgba(255,255,255,0.98)',
             border: `1px solid ${bdr}`, borderRadius: 16,
             boxShadow: isDark
               ? 'var(--shadow-xl), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 0 1px rgba(255,255,255,0.04)'
@@ -236,9 +237,9 @@ function SidebarForm({ isDark, onJobSubmitted }: SidebarFormProps) {
         cursor: isSubmitting || !repoUrl.trim() ? 'not-allowed' : 'pointer',
         opacity: isSubmitting || !repoUrl.trim() ? 0.5 : 1,
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-        background: 'linear-gradient(135deg, var(--primary) 0%, #00c9a7 100%)',
-        color: '#060810', border: 'none',
-        boxShadow: '0 4px 20px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.28)',
+        background: 'var(--primary)',
+        color: '#FFFFFF', border: 'none',
+        boxShadow: 'var(--shadow-sm)',
         transition: 'filter 0.2s ease, opacity 0.2s ease', fontFamily: 'var(--font-sans)',
       }}
         onMouseEnter={e => { if (!isSubmitting && repoUrl.trim()) e.currentTarget.style.filter = 'brightness(1.08)'; }}
@@ -518,10 +519,8 @@ function EmptyState({ isDark }: { isDark: boolean }) {
     >
       <div style={{
         width: 80, height: 80, borderRadius: '50%', flexShrink: 0,
-        background: isDark
-          ? 'radial-gradient(circle at 35% 35%, var(--primary-dim) 0%, rgba(108,124,255,0.06) 60%, transparent 100%)'
-          : 'radial-gradient(circle at 35% 35%, rgba(0,179,122,0.12) 0%, rgba(93,107,255,0.06) 60%, transparent 100%)',
-        border: '1px solid rgba(0,229,168,0.18)', boxShadow: '0 0 40px var(--primary-glow)',
+        background: 'var(--primary-dim)',
+        border: '1px solid var(--border-hover)', boxShadow: 'var(--shadow-sm)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <GitBranch style={{ width: 28, height: 28, color: 'var(--primary)' }} />
@@ -557,7 +556,7 @@ function PanelHeader({ activeJob, isDark }: { activeJob: Job; isDark: boolean })
   return (
     <div style={{ padding: '16px 24px', borderBottom: `1px solid ${bdr}`, background: 'rgba(0,0,0,0)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexShrink: 0, transition: 'border-color 0.3s ease' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'var(--primary-dim)', border: '1px solid rgba(0,229,168,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'var(--primary-dim)', border: '1px solid var(--border-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <GitBranch style={{ width: 15, height: 15, color: 'var(--primary)' }} />
         </div>
         <div style={{ minWidth: 0 }}>
@@ -862,7 +861,7 @@ function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsE
                     transition: 'background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
                   }}>
                     <div style={{ padding: '12px 18px', borderBottom: `1px solid ${bdr}`, background: isDark ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--primary)', padding: '3px 10px', borderRadius: 100, background: 'var(--primary-dim)', border: '1px solid rgba(0,229,168,0.22)', fontFamily: 'var(--font-mono)' }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--primary)', padding: '3px 10px', borderRadius: 100, background: 'var(--primary-dim)', border: '1px solid var(--border-hover)', fontFamily: 'var(--font-mono)' }}>
                         {artifact.content_type}
                       </span>
                       <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -891,9 +890,9 @@ export default function DashboardPage() {
   const [jobsError, setJobsError] = useState<string | null>(null);
   // Client-side hidden job IDs — jobs removed from the list without touching the DB
   const [hiddenJobIds, setHiddenJobIds] = useState<Set<string>>(new Set());
-  // Always start dark (matches SSR), read localStorage after mount to avoid
+  // Always start light (matches SSR default), read localStorage after mount to avoid
   // hydration mismatch — same pattern as the landing Header.
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(false);
 
   // Controls the full-screen splash shown during hydration + initial data fetch.
   // Starts true so the server-rendered shell never shows blank content.
@@ -1007,31 +1006,31 @@ export default function DashboardPage() {
         style={{
           position: 'fixed', inset: 0, zIndex: 9999,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'var(--bg, #060810)',
+          background: 'var(--bg)',
         }}
       >
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20,
           padding: '36px 32px',
-          borderRadius: 26,
-          background: 'rgba(14,18,28,0.88)',
-          border: '1px solid rgba(255,255,255,0.07)',
-          boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
-          backdropFilter: 'blur(32px) saturate(200%)',
-          WebkitBackdropFilter: 'blur(32px) saturate(200%)',
+          background: 'var(--glass-card)',
+          border: '1px solid var(--border)',
+          boxShadow: 'var(--shadow-xl)',
+          backdropFilter: 'blur(32px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(32px) saturate(180%)',
           minWidth: 260, maxWidth: 360,
+          borderRadius: 26,
         }}>
           {/* Cortex icon */}
           <div style={{
             width: 56, height: 56, borderRadius: 16,
-            background: 'radial-gradient(circle at 35% 35%, rgba(0,229,168,0.18) 0%, rgba(108,124,255,0.08) 60%, transparent 100%)',
-            border: '1px solid rgba(0,229,168,0.28)',
+            background: 'var(--primary-dim)',
+            border: '1px solid var(--border-hover)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 32px rgba(0,229,168,0.12)',
+            boxShadow: 'var(--shadow-sm)',
           }}>
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-                stroke="#00E5A8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                stroke="var(--primary)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
           {/* Text */}
@@ -1039,23 +1038,24 @@ export default function DashboardPage() {
             <span style={{
               fontFamily: 'var(--font-display, Syne, sans-serif)',
               fontSize: 15, fontWeight: 700, letterSpacing: '-0.03em',
-              color: '#F0F4FF',
+              color: 'var(--text)',
             }}>Cortex</span>
             <span style={{
               fontFamily: 'var(--font-mono, "JetBrains Mono", monospace)',
               fontSize: 11, letterSpacing: '0.07em',
-              color: '#6E7A90', textTransform: 'uppercase' as const,
+              color: 'var(--text-muted)', textTransform: 'uppercase' as const,
             }}>Loading Dashboard…</span>
           </div>
           {/* Indeterminate bar */}
           <div style={{
             width: '100%', height: 2, borderRadius: 9999,
-            background: 'rgba(255,255,255,0.06)', overflow: 'hidden', position: 'relative',
+            background: 'var(--border)', overflow: 'hidden', position: 'relative',
           }}>
             <div style={{
               position: 'absolute', top: 0, left: 0, height: '100%', width: '40%',
               borderRadius: 9999,
-              background: 'linear-gradient(90deg, transparent 0%, #00E5A8 50%, transparent 100%)',
+              background: 'var(--primary)',
+              opacity: 0.7,
               animation: 'cortex-bar-sweep 1.8s cubic-bezier(0.4,0,0.2,1) infinite',
             }} />
           </div>

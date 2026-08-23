@@ -132,7 +132,7 @@ const ModalContent = React.forwardRef<
         'absolute right-4 top-4 z-10',
         'inline-flex items-center justify-center w-7 h-7 rounded-[var(--radius-sm)]',
         'text-[var(--text-muted)]',
-        'hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--text)]',
+        'hover:bg-[var(--surface)] hover:text-[var(--text)]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]',
         'disabled:pointer-events-none',
         'transition-colors duration-150',
@@ -155,7 +155,7 @@ const ModalContent = React.forwardRef<
               'w-full max-w-lg -translate-x-1/2 -translate-y-1/2',
               'rounded-[var(--radius-lg)] border border-[var(--border)]',
               'bg-[var(--glass)] backdrop-blur-[24px] saturate-150',
-              'shadow-[var(--shadow-xl),inset_0_1px_0_rgba(255,255,255,0.07)]',
+              'shadow-[var(--shadow-xl),var(--edge-top)]',
               className
             )}
             variants={contentVariants}
@@ -175,7 +175,7 @@ const ModalContent = React.forwardRef<
             'w-full max-w-lg -translate-x-1/2 -translate-y-1/2',
             'rounded-[var(--radius-lg)] border border-[var(--border)]',
             'bg-[var(--glass)] backdrop-blur-[24px] saturate-150',
-            'shadow-[var(--shadow-xl),inset_0_1px_0_rgba(255,255,255,0.07)]',
+            'shadow-[var(--shadow-xl),var(--edge-top)]',
             // Radix CSS fallback
             'data-[state=open]:animate-in   data-[state=open]:fade-in-0   data-[state=open]:zoom-in-95',
             'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',

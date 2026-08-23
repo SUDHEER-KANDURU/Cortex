@@ -30,7 +30,7 @@ const TabsList = React.forwardRef<
     className={cn(
       'relative inline-flex h-10 items-center justify-center gap-1',
       'rounded-[var(--radius-md)] p-1',
-      'bg-[rgba(255,255,255,0.04)] border border-[var(--border)]',
+      'bg-[var(--surface)] border border-[var(--border)]',
       'text-[var(--text-muted)]',
       className
     )}

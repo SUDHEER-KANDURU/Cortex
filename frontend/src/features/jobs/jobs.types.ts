@@ -8,13 +8,14 @@ import type { Job } from '@/types';
 
 /** Human-readable labels for each ArtifactType value */
 export const ARTIFACT_TYPE_LABELS: Record<string, string> = {
-  folder_structure: 'Folder Structure',
-  module_breakdown: 'Module Breakdown',
+  folder_structure:     'Folder Structure',
+  module_breakdown:     'Module Breakdown',
   architecture_diagram: 'Architecture Diagram',
-  database_schema: 'Database Schema',
-  api_spec: 'API Spec',
-  learning_path: 'Learning Path',
-  interview_questions: 'Interview Questions',
+  database_schema:      'Database Schema',
+  api_spec:             'API Spec',
+  learning_path:        'Learning Path',
+  interview_questions:  'Interview Questions',
+  vibe_code_detection:  'Vibe Code Detection',
 };
 
 /** State shape managed by the jobs feature */

@@ -21,15 +21,15 @@ const STEP_COLORS = {
   inactive: "var(--text-muted)",
   line:     "var(--border)",
   dot:      "var(--primary)",
-  dotText:  "#060810",
+  dotText:  "#FFFFFF",
   border:   "var(--border)",
   panelBg:  "var(--cx-section-bg, rgba(15,17,23,0.60))",
   scanCurrent: "var(--text)",
   scanDone:    "var(--success)",
-  astNode:     "rgba(255,255,255,0.85)",
-  graphRoot:   "rgba(255,255,255,0.90)",
-  graphMod:    "rgba(255,255,255,0.60)",
-  graphFile:   "rgba(255,255,255,0.35)",
+  astNode:     "var(--text)",
+  graphRoot:   "var(--primary)",
+  graphMod:    "var(--text-secondary)",
+  graphFile:   "var(--text-muted)",
   graphEdge:   "var(--border)",
   graphEdgeActive: "var(--primary)",
   artifactBg:  "var(--cx-pill-bg)",
@@ -68,7 +68,7 @@ function ScanVisual({ active }: { active: boolean }) {
           <div key={f} style={{
             display: "flex", alignItems: "center", gap: "10px",
             padding: "5px 8px", borderRadius: "6px", marginBottom: "3px",
-            background: current ? "rgba(255,255,255,0.06)" : "transparent",
+            background: current ? "var(--primary-dim)" : "transparent",
             opacity: shown || current ? 1 : 0.25,
             transition: "all 0.25s ease",
           }}>
@@ -140,12 +140,12 @@ function ASTVisual({ active }: { active: boolean }) {
           const isRoot = i === 0
           const isMid  = i <= 2
           const show   = rev > i
-          const fill   = show ? (isRoot ? STEP_COLORS.astNode : isMid ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.40)") : "rgba(255,255,255,0.06)"
+          const fill   = show ? (isRoot ? "var(--primary)" : isMid ? "var(--text-secondary)" : "var(--text-muted)") : "var(--border)"
           return (
             <g key={i} style={{ opacity: show ? 1 : 0, transition: "opacity 0.25s ease" }}>
               <rect x={n.x} y={n.y} width={56} height={22} rx={5} fill={fill} />
               <text x={n.x + 28} y={n.y + 14} textAnchor="middle"
-                fontSize="7.5" fontWeight="700" fill={show ? "#060810" : "rgba(255,255,255,0.15)"}
+                fontSize="7.5" fontWeight="700" fill={show ? "#FFFFFF" : "var(--text-muted)"}
                 style={{ fontFamily: "var(--font-mono)" }}>
                 {n.label}
               </text>
@@ -237,7 +237,7 @@ function ArtifactsVisual({ active }: { active: boolean }) {
           display: "flex", alignItems: "center", gap: "9px",
           padding: "9px 12px", borderRadius: "10px",
           border: "1px solid var(--cx-pill-border)",
-          background: active ? "var(--cx-pill-bg)" : "rgba(255,255,255,0.02)",
+          background: active ? "var(--cx-pill-bg)" : "var(--surface)",
           backdropFilter: "blur(12px) saturate(160%)",
           WebkitBackdropFilter: "blur(12px) saturate(160%)",
           boxShadow: active ? "var(--shadow-sm)" : "none",
@@ -299,7 +299,7 @@ function RepositoryVisual({ active }: { active: boolean }) {
             paddingLeft: `${item.depth * 16 + 8}px`,
             padding: `5px 8px 5px ${item.depth * 16 + 8}px`,
             borderRadius: "6px", marginBottom: "3px",
-            background: isHighlighted ? "rgba(255,255,255,0.06)" : "transparent",
+            background: isHighlighted ? "var(--primary-dim)" : "transparent",
             opacity: active ? (isHighlighted ? 1 : 0.65) : 0.25,
             transition: "all 0.3s ease",
           }}>
@@ -310,7 +310,7 @@ function RepositoryVisual({ active }: { active: boolean }) {
       })}
       <div style={{
         marginTop: "12px", padding: "8px 10px", borderRadius: "8px",
-        background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)",
+        background: "var(--surface)", border: "1px solid var(--border)",
         fontSize: "10px", color: "var(--text-muted)", letterSpacing: "0.05em",
       }}>
         <span style={{ color: "var(--text-muted)", marginRight: "6px" }}>$</span>
@@ -361,7 +361,7 @@ function ReasoningEngineVisual({ active }: { active: boolean }) {
             <div key={thought} style={{
               display: "flex", alignItems: "center", gap: "10px",
               padding: "6px 10px", borderRadius: "8px",
-              background: isCurrent ? "rgba(255,255,255,0.06)" : "transparent",
+              background: isCurrent ? "var(--primary-dim)" : "transparent",
               opacity: isDone ? 0.45 : (isCurrent ? 1 : 0.2),
               transition: "all 0.35s ease",
             }}>
@@ -464,7 +464,7 @@ function ConnectorLine({ active, isDone }: ConnectorLineProps) {
       <line
         ref={glowRef}
         x1="1" y1="0" x2="1" y2={LINE_LENGTH}
-        stroke="var(--border-hover, rgba(255,255,255,0.14))"
+        stroke="var(--border-hover)"
         strokeWidth="2"
         strokeDasharray={LINE_LENGTH}
         strokeDashoffset={isDone ? 0 : LINE_LENGTH}
@@ -475,7 +475,7 @@ function ConnectorLine({ active, isDone }: ConnectorLineProps) {
       <line
         ref={lineRef}
         x1="1" y1="0" x2="1" y2={LINE_LENGTH}
-        stroke={isDone ? "var(--text-muted, #7A8395)" : "var(--border, rgba(255,255,255,0.08))"}
+        stroke={isDone ? "var(--text-muted)" : "var(--border)"}
         strokeWidth="1"
         strokeDasharray={LINE_LENGTH}
         strokeDashoffset={isDone ? 0 : LINE_LENGTH}
@@ -484,7 +484,7 @@ function ConnectorLine({ active, isDone }: ConnectorLineProps) {
       <line
         ref={particleRef}
         x1="1" y1="0" x2="1" y2={LINE_LENGTH}
-        stroke="var(--primary, #00E5A8)"
+        stroke="var(--primary)"
         strokeWidth="2"
         strokeDasharray={`3 ${LINE_LENGTH}`}
         strokeDashoffset={LINE_LENGTH}
@@ -653,10 +653,10 @@ function EngineeringTerminal({ activeStep }: { activeStep: number }) {
 
   return (
     <div style={{
-      background: "#0a0a0a",
+      background: "var(--surface)",
       borderRadius: "16px",
-      border: "1px solid rgba(255,255,255,0.08)",
-      boxShadow: "0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)",
+      border: "1px solid var(--border)",
+      boxShadow: "var(--shadow-lg)",
       overflow: "hidden",
       height: "100%",
       display: "flex",
@@ -664,21 +664,21 @@ function EngineeringTerminal({ activeStep }: { activeStep: number }) {
     }}>
       {/* Terminal chrome bar */}
       <div style={{
-        background: "#111111",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        background: "var(--bg)",
+        borderBottom: "1px solid var(--border)",
         padding: "11px 16px",
         display: "flex",
         alignItems: "center",
         gap: "8px",
         flexShrink: 0,
       }}>
-        <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#FF5F57", display: "block" }} />
-        <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#FFBD2E", display: "block" }} />
-        <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#28C840", display: "block" }} />
+        <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#E07070", display: "block" }} />
+        <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#D4A055", display: "block" }} />
+        <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#6AAF7C", display: "block" }} />
         <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", gap: "8px" }}>
           <span style={{
             fontSize: "10px", fontWeight: 700, letterSpacing: "0.12em",
-            textTransform: "uppercase", color: "rgba(255,255,255,0.3)",
+            textTransform: "uppercase", color: "var(--text-muted)",
             fontFamily: "var(--font-mono)",
           }}>
             cortex — step {stepNum} / {STEPS.length} — {stepLabel}
@@ -686,8 +686,7 @@ function EngineeringTerminal({ activeStep }: { activeStep: number }) {
         </div>
         <span style={{
           width: "6px", height: "6px", borderRadius: "50%",
-          background: "#28C840", display: "inline-block",
-          boxShadow: "0 0 6px #28C840",
+          background: "var(--success)", display: "inline-block",
         }} />
       </div>
 
@@ -908,7 +907,7 @@ export function PortfolioHowItWorks() {
                         }}>
                           <span style={{
                             fontSize: "10px", fontWeight: 700,
-                            color: (isActive || isDone) ? (isActive ? "#060810" : "#fff") : "var(--text-muted)",
+                            color: (isActive || isDone) ? (isActive ? "#FFFFFF" : "var(--text-secondary)") : "var(--text-muted)",
                             fontFamily: "var(--font-mono)",
                             transition: "color 0.3s ease",
                           }}>
@@ -1007,7 +1006,7 @@ export function PortfolioHowItWorks() {
                   }}>
                     <span style={{
                       fontSize: "10px", fontWeight: 700,
-                      color: i === activeStep ? "#060810" : "var(--text-muted)",
+                      color: i === activeStep ? "#FFFFFF" : "var(--text-muted)",
                       fontFamily: "var(--font-mono)",
                     }}>{step.number}</span>
                   </div>

@@ -36,48 +36,50 @@ const buttonVariants = cva(
       variant: {
         default: [
           'rounded-[var(--radius-full)]',
-          'bg-gradient-to-r from-[var(--primary)] to-[#00c9a7]',
-          'text-[#060810] font-semibold',
-          'shadow-[0_4px_20px_var(--primary-glow),inset_0_1px_0_rgba(255,255,255,0.28)]',
-          'hover:brightness-110',
+          // Solid soft-slate — no gradient, no neon glow
+          'bg-[var(--primary)] text-white font-semibold',
+          'shadow-[var(--shadow-sm)]',
+          'hover:brightness-105 hover:shadow-[var(--shadow-md)]',
         ].join(' '),
         accent: [
           'rounded-[var(--radius-md)]',
           'bg-[var(--accent)] text-white',
-          'shadow-[0_4px_16px_var(--accent-glow)]',
-          'hover:brightness-110',
+          'shadow-[var(--shadow-sm)]',
+          'hover:brightness-105',
         ].join(' '),
         destructive: [
           'rounded-[var(--radius-md)]',
           'bg-[var(--danger)] text-white',
-          'hover:brightness-110',
+          'hover:brightness-105',
         ].join(' '),
         ghost: [
           'rounded-[var(--radius-md)]',
           'bg-transparent text-[var(--text-secondary)]',
           'border border-[var(--border)]',
-          'hover:bg-[rgba(255,255,255,0.07)] hover:text-[var(--text)]',
+          'hover:bg-[var(--surface)] hover:text-[var(--text)]',
           'hover:border-[var(--border-hover)]',
         ].join(' '),
         outline: [
           'rounded-[var(--radius-md)]',
           'bg-transparent text-[var(--text-secondary)]',
           'border border-[var(--border)]',
-          'hover:bg-[rgba(255,255,255,0.05)] hover:text-[var(--text)]',
+          'hover:bg-[var(--surface)] hover:text-[var(--text)]',
         ].join(' '),
         secondary: [
           'rounded-[var(--radius-md)]',
           'bg-[var(--surface)] text-[var(--text-secondary)]',
           'border border-[var(--border)]',
           'hover:bg-[var(--card)] hover:text-[var(--text)]',
+          'hover:border-[var(--border-hover)]',
         ].join(' '),
         glass: [
           'rounded-[var(--radius-md)]',
-          'bg-[rgba(255,255,255,0.07)] text-[var(--text)]',
-          'border border-[rgba(255,255,255,0.10)]',
+          // Light: white card surface. Dark: white-veil.
+          'bg-[var(--glass-card)] text-[var(--text)]',
+          'border border-[var(--border)]',
           'backdrop-blur-[12px]',
-          'shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]',
-          'hover:bg-[rgba(255,255,255,0.11)] hover:border-[rgba(255,255,255,0.16)]',
+          'shadow-[var(--shadow-sm),var(--edge-top)]',
+          'hover:border-[var(--border-hover)] hover:shadow-[var(--shadow-md)]',
         ].join(' '),
         link: [
           'text-[var(--primary)] underline-offset-4',

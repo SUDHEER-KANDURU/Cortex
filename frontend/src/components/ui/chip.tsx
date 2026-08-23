@@ -15,42 +15,42 @@ export interface ChipProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 const COLOR_MAP = {
   default: {
-    bg:     'rgba(255,255,255,0.06)',
-    border: 'var(--border)',
-    text:   'var(--text-secondary)',
-    selectedBg:     'rgba(255,255,255,0.12)',
+    bg:             'var(--surface)',
+    border:         'var(--border)',
+    text:           'var(--text-secondary)',
+    selectedBg:     'var(--card)',
     selectedBorder: 'var(--border-hover)',
     selectedText:   'var(--text)',
   },
   primary: {
-    bg:     'var(--primary-dim)',
-    border: 'rgba(0,229,168,0.25)',
-    text:   'var(--primary)',
+    bg:             'var(--primary-dim)',
+    border:         'var(--border-hover)',
+    text:           'var(--primary)',
     selectedBg:     'var(--primary-dim)',
     selectedBorder: 'var(--primary)',
     selectedText:   'var(--primary)',
   },
   success: {
-    bg:     'rgba(22,199,132,0.10)',
-    border: 'rgba(22,199,132,0.25)',
-    text:   'var(--success)',
-    selectedBg:     'rgba(22,199,132,0.15)',
+    bg:             'var(--success-dim)',
+    border:         'var(--success-dim)',
+    text:           'var(--success)',
+    selectedBg:     'var(--success-dim)',
     selectedBorder: 'var(--success)',
     selectedText:   'var(--success)',
   },
   warning: {
-    bg:     'rgba(245,185,66,0.10)',
-    border: 'rgba(245,185,66,0.25)',
-    text:   'var(--warning)',
-    selectedBg:     'rgba(245,185,66,0.15)',
+    bg:             'var(--warning-dim)',
+    border:         'var(--warning-dim)',
+    text:           'var(--warning)',
+    selectedBg:     'var(--warning-dim)',
     selectedBorder: 'var(--warning)',
     selectedText:   'var(--warning)',
   },
   danger: {
-    bg:     'var(--danger-dim)',
-    border: 'rgba(239,83,80,0.25)',
-    text:   'var(--danger)',
-    selectedBg:     'rgba(239,83,80,0.15)',
+    bg:             'var(--danger-dim)',
+    border:         'var(--danger-dim)',
+    text:           'var(--danger)',
+    selectedBg:     'var(--danger-dim)',
     selectedBorder: 'var(--danger)',
     selectedText:   'var(--danger)',
   },
@@ -87,7 +87,7 @@ export function Chip({
           type="button"
           onClick={(e) => { e.stopPropagation(); onRemove(); }}
           aria-label="Remove"
-          className="flex items-center justify-center rounded-full w-3.5 h-3.5 hover:bg-[rgba(255,255,255,0.15)] transition-colors"
+          className="flex items-center justify-center rounded-full w-3.5 h-3.5 hover:bg-[var(--surface)] transition-colors"
         >
           <X className="w-2.5 h-2.5" />
         </button>

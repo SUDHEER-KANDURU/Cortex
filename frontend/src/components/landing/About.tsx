@@ -61,13 +61,13 @@ function AnimatedNumber({ value, suffix = "", active }: { value: number; suffix?
 function ParsingAnimation({ active }: { active: boolean }) {
   const [activeLine, setActiveLine] = useState(0)
   const lines = [
-    { text: "class JobRepository:",          color: "#888" },
-    { text: "  def create(self, job):",       color: "#aaa" },
-    { text: "    # → Neo4j node created",     color: "#28c840" },
-    { text: "  def find_by_id(id):",          color: "#aaa" },
-    { text: "    # → Graph edge traversed",   color: "#28c840" },
-    { text: "  async def list_all():",        color: "#aaa" },
-    { text: "    # → Cypher query generated", color: "#28c840" },
+    { text: "class JobRepository:",          color: "var(--text-secondary)" },
+    { text: "  def create(self, job):",       color: "var(--text-muted)" },
+    { text: "    # → Neo4j node created",     color: "var(--success)" },
+    { text: "  def find_by_id(id):",          color: "var(--text-muted)" },
+    { text: "    # → Graph edge traversed",   color: "var(--success)" },
+    { text: "  async def list_all():",        color: "var(--text-muted)" },
+    { text: "    # → Cypher query generated", color: "var(--success)" },
   ]
   useEffect(() => {
     if (!active) return
@@ -81,18 +81,18 @@ function ParsingAnimation({ active }: { active: boolean }) {
 
   return (
     <div style={{
-      background: "#0a0a0a", borderRadius: "16px", overflow: "hidden",
-      border: "1px solid rgba(255,255,255,0.08)",
-      boxShadow: "0 8px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04)",
+      background: "var(--surface)", borderRadius: "16px", overflow: "hidden",
+      border: "1px solid var(--border)",
+      boxShadow: "var(--shadow-md)",
     }}>
       <div style={{
-        background: "#111", borderBottom: "1px solid rgba(255,255,255,0.06)",
+        background: "var(--bg)", borderBottom: "1px solid var(--border)",
         padding: "10px 16px", display: "flex", alignItems: "center", gap: "8px",
       }}>
-        <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#FF5F57", display: "block" }} />
-        <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#FFBD2E", display: "block" }} />
-        <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#28C840", display: "block" }} />
-        <span style={{ marginLeft: "auto", fontSize: "10px", fontFamily: "var(--font-mono)", color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em" }}>
+        <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#E07070", display: "block" }} />
+        <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#D4A055", display: "block" }} />
+        <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#6AAF7C", display: "block" }} />
+        <span style={{ marginLeft: "auto", fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", letterSpacing: "0.08em" }}>
           repository.py
         </span>
       </div>
@@ -101,8 +101,8 @@ function ParsingAnimation({ active }: { active: boolean }) {
           <motion.div
             key={i}
             animate={{
-              color: i === activeLine ? line.color : "rgba(255,255,255,0.2)",
-              backgroundColor: i === activeLine ? "rgba(255,255,255,0.04)" : "transparent",
+              color: i === activeLine ? line.color : "var(--text-muted)",
+              backgroundColor: i === activeLine ? "var(--primary-dim)" : "transparent",
               x: i === activeLine ? 2 : 0,
             }}
             transition={{ duration: 0.25, ease: EASE.out }}
@@ -123,11 +123,11 @@ function ParsingAnimation({ active }: { active: boolean }) {
         ))}
       </div>
       <div style={{
-        borderTop: "1px solid rgba(255,255,255,0.05)", padding: "8px 16px",
-        display: "flex", alignItems: "center", gap: "12px", background: "#0d0d0d",
+        borderTop: "1px solid var(--border)", padding: "8px 16px",
+        display: "flex", alignItems: "center", gap: "12px", background: "var(--bg)",
       }}>
-        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#28C840", boxShadow: "0 0 6px #28C840", display: "inline-block" }} />
-        <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.35)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--success)", display: "inline-block" }} />
+        <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
           AST parsing active · 241 nodes mapped
         </span>
       </div>

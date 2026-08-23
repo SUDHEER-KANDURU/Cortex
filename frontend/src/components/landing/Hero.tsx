@@ -22,7 +22,7 @@ const RepoTree = dynamic(() => import("@/features/tree/RepoTree"), {
           height: "10px", borderRadius: "5px", marginBottom: "10px",
           marginLeft: `${i % 3 === 0 ? 0 : i % 3 === 1 ? 16 : 32}px`,
           width: `${w}%`,
-          background: "rgba(255,255,255,0.07)",
+          background: "var(--border)",
           animation: "pulse-skeleton 1.6s ease-in-out infinite",
           animationDelay: `${i * 120}ms`,
         }} />
@@ -57,7 +57,7 @@ function LazyRepoTree({ progress }: { progress: React.MutableRefObject<number> }
             height: "10px", borderRadius: "5px", marginBottom: "10px",
             marginLeft: `${i % 3 === 0 ? 0 : i % 3 === 1 ? 16 : 32}px`,
             width: `${w}%`,
-            background: "rgba(255,255,255,0.07)",
+            background: "var(--border)",
             animation: "pulse-skeleton 1.6s ease-in-out infinite",
             animationDelay: `${i * 120}ms`,
           }} />
@@ -138,7 +138,7 @@ export function PortfolioHero() {
                   backdropFilter: "blur(8px) saturate(200%)",
                   WebkitBackdropFilter: "blur(8px) saturate(200%)",
                   border: "1px solid var(--cx-pill-border)",
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.08)",
+                  boxShadow: "var(--shadow-sm)",
                 }}>
                 <span style={{
                   width: 6, height: 6, borderRadius: "50%",
@@ -209,9 +209,9 @@ export function PortfolioHero() {
                   <DashboardLink
                     className="hero-cta-primary cta-shimmer inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold rounded-full"
                     style={{
-                      background: "linear-gradient(135deg, var(--primary) 0%, #00c9a7 100%)",
-                      color: "#060810",
-                      boxShadow: "0 4px 20px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.22)",
+                      background: "var(--primary)",
+                      color: "#FFFFFF",
+                      boxShadow: "var(--shadow-sm)",
                     }}>
                     Analyze a Repository
                   </DashboardLink>
@@ -281,7 +281,7 @@ export function PortfolioHero() {
                             backdropFilter: "blur(8px) saturate(160%)",
                             WebkitBackdropFilter: "blur(8px) saturate(160%)",
                             border: isActive
-                              ? "1px solid rgba(0,229,168,0.35)"
+                              ? "1px solid var(--border-hover)"
                               : "1px solid var(--cx-pill-border)",
                           }}>
                           <motion.div
@@ -306,7 +306,7 @@ export function PortfolioHero() {
                           width: "28px", height: "1.5px",
                           margin: "0 2px", marginBottom: "14px",
                           background: i < activeStep
-                            ? "linear-gradient(90deg, var(--primary), rgba(0,229,168,0.3))"
+                            ? "var(--primary)"
                             : "var(--border)",
                           borderRadius: "1px",
                           transition: "background 0.5s ease",
@@ -341,8 +341,8 @@ export function PortfolioHero() {
               <div style={{
                 position: "absolute", inset: "16px 0",
                 borderRadius: "24px",
-                background: "#0a0a0a",
-                boxShadow: "0 0 0 1px rgba(255,255,255,0.07), 0 12px 60px rgba(0,0,0,0.45)",
+                background: "var(--card)",
+                boxShadow: "var(--shadow-xl)",
                 overflow: "hidden",
               }}>
                 {/* Window chrome */}
@@ -361,11 +361,11 @@ export function PortfolioHero() {
                   transform: "translateX(-50%)",
                   zIndex: 10, pointerEvents: "none",
                   display: "flex", alignItems: "center", gap: "8px",
-                  background: "rgba(255,255,255,0.08)",
-                  backdropFilter: "blur(8px) saturate(180%)",
-                  WebkitBackdropFilter: "blur(8px) saturate(180%)",
-                  border: "1px solid rgba(255,255,255,0.14)",
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1)",
+                  background: "var(--glass-card)",
+                  backdropFilter: "blur(8px) saturate(160%)",
+                  WebkitBackdropFilter: "blur(8px) saturate(160%)",
+                  border: "1px solid var(--border)",
+                  boxShadow: "var(--shadow-sm)",
                   borderRadius: "100px", padding: "5px 14px", whiteSpace: "nowrap",
                 }}>
                   <span style={{
@@ -375,7 +375,7 @@ export function PortfolioHero() {
                   }} />
                   <span style={{
                     fontSize: "10px", fontWeight: 600, letterSpacing: "0.14em",
-                    textTransform: "uppercase", color: "rgba(255,255,255,0.5)",
+                    textTransform: "uppercase", color: "var(--text-muted)",
                     fontFamily: "var(--font-mono,'JetBrains Mono',monospace)",
                   }}>
                     Live Repository Graph
@@ -388,7 +388,7 @@ export function PortfolioHero() {
                 <div style={{
                   position: "absolute", bottom: 0, left: 0, right: 0,
                   height: "80px",
-                  background: "linear-gradient(to top,#0a0a0a 0%,transparent 100%)",
+                  background: "linear-gradient(to top, var(--card) 0%, transparent 100%)",
                   pointerEvents: "none", zIndex: 5,
                 }} />
               </div>

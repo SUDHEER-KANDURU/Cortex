@@ -147,9 +147,9 @@ export function PortfolioFinalCTA() {
                 <DashboardLink
                   className="group inline-flex items-center justify-center gap-2 px-9 py-4 text-base font-semibold rounded-full"
                   style={{
-                    background:  "linear-gradient(135deg, var(--primary) 0%, #00c9a7 100%)",
-                    color:       "#060810",
-                    boxShadow:   "0 8px 32px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,0.22)",
+                    background:  "var(--primary)",
+                    color:       "#FFFFFF",
+                    boxShadow:   "var(--shadow-md)",
                   }}
                 >
                   Analyze a Repository

@@ -27,20 +27,20 @@ function AstVisual() {
       </div>
       {/* Tree row 2 */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 16 }}>
-        <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", marginRight: -4 }}>└─</span>
-        <span style={{ fontSize: 10, color: "rgba(0,229,168,0.75)", fontWeight: 600 }}>ClassDef</span>
+        <span style={{ fontSize: 9, color: "var(--text-muted)", marginRight: -4 }}>└─</span>
+        <span style={{ fontSize: 10, color: "var(--primary)", fontWeight: 600 }}>ClassDef</span>
         <span style={{ fontSize: 9, color: "var(--text-muted)", opacity: 0.5, marginLeft: 4 }}>PaymentService</span>
       </div>
       {/* Tree row 3 */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 32 }}>
-        <span style={{ fontSize: 9, color: "rgba(255,255,255,0.15)", marginRight: -4 }}>└─</span>
-        <span style={{ fontSize: 10, color: "rgba(0,229,168,0.5)", fontWeight: 600 }}>FunctionDef</span>
+        <span style={{ fontSize: 9, color: "var(--text-muted)", opacity: 0.6, marginRight: -4 }}>└─</span>
+        <span style={{ fontSize: 10, color: "var(--primary)", opacity: 0.7, fontWeight: 600 }}>FunctionDef</span>
         <span style={{ fontSize: 9, color: "var(--text-muted)", opacity: 0.5, marginLeft: 4 }}>process()</span>
       </div>
       {/* Tree row 4 */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 48 }}>
-        <span style={{ fontSize: 9, color: "rgba(255,255,255,0.10)", marginRight: -4 }}>└─</span>
-        <span style={{ fontSize: 10, color: "rgba(0,229,168,0.35)" }}>Call</span>
+        <span style={{ fontSize: 9, color: "var(--text-muted)", opacity: 0.4, marginRight: -4 }}>└─</span>
+        <span style={{ fontSize: 10, color: "var(--primary)", opacity: 0.5 }}>Call</span>
         <span style={{ fontSize: 9, color: "var(--text-muted)", opacity: 0.4, marginLeft: 4 }}>validate_card()</span>
       </div>
       {/* Bottom label */}
@@ -55,8 +55,8 @@ function AstVisual() {
 
 function GraphVisual() {
   const stats: Array<{ label: string; value: string; accent?: string }> = [
-    { label: "Nodes",         value: "241",   accent: "var(--primary)" },
-    { label: "Edges",         value: "387",   accent: "rgba(0,229,168,0.6)" },
+    { label: "Nodes",  value: "241", accent: "var(--primary)" },
+    { label: "Edges",  value: "387", accent: "var(--primary)" },
     { label: "Files",         value: "34"  },
     { label: "Classes",       value: "18"  },
     { label: "Functions",     value: "156" },
@@ -109,9 +109,9 @@ function OfflineVisual() {
             width: 14, height: 14, borderRadius: "50%", flexShrink: 0,
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 8, fontWeight: 800,
-            background: c.done ? "rgba(0,229,168,0.15)" : "rgba(239,83,80,0.10)",
-            color: c.done ? "var(--primary)" : "rgba(239,83,80,0.5)",
-            border: `1px solid ${c.done ? "rgba(0,229,168,0.25)" : "rgba(239,83,80,0.2)"}`,
+            background: c.done ? "var(--primary-dim)" : "var(--danger-dim)",
+            color: c.done ? "var(--primary)" : "var(--danger)",
+            border: `1px solid ${c.done ? "var(--border-hover)" : "var(--danger-dim)"}`,
           }}>
             {c.done ? "✓" : "✕"}
           </span>

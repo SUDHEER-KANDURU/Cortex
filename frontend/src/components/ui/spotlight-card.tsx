@@ -15,7 +15,7 @@ export function SpotlightCard({
   children,
   className = "",
   style = {},
-  spotlightColor = "rgba(255,255,255,0.08)",
+  spotlightColor = "rgba(107,143,174,0.10)",
 }: SpotlightCardProps) {
   const cardRef  = useRef<HTMLDivElement>(null)
   const glowRef  = useRef<HTMLDivElement>(null)

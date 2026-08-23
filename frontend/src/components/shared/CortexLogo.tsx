@@ -50,8 +50,8 @@ function GridIcon({ size, color }: { size: number; color: string }) {
 
 export function CortexLogo({
   size = 26,
-  iconColor = '#00ff87',
-  bgColor = 'rgba(255,255,255,0.10)',
+  iconColor = 'var(--primary)',
+  bgColor = 'var(--primary-dim)',
   className,
   style,
 }: CortexLogoProps) {
@@ -69,7 +69,7 @@ export function CortexLogo({
         height: size,
         borderRadius: radius,
         background: bgColor,
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)',
+        boxShadow: 'var(--edge-top)',
         flexShrink: 0,
         ...style,
       }}

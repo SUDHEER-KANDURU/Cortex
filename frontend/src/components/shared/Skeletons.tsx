@@ -30,9 +30,9 @@ function Shimmer({
         width,
         height,
         borderRadius: radius,
-        background: 'rgba(255,255,255,0.055)',
+        background: 'var(--surface)',
         backgroundImage:
-          'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0) 100%)',
+          'linear-gradient(90deg, transparent 0%, var(--border) 50%, transparent 100%)',
         backgroundSize: '200% 100%',
         animation: 'shimmer 1.7s ease-in-out infinite',
         flexShrink: 0,
@@ -75,7 +75,7 @@ export function ArtifactSkeleton() {
   return (
     <div style={{
       borderRadius: 'var(--radius-lg)', overflow: 'hidden',
-      background: 'rgba(255,255,255,0.02)',
+      background: 'var(--surface)',
       border: '1px solid var(--border)',
     }}>
       {/* Header strip */}
@@ -105,8 +105,8 @@ function ScoreRingSkeleton() {
   return (
     <div style={{
       width: 120, height: 120, borderRadius: '50%', flexShrink: 0,
-      background: 'rgba(255,255,255,0.04)',
-      backgroundImage: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0) 100%)',
+      background: 'var(--surface)',
+      backgroundImage: 'linear-gradient(90deg, transparent 0%, var(--border) 50%, transparent 100%)',
       backgroundSize: '200% 100%',
       animation: 'shimmer 1.7s ease-in-out infinite',
     }} />
@@ -119,7 +119,7 @@ export function InsightsSkeleton() {
       {/* Header card */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 20,
-        background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
+        background: 'var(--surface)', border: '1px solid var(--border)',
         borderRadius: 'var(--radius)', padding: '20px 24px',
       }}>
         <ScoreRingSkeleton />
@@ -132,7 +132,7 @@ export function InsightsSkeleton() {
       {/* Stats strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(100px,1fr))', gap: 10 }}>
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+          <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
             <Shimmer width="60%" height={20} radius={6} />
             <Shimmer width="80%" height={10} radius={5} />
           </div>
@@ -141,7 +141,7 @@ export function InsightsSkeleton() {
       {/* Dimension cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 10 }}>
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Shimmer width={24} height={24} radius={6} />
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -164,14 +164,14 @@ export function GraphSkeleton() {
     <div style={{
       height: 600, width: '100%',
       borderRadius: 12, border: '1px solid var(--border)',
-      background: 'rgba(255,255,255,0.015)',
+      background: 'var(--surface)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       position: 'relative', overflow: 'hidden',
     }}>
-      {/* Shimmer wash across the whole canvas */}
+      {/* Shimmer wash */}
       <div style={{
         position: 'absolute', inset: 0,
-        backgroundImage: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.04) 50%, rgba(255,255,255,0) 100%)',
+        backgroundImage: 'linear-gradient(90deg, transparent 0%, var(--border) 50%, transparent 100%)',
         backgroundSize: '200% 100%',
         animation: 'shimmer 2s ease-in-out infinite',
       }} />
@@ -185,8 +185,8 @@ export function GraphSkeleton() {
         <div key={i} style={{
           position: 'absolute', ...pos,
           width: 80, height: 34, borderRadius: 8,
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.07)',
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
         }} />
       ))}
       <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>

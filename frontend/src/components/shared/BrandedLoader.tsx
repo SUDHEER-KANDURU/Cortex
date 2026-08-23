@@ -89,14 +89,15 @@ function IndeterminateBar() {
     <div
       style={{
         position: 'relative', width: '100%', height: 2,
-        borderRadius: 9999, background: 'rgba(255,255,255,0.06)', overflow: 'hidden',
+        borderRadius: 9999, background: 'var(--border)', overflow: 'hidden',
       }}
       role="progressbar" aria-label="Loading" aria-valuemin={0} aria-valuemax={100}
     >
       <div style={{
         position: 'absolute', top: 0, left: 0, height: '100%', width: '40%',
         borderRadius: 9999,
-        background: 'linear-gradient(90deg, transparent 0%, var(--primary,#00E5A8) 50%, transparent 100%)',
+        background: 'var(--primary)',
+        opacity: 0.7,
         animation: 'cortex-bar-sweep 1.8s cubic-bezier(0.4,0,0.2,1) infinite',
       }} />
     </div>
@@ -111,15 +112,15 @@ function DeterminateBar({ value }: { value: number }) {
     <div
       style={{
         position: 'relative', width: '100%', height: 2,
-        borderRadius: 9999, background: 'rgba(255,255,255,0.06)', overflow: 'hidden',
+        borderRadius: 9999, background: 'var(--border)', overflow: 'hidden',
       }}
       role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}
     >
       <div style={{
         height: '100%', width: `${pct}%`, borderRadius: 9999,
-        background: 'linear-gradient(90deg, var(--primary,#00E5A8), var(--accent,#6C7CFF))',
+        background: 'var(--primary)',
+        opacity: 0.8,
         transition: 'width 0.5s cubic-bezier(0.16,1,0.3,1)',
-        boxShadow: '0 0 8px rgba(0,229,168,0.4)',
       }} />
     </div>
   );
@@ -150,10 +151,10 @@ export function BrandedLoader({
       style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20,
         padding: '36px 32px',
-        borderRadius: 'var(--radius-xl, 26px)',
-        background: 'var(--glass-card, rgba(14,18,28,0.88))',
-        border: '1px solid var(--border, rgba(255,255,255,0.07))',
-        boxShadow: 'var(--shadow-xl), var(--edge-top), var(--edge-inner)',
+        borderRadius: 'var(--radius-xl)',
+        background: 'var(--glass-card)',
+        border: '1px solid var(--border)',
+        boxShadow: 'var(--shadow-xl), var(--edge-top)',
         backdropFilter: 'blur(32px) saturate(200%)',
         WebkitBackdropFilter: 'blur(32px) saturate(200%)',
         minWidth: 260, maxWidth: 360,
@@ -164,14 +165,14 @@ export function BrandedLoader({
         <span style={{
           fontFamily: 'var(--font-display, Syne, sans-serif)',
           fontSize: 15, fontWeight: 700, letterSpacing: '-0.03em',
-          color: 'var(--text, #F0F4FF)',
+          color: 'var(--text)',
         }}>
           Cortex
         </span>
         <span style={{
           fontFamily: 'var(--font-mono, "JetBrains Mono", monospace)',
           fontSize: 11, letterSpacing: '0.07em',
-          color: 'var(--text-muted, #6E7A90)', textTransform: 'uppercase',
+          color: 'var(--text-muted)', textTransform: 'uppercase',
         }}>
           {displayMessage}
         </span>
@@ -216,7 +217,7 @@ export function FullScreenLoader({ visible, stage = 'loading', message, progress
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'var(--bg, #060810)',
+        background: 'var(--bg)',
         opacity, transition: 'opacity 300ms ease', willChange: 'opacity',
       }}
     >
@@ -258,7 +259,7 @@ export function InlineLoader({
         <span style={{
           fontFamily: 'var(--font-mono, "JetBrains Mono", monospace)',
           fontSize: 11, letterSpacing: '0.07em',
-          color: 'var(--text-muted, #6E7A90)', textTransform: 'uppercase',
+          color: 'var(--text-muted)', textTransform: 'uppercase',
         }}>
           {displayMessage}
         </span>
@@ -278,7 +279,7 @@ export function PageLoader() {
       aria-live="polite" aria-busy={true}
       style={{
         minHeight: '100vh',
-        background: 'var(--bg, #060810)',
+        background: 'var(--bg)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}
     >
@@ -334,7 +335,7 @@ export function TransitionOverlay({ visible, message }: TransitionOverlayProps) 
       style={{
         position: 'fixed', inset: 0, zIndex: 10000,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'var(--bg, #060810)',
+        background: 'var(--bg)',
         opacity, transition: 'opacity 300ms ease', willChange: 'opacity',
       }}
     >
@@ -406,9 +407,9 @@ export function CortexSkeleton({
         width,
         height,
         borderRadius,
-        background: 'rgba(255,255,255,0.05)',
+        background: 'var(--surface)',
         backgroundImage:
-          'linear-gradient(90deg, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.0) 100%)',
+          'linear-gradient(90deg, transparent 0%, var(--border) 50%, transparent 100%)',
         backgroundSize: '200% 100%',
         animation: 'shimmer 1.7s ease-in-out infinite',
         flexShrink: 0,

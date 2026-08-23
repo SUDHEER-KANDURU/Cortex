@@ -17,5 +17,6 @@ export type {
   MetricScore,
   HealthDimension,
   CodeIssue,
+  AnalysisCoverage,
   InsightsReport,
 } from './api.types';

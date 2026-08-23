@@ -31,25 +31,25 @@ const ICON_SIZE_MAP = {
 const VARIANT_MAP = {
   ghost: [
     'bg-transparent text-[var(--text-muted)]',
-    'hover:bg-[rgba(255,255,255,0.07)] hover:text-[var(--text)]',
+    'hover:bg-[var(--surface)] hover:text-[var(--text)]',
     'border border-transparent',
   ].join(' '),
   outline: [
     'bg-transparent text-[var(--text-secondary)]',
     'border border-[var(--border)]',
-    'hover:bg-[rgba(255,255,255,0.06)] hover:text-[var(--text)] hover:border-[var(--border-hover)]',
+    'hover:bg-[var(--surface)] hover:text-[var(--text)] hover:border-[var(--border-hover)]',
   ].join(' '),
   glass: [
-    'bg-[rgba(255,255,255,0.07)] text-[var(--text)]',
-    'border border-[rgba(255,255,255,0.10)]',
+    'bg-[var(--glass-card)] text-[var(--text)]',
+    'border border-[var(--border)]',
     'backdrop-blur-[12px]',
-    'hover:bg-[rgba(255,255,255,0.12)]',
+    'hover:border-[var(--border-hover)] hover:shadow-[var(--shadow-sm)]',
   ].join(' '),
   primary: [
-    'bg-gradient-to-r from-[var(--primary)] to-[#00c9a7]',
-    'text-[#060810]',
+    'bg-[var(--primary)]',
+    'text-white',
     'border border-transparent',
-    'hover:brightness-110',
+    'hover:brightness-105',
   ].join(' '),
 } as const;
 

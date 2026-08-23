@@ -32,7 +32,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const viewport: Viewport = {
-  themeColor: '#060810',
+  themeColor: '#EAEAEB',
 };
 
 export const metadata: Metadata = {
@@ -45,21 +45,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      data-theme="dark"
-      className={`${syne.variable} ${inter.variable} ${jetbrainsMono.variable} dark`}
+      data-theme="light"
+      className={`${syne.variable} ${inter.variable} ${jetbrainsMono.variable}`}
       suppressHydrationWarning
     >
       {/*
         Inline theme script — runs before first paint.
         Reads localStorage and sets data-theme immediately so the browser
         doesn't render a flash before React hydrates.
+        Default is 'light' to match the reference design.
       */}
       <head>
         <script
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                var t = localStorage.getItem('cortex-theme') || 'dark';
+                var t = localStorage.getItem('cortex-theme') || 'light';
                 document.documentElement.setAttribute('data-theme', t);
                 document.documentElement.classList.toggle('dark', t === 'dark');
               } catch(e) {}
@@ -69,7 +70,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body
         className="min-h-screen antialiased"
-        style={{ color: 'var(--text, #FFFFFF)' }}
+        style={{ color: 'var(--text, #18181B)' }}
         suppressHydrationWarning
       >
         {/* ── Global liquid-blob background — fixed, covers every page ── */}

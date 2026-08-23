@@ -62,8 +62,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             'flex h-10 w-full px-3 py-2',
             // Shape
             'rounded-[var(--radius-md)]',
-            // Colors
-            'bg-[rgba(255,255,255,0.05)] text-[var(--text)]',
+            // Colors — token-driven so light/dark both work
+            'bg-[var(--surface)] text-[var(--text)]',
             'border border-[var(--border)]',
             // Placeholder
             'placeholder:text-[var(--text-muted)]',
@@ -73,9 +73,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
               ? [
                   'focus:border-[var(--primary)]',
                   'focus:shadow-[0_0_0_3px_var(--primary-dim)]',
-                  'focus:bg-[rgba(255,255,255,0.07)]',
+                  'focus:bg-[var(--card)]',
                 ].join(' ')
-              : 'focus:border-[var(--primary)] focus:bg-[rgba(255,255,255,0.07)]',
+              : 'focus:border-[var(--primary)] focus:bg-[var(--card)]',
             // Hover
             'hover:border-[var(--border-hover)]',
             // Transition — only non-transform props
@@ -165,12 +165,12 @@ const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
           placeholder=" "
           className={cn(
             'peer w-full h-14 rounded-[var(--radius-md)]',
-            'bg-[rgba(255,255,255,0.05)] text-[var(--text)]',
+            'bg-[var(--surface)] text-[var(--text)]',
             'border border-[var(--border)]',
             'text-sm font-normal',
             icon ? 'pl-10 pr-4 pt-5 pb-1' : 'px-4 pt-5 pb-1',
             'focus:outline-none focus:border-[var(--primary)]',
-            'focus:bg-[rgba(255,255,255,0.07)]',
+            'focus:bg-[var(--card)]',
             'hover:border-[var(--border-hover)]',
             'transition-[border-color,background-color] duration-150 ease-out',
             'disabled:cursor-not-allowed disabled:opacity-45',

@@ -58,21 +58,18 @@ export function ScrollProgress() {
       {/* Track */}
       <div style={{
         position: "absolute", inset: 0,
-        background: "rgba(255,255,255,0.04)",
+        background: "var(--border)",
       }} />
-      {/* Fill — brand gradient + subtle glow */}
+      {/* Fill — soft primary, no neon glow */}
       <div
         ref={barRef}
         className="scroll-progress-bar"
         style={{
           position: "absolute", inset: 0,
-          background: "linear-gradient(90deg, var(--primary) 0%, #38bdf8 55%, var(--primary) 100%)",
-          backgroundSize: "200% 100%",
+          background: "var(--primary)",
+          opacity: 0.7,
           transformOrigin: "left center",
           transform: "scaleX(0)",
-          /* CSS animation for the gradient shimmer sweep */
-          animation: "gradient-shift 4s ease infinite",
-          boxShadow: "0 0 10px var(--primary-glow), 0 0 4px rgba(0,229,168,0.3)",
         }}
       />
     </div>

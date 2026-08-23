@@ -24,13 +24,13 @@ const SelectTrigger = React.forwardRef<
     className={cn(
       'flex h-10 w-full items-center justify-between gap-2 px-3 py-2',
       'rounded-[var(--radius-md)]',
-      'bg-[rgba(255,255,255,0.04)] text-[var(--text)]',
+      'bg-[var(--surface)] text-[var(--text)]',
       'border border-[var(--border)]',
       'text-sm font-normal',
       '[&>span[data-placeholder]]:text-[var(--text-muted)]',
       'focus:outline-none focus:border-[var(--primary)]',
       'focus:shadow-[0_0_0_3px_var(--primary-dim)]',
-      'hover:border-[var(--border-hover)] hover:bg-[rgba(255,255,255,0.06)]',
+      'hover:border-[var(--border-hover)] hover:bg-[var(--card)]',
       'transition-all duration-200 ease-out',
       'disabled:cursor-not-allowed disabled:opacity-40',
       '[&>span]:line-clamp-1 [&>span]:text-left',
@@ -88,12 +88,12 @@ const SelectContent = React.forwardRef<
         'relative z-50 min-w-[8rem] overflow-hidden',
         /* Shape */
         'rounded-[var(--radius-lg)]',
-        /* Liquid glass surface — dark */
-        'bg-[rgba(11,15,24,0.96)]',
+        /* Dropdown surface — white on light, dark-gray on dark */
+        'bg-[var(--glass-modal)]',
         'border border-[var(--border)]',
-        'backdrop-blur-[36px] saturate-200',
-        /* Specular top edge highlight */
-        'shadow-[var(--shadow-xl),inset_0_1px_0_rgba(255,255,255,0.08),inset_0_0_0_1px_rgba(255,255,255,0.04)]',
+        'backdrop-blur-[28px] saturate-180',
+        /* Shadow */
+        'shadow-[var(--shadow-xl),var(--edge-top)]',
         'text-[var(--text)]',
         /* Open animations */
         'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
@@ -158,8 +158,8 @@ const SelectItem = React.forwardRef<
       'rounded-[var(--radius-sm)] py-2.5 pl-9 pr-3',
       'text-sm font-medium text-[var(--text-secondary)]',
       'outline-none',
-      'focus:bg-[rgba(255,255,255,0.08)] focus:text-[var(--text)]',
-      'data-[highlighted]:bg-[rgba(255,255,255,0.08)] data-[highlighted]:text-[var(--text)]',
+      'focus:bg-[var(--surface)] focus:text-[var(--text)]',
+      'data-[highlighted]:bg-[var(--surface)] data-[highlighted]:text-[var(--text)]',
       'data-[state=checked]:text-[var(--primary)]',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-40',
       'transition-colors duration-120',

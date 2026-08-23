@@ -103,28 +103,28 @@ export function PortfolioHeader() {
   // ── Theme tokens ──────────────────────────────────────────────────────────
   const glass = isDark
     ? {
-        bg:         "rgba(10, 13, 22, 0.72)",
+        bg:         "rgba(22, 23, 26, 0.78)",
         border:     "rgba(255,255,255,0.08)",
-        shadow:     "0 2px 40px rgba(0,0,0,0.55), 0 1px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.09), inset 0 0 0 1px rgba(255,255,255,0.04)",
-        reflection: "linear-gradient(180deg,rgba(255,255,255,0.10) 0%,rgba(255,255,255,0) 100%)",
-        glare:      "rgba(96,239,255,0.20)",
-        pill:       "rgba(255,255,255,0.09)",
-        pillShadow: "0 2px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.15)",
-        iconColor:  "#8f9ba8",
-        iconActive: "var(--primary, #00E5A8)",
-        divider:    "rgba(255,255,255,0.09)",
+        shadow:     "0 2px 24px rgba(0,0,0,0.40), 0 1px 8px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 0 1px rgba(255,255,255,0.04)",
+        reflection: "linear-gradient(180deg,rgba(255,255,255,0.07) 0%,rgba(255,255,255,0) 100%)",
+        glare:      "rgba(200,210,220,0.12)",
+        pill:       "rgba(255,255,255,0.08)",
+        pillShadow: "0 1px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10)",
+        iconColor:  "#606068",
+        iconActive: "var(--primary)",
+        divider:    "rgba(255,255,255,0.08)",
       }
     : {
-        bg:         "rgba(250, 252, 255, 0.78)",
-        border:     "rgba(255,255,255,0.65)",
-        shadow:     "0 2px 32px rgba(0,0,0,0.10), 0 1px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.90), inset 0 0 0 1px rgba(255,255,255,0.55)",
-        reflection: "linear-gradient(180deg,rgba(255,255,255,0.75) 0%,rgba(255,255,255,0) 100%)",
-        glare:      "rgba(0,242,254,0.35)",
-        pill:       "#ffffff",
-        pillShadow: "0 2px 14px rgba(0,80,200,0.12), inset 0 1px 0 rgba(255,255,255,0.95)",
-        iconColor:  "#4a5568",
-        iconActive: "var(--primary, #009E6B)",
-        divider:    "rgba(0,0,0,0.09)",
+        bg:         "rgba(244, 244, 245, 0.85)",
+        border:     "rgba(0,0,0,0.07)",
+        shadow:     "0 2px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.95), inset 0 0 0 1px rgba(255,255,255,0.60)",
+        reflection: "linear-gradient(180deg,rgba(255,255,255,0.80) 0%,rgba(255,255,255,0) 100%)",
+        glare:      "rgba(107,143,174,0.12)",
+        pill:       "#FFFFFF",
+        pillShadow: "0 1px 8px rgba(0,0,0,0.09), inset 0 1px 0 rgba(255,255,255,0.95)",
+        iconColor:  "#52525B",
+        iconActive: "var(--primary)",
+        divider:    "rgba(0,0,0,0.07)",
       }
 
   if (!mounted) return null
@@ -196,21 +196,19 @@ export function PortfolioHeader() {
           >
             <span style={{
               width: 26, height: 26, borderRadius: "8px",
-              background: isDark ? "rgba(0,229,168,0.12)" : "#0a0a0a",
+              background: "var(--primary-dim)",
               display: "inline-flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0,
-              border: isDark ? "1px solid rgba(0,229,168,0.22)" : "none",
-              boxShadow: isDark
-                ? "0 0 10px rgba(0,229,168,0.12), inset 0 1px 0 rgba(255,255,255,0.12)"
-                : "0 1px 4px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12)",
+              border: "1px solid var(--border-hover)",
+              boxShadow: "var(--shadow-sm)",
               transition: "background 0.4s ease",
             }}>
-              <LayoutDashboard style={{ width: 12, height: 12, color: isDark ? "var(--primary, #00E5A8)" : "#fff" }} />
+              <LayoutDashboard style={{ width: 12, height: 12, color: "var(--primary)" }} />
             </span>
             <span style={{
               fontFamily: "var(--font-display,'Syne',sans-serif)",
               fontSize: "14px", fontWeight: 700, letterSpacing: "-0.03em",
-              color: isDark ? "rgba(255,255,255,0.9)" : "#0a0a0a",
+              color: "var(--text)",
               transition: "color 0.4s ease",
             }}>
               Cortex
@@ -353,16 +351,12 @@ export function PortfolioHeader() {
               style={{
                 display: "inline-flex", alignItems: "center", justifyContent: "center",
                 padding: "8px 18px", borderRadius: "16px",
-                background: isDark
-                  ? "linear-gradient(135deg, var(--primary, #00E5A8) 0%, #00c9a7 100%)"
-                  : "#0a0a0a",
-                color: isDark ? "#060810" : "#fff",
+                background: "var(--primary)",
+                color: "#FFFFFF",
                 fontSize: "13px", fontWeight: 600,
                 textDecoration: "none", letterSpacing: "-0.01em",
                 border: "none",
-                boxShadow: isDark
-                  ? "0 4px 16px rgba(0,229,168,0.25), inset 0 1px 0 rgba(255,255,255,0.22)"
-                  : "0 1px 6px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.10)",
+                boxShadow: "var(--shadow-sm)",
                 whiteSpace: "nowrap",
                 fontFamily: "var(--font-sans,'Inter',sans-serif)",
               }}
@@ -417,7 +411,7 @@ export function PortfolioHeader() {
               <span style={{
                 fontFamily: "var(--font-display,'Syne',sans-serif)",
                 fontSize: "16px", fontWeight: 700, letterSpacing: "-0.03em",
-                color: isDark ? "#fff" : "#0a0a0a",
+                color: "var(--text)",
               }}>
                 Cortex
               </span>
@@ -433,7 +427,7 @@ export function PortfolioHeader() {
                   cursor: "pointer",
                 }}
               >
-                <X style={{ width: 13, height: 13, color: isDark ? "#fff" : "#0a0a0a" }} />
+                <X style={{ width: 13, height: 13, color: "var(--text)" }} />
               </motion.button>
             </div>
 
@@ -454,13 +448,9 @@ export function PortfolioHeader() {
                         display: "flex", alignItems: "center", justifyContent: "space-between",
                         padding: "13px 16px", borderRadius: "14px",
                         fontSize: "16px", fontWeight: isActive ? 600 : 400,
-                        color: isActive
-                          ? (isDark ? "var(--primary, #00E5A8)" : "#fff")
-                          : (isDark ? "rgba(240,244,255,0.50)" : "rgba(0,0,0,0.55)"),
-                        background: isActive
-                          ? (isDark ? "rgba(0,229,168,0.10)" : "#0a0a0a")
-                          : (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"),
-                        border: `1px solid ${isActive ? "rgba(0,229,168,0.25)" : glass.border}`,
+                        color: isActive ? "var(--primary)" : "var(--text-secondary)",
+                        background: isActive ? "var(--primary-dim)" : "transparent",
+                        border: `1px solid ${isActive ? "var(--border-hover)" : glass.border}`,
                         fontFamily: "var(--font-sans,'Inter',sans-serif)",
                         textDecoration: "none",
                         transition: "all 0.2s ease",
@@ -485,12 +475,10 @@ export function PortfolioHeader() {
                     display: "flex", alignItems: "center", justifyContent: "center",
                     width: "100%", padding: "14px",
                     fontSize: "15px", fontWeight: 600, borderRadius: "14px",
-                    background: isDark
-                      ? "linear-gradient(135deg, var(--primary, #00E5A8) 0%, #00c9a7 100%)"
-                      : "#0a0a0a",
-                    color: isDark ? "#060810" : "#fff",
+                    background: "var(--primary)",
+                    color: "#FFFFFF",
                     textDecoration: "none", border: "none",
-                    boxShadow: isDark ? "0 4px 20px rgba(0,229,168,0.25)" : "0 4px 16px rgba(0,0,0,0.16)",
+                    boxShadow: "var(--shadow-sm)",
                     letterSpacing: "-0.01em",
                     fontFamily: "var(--font-sans,'Inter',sans-serif)",
                   }}

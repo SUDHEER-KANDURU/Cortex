@@ -25,7 +25,7 @@ export function EmptyState({ icon, title, description, action, className }: Empt
         <div
           className="flex items-center justify-center w-14 h-14 rounded-2xl"
           style={{
-            background: 'rgba(255,255,255,0.04)',
+            background: 'var(--surface)',
             border: '1px solid var(--border)',
           }}
         >

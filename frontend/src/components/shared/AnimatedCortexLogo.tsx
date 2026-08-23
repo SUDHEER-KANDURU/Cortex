@@ -21,15 +21,13 @@ export interface AnimatedCortexLogoProps {
 }
 
 // ── Color palette ─────────────────────────────────────────────────────────────
-// Elegant brand-safe sequence: no red, yellow, orange, rainbow
+// Soft, muted slate/neutral tones — no neon, no rainbow
 const COLOR_STOPS = [
-  { r: 0,   g: 229, b: 168 }, // #00E5A8 emerald (brand primary)
-  { r: 0,   g: 210, b: 255 }, // #00D2FF cyan
-  { r: 80,  g: 160, b: 255 }, // #50A0FF electric blue
-  { r: 108, g: 124, b: 255 }, // #6C7CFF indigo (brand accent)
-  { r: 160, g: 100, b: 255 }, // #A064FF violet
-  { r: 80,  g: 200, b: 240 }, // #50C8F0 teal
-  { r: 0,   g: 229, b: 168 }, // loop back to emerald
+  { r: 107, g: 143, b: 174 }, // #6B8FAE soft slate-blue (brand primary light)
+  { r: 122, g: 142, b: 164 }, // #7A8EA4 slightly warmer slate
+  { r: 139, g: 155, b: 175 }, // #8B9BAF muted periwinkle
+  { r: 120, g: 138, b: 158 }, // #788A9E cool neutral
+  { r: 107, g: 143, b: 174 }, // loop back
 ] as const;
 
 // Total animation duration for one full color cycle (ms)
@@ -89,8 +87,8 @@ export function AnimatedCortexLogo({ size = 48, className }: AnimatedCortexLogoP
       const colorProgress = (elapsed % COLOR_CYCLE_MS) / COLOR_CYCLE_MS;
       const { r, g, b }   = getColor(colorProgress);
 
-      // ── Glow intensity: gentle sine wave (0.15 → 0.35) ────────────
-      const glowAlpha = 0.15 + 0.12 * Math.sin((elapsed / COLOR_CYCLE_MS) * Math.PI * 2);
+      // ── Glow intensity: very gentle (0.08 → 0.18) ────────────────
+      const glowAlpha = 0.08 + 0.07 * Math.sin((elapsed / COLOR_CYCLE_MS) * Math.PI * 2);
 
       el.style.transform  = `rotate(${rotationDeg}deg)`;
       el.style.filter     = `drop-shadow(0 0 ${size * 0.25}px rgba(${r},${g},${b},${glowAlpha.toFixed(3)}))`;
@@ -125,17 +123,17 @@ export function AnimatedCortexLogo({ size = 48, className }: AnimatedCortexLogoP
         justifyContent: 'center',
         willChange: 'transform, filter',
         transformOrigin: 'center center',
-        // Initial color before rAF starts
-        filter: `drop-shadow(0 0 ${size * 0.25}px rgba(0,229,168,0.18))`,
+        // Initial color before rAF starts — soft slate, no neon
+        filter: `drop-shadow(0 0 ${size * 0.18}px rgba(107,143,174,0.15))`,
       }}
       aria-hidden="true"
     >
       <CortexLogo
         size={size}
-        iconColor="#00E5A8"
-        bgColor="rgba(0,229,168,0.12)"
+        iconColor="var(--primary)"
+        bgColor="var(--primary-dim)"
         style={{
-          boxShadow: `inset 0 1px 0 rgba(255,255,255,0.15), 0 0 ${size * 0.3}px rgba(0,229,168,0.08)`,
+          boxShadow: `var(--shadow-sm)`,
         }}
       />
     </span>

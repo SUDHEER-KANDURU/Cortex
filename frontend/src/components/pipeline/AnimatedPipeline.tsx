@@ -46,7 +46,7 @@ export const PIPELINE_STAGES: PipelineStage[] = [
 const SPRING = { type: 'spring', stiffness: 320, damping: 28 } as const;
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
-// Colors
+// Colors — all token-driven, no hardcoded teal
 const C_PRIMARY   = 'var(--primary)';
 const C_SUCCESS   = 'var(--success)';
 const C_DANGER    = 'var(--danger)';
@@ -54,14 +54,14 @@ const C_MUTED     = 'var(--text-muted)';
 const C_TEXT      = 'var(--text)';
 const C_TEXT_SEC  = 'var(--text-secondary)';
 
-// Theme helpers (keep in sync with dashboard)
+// Theme helpers — token-driven, no hardcoded rgba
 function tint(d: boolean, s: 'xs' | 'sm' | 'md' = 'sm') {
-  const dk = { xs: 'rgba(255,255,255,0.025)', sm: 'rgba(255,255,255,0.05)', md: 'rgba(255,255,255,0.09)' };
-  const lt = { xs: 'rgba(0,0,0,0.025)',       sm: 'rgba(0,0,0,0.04)',       md: 'rgba(0,0,0,0.07)'      };
+  const dk = { xs: 'rgba(255,255,255,0.02)', sm: 'rgba(255,255,255,0.04)', md: 'rgba(255,255,255,0.07)' };
+  const lt = { xs: 'rgba(0,0,0,0.02)',       sm: 'rgba(0,0,0,0.035)',      md: 'rgba(0,0,0,0.06)'      };
   return d ? dk[s] : lt[s];
 }
-function tintBorder(d: boolean) { return d ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)'; }
-function logBg(d: boolean)      { return d ? 'rgba(0,0,0,0.40)'       : 'rgba(0,0,0,0.05)'; }
+function tintBorder(d: boolean) { return d ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'; }
+function logBg(d: boolean)      { return d ? 'rgba(0,0,0,0.30)'       : 'rgba(0,0,0,0.03)'; }
 
 // ── SVG Checkmark (drawn with stroke animation) ───────────────────────────────
 function AnimatedCheckmark() {
@@ -143,30 +143,29 @@ function Connector({ state, isDark }: ConnectorProps) {
             style={{
               position: 'absolute', top: 0, bottom: 0, left: 0,
               borderRadius: 2,
-              background: 'linear-gradient(90deg, var(--success) 0%, rgba(0,229,168,0.5) 100%)',
-              boxShadow: '0 0 6px rgba(0,229,168,0.4)',
+              background: 'var(--success)',
               transformOrigin: 'left center',
             }}
             initial={{ scaleX: 0, opacity: 0 }}
-            animate={{ scaleX: 1, opacity: 1 }}
+            animate={{ scaleX: 1, opacity: 0.8 }}
             transition={{ duration: 0.55, ease: EASE_OUT }}
           />
         )}
       </AnimatePresence>
 
-      {/* Liquid pulse travelling left→right while flowing */}
+      {/* Liquid pulse — soft, not neon */}
       <AnimatePresence>
         {state === 'flowing' && (
           <motion.div
             key="pulse"
             style={{
-              position: 'absolute', top: -3, width: 14, height: 8,
-              borderRadius: 4,
-              background: 'radial-gradient(ellipse, rgba(0,229,168,0.95) 0%, transparent 80%)',
-              filter: 'blur(2px)',
+              position: 'absolute', top: -2, width: 12, height: 6,
+              borderRadius: 3,
+              background: 'var(--primary)',
+              opacity: 0.7,
             }}
             initial={{ left: 0, opacity: 0 }}
-            animate={{ left: '100%', opacity: [0, 1, 1, 0] }}
+            animate={{ left: '100%', opacity: [0, 0.7, 0.7, 0] }}
             transition={{ duration: 0.5, ease: 'easeInOut', repeat: Infinity, repeatDelay: 0.3 }}
           />
         )}
@@ -238,20 +237,20 @@ function PipelineNode({ stage, status, index, isDark }: PipelineNodeProps) {
               exit={{ opacity: 0, scale: 0.7, transition: { duration: 0.3 } }}
               style={{
                 position: 'absolute', inset: -6, borderRadius: '50%',
-                border: `1.5px dashed rgba(0,229,168,0.45)`,
+                border: `1.5px dashed var(--border-hover)`,
                 pointerEvents: 'none',
               }}
             />
           )}
         </AnimatePresence>
 
-        {/* Glow halo (active or done) */}
+        {/* Glow halo — very soft */}
         <AnimatePresence>
           {(isActive || isDone) && (
             <motion.div
               key="glow"
               initial={{ opacity: 0 }}
-              animate={{ opacity: isActive ? [0.4, 0.8, 0.4] : 0.5 }}
+              animate={{ opacity: isActive ? [0.25, 0.5, 0.25] : 0.3 }}
               exit={{ opacity: 0 }}
               transition={isActive
                 ? { duration: 2.2, ease: 'easeInOut', repeat: Infinity }
@@ -259,8 +258,8 @@ function PipelineNode({ stage, status, index, isDark }: PipelineNodeProps) {
               style={{
                 position: 'absolute', inset: -8, borderRadius: '50%',
                 background: isFailed
-                  ? 'radial-gradient(circle, rgba(239,83,80,0.22) 0%, transparent 70%)'
-                  : 'radial-gradient(circle, var(--primary-glow) 0%, transparent 70%)',
+                  ? 'radial-gradient(circle, var(--danger-dim) 0%, transparent 70%)'
+                  : 'radial-gradient(circle, var(--primary-dim) 0%, transparent 70%)',
                 pointerEvents: 'none',
               }}
             />
@@ -277,11 +276,11 @@ function PipelineNode({ stage, status, index, isDark }: PipelineNodeProps) {
             background: circleBg,
             border: `1.5px solid ${borderColor}`,
             boxShadow: isActive
-              ? `0 0 0 1px ${borderColor}33, 0 0 20px rgba(0,229,168,0.18)`
+              ? `0 0 0 1px ${borderColor}, var(--shadow-sm)`
               : isDone
-              ? `0 0 12px rgba(22,199,132,0.20)`
+              ? 'var(--shadow-sm)'
               : isFailed
-              ? `0 0 16px rgba(239,83,80,0.25)`
+              ? `0 0 8px var(--danger-dim)`
               : 'none',
             transition: 'background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease',
             position: 'relative', zIndex: 1, overflow: 'hidden',
@@ -359,9 +358,9 @@ function StatusPill({ elapsed, activeLabel, failed }: StatusPillProps) {
       style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '9px 20px', borderRadius: 100,
-        background: failed ? 'rgba(239,83,80,0.10)' : 'var(--primary-dim)',
-        border: `1px solid ${failed ? 'rgba(239,83,80,0.32)' : 'rgba(0,229,168,0.28)'}`,
-        backdropFilter: 'blur(12px)',
+        background: failed ? 'var(--danger-dim)' : 'var(--primary-dim)',
+        border: `1px solid ${failed ? 'var(--danger)' : 'var(--border-hover)'}`,
+        opacity: failed ? 1 : 0.9,
       }}
     >
       {/* Morphing spinner */}
@@ -411,10 +410,10 @@ function StatusPill({ elapsed, activeLabel, failed }: StatusPillProps) {
         </motion.span>
       </AnimatePresence>
 
-      {/* Elapsed timer — no layout shift */}
+      {/* Elapsed timer */}
       {!failed && (
         <span style={{
-          fontSize: 11, fontFamily: 'var(--font-mono)', color: 'rgba(0,229,168,0.55)',
+          fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
           fontWeight: 500, minWidth: '3ch', textAlign: 'right',
         }}>
           {elapsed}s
@@ -458,9 +457,10 @@ function LogPanel({ lines, isDark }: LogPanelProps) {
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6,
         padding: '8px 14px', borderBottom: `1px solid ${tintBorder(isDark)}`,
-        background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
+        background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
       }}>
-        {['rgba(239,83,80,0.7)', 'rgba(255,189,46,0.7)', 'rgba(22,199,132,0.7)'].map((c, i) => (
+        {/* macOS traffic lights — softer palette */}
+        {['rgba(185,64,64,0.65)', 'rgba(172,122,42,0.65)', 'rgba(78,155,111,0.65)'].map((c, i) => (
           <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: c }} aria-hidden="true" />
         ))}
         <span style={{ fontSize: 10, color: C_MUTED, marginLeft: 6, letterSpacing: '0.06em' }}>
@@ -495,11 +495,11 @@ function LogPanel({ lines, isDark }: LogPanelProps) {
           ))}
         </AnimatePresence>
 
-        {/* Blinking cursor */}
+        {/* Blinking cursor — soft primary */}
         <motion.span
           animate={{ opacity: [1, 0, 1] }}
           transition={{ duration: 1, repeat: Infinity, ease: [0, 0, 1, 1] }}
-          style={{ display: 'inline-block', width: 7, height: 13, background: C_PRIMARY, verticalAlign: 'middle', marginLeft: 20, borderRadius: 1 }}
+          style={{ display: 'inline-block', width: 7, height: 13, background: 'var(--primary)', opacity: 0.7, verticalAlign: 'middle', marginLeft: 20, borderRadius: 1 }}
           aria-hidden="true"
         />
       </div>
@@ -512,11 +512,11 @@ function CompletionFlash() {
   return (
     <motion.div
       initial={{ opacity: 0 }}
-      animate={{ opacity: [0, 0.18, 0] }}
+      animate={{ opacity: [0, 0.10, 0] }}
       transition={{ duration: 0.7, ease: 'easeInOut' }}
       style={{
         position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit',
-        background: 'radial-gradient(ellipse 80% 60% at 50% 50%, rgba(0,229,168,0.22) 0%, transparent 70%)',
+        background: 'radial-gradient(ellipse 80% 60% at 50% 50%, var(--primary-dim) 0%, transparent 70%)',
         zIndex: 10,
       }}
       aria-hidden="true"

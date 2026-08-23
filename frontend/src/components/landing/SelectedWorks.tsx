@@ -138,7 +138,7 @@ function LearningPathVisual() {
             <rect x={n.x - 38} y={yPos[i]} width={76} height={20} rx={10} fill={fills[i]} />
             <text x={n.x} y={yPos[i] + 13} textAnchor="middle"
               fontSize="7" fontWeight="600"
-              fill={n.done ? "#060810" : "rgba(255,255,255,0.3)"}
+              fill={n.done ? "#FFFFFF" : "var(--text-muted)"}
               style={{ fontFamily: "var(--font-mono,'JetBrains Mono',monospace)" }}>
               {n.label}
             </text>
@@ -196,7 +196,7 @@ function InterviewPrepVisual({ onStart }: { onStart?: (startFn: () => void) => v
         <div style={{
           marginTop: "8px", padding: "8px 12px", borderRadius: "10px",
           fontSize: "9px", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)",
-          background: "rgba(0,229,168,0.06)", border: "1px solid rgba(0,229,168,0.18)",
+          background: "var(--primary-dim)", border: "1px solid var(--border-hover)",
           color: "var(--primary)",
           opacity: revealed ? 1 : 0,
           transition: "opacity 0.5s ease 0.3s",

@@ -107,9 +107,9 @@ function LearningPathOutput({ active }: { active: boolean }) {
         }}>
           <span style={{
             width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
-            background: node.done ? "var(--primary)" : "rgba(255,255,255,0.06)",
+            background: node.done ? "var(--primary)" : "var(--surface)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "8px", color: node.done ? "#060810" : "var(--text-muted)",
+            fontSize: "8px", color: node.done ? "#FFFFFF" : "var(--text-muted)",
             fontFamily: "var(--font-mono)",
           }}>
             {node.done ? "✓" : (i + 1)}
@@ -162,8 +162,8 @@ function InterviewOutput({ active }: { active: boolean }) {
       </div>
       <div style={{
         padding: "10px 12px", borderRadius: "10px",
-        border: "1px solid rgba(0,229,168,0.2)",
-        background: "rgba(0,229,168,0.05)",
+        border: "1px solid var(--border-hover)",
+        background: "var(--primary-dim)",
         transition: "all 0.4s ease 0.15s",
       }}>
         <p style={{ fontSize: "9.5px", color: "var(--text-secondary)", lineHeight: 1.6, fontFamily: "var(--font-mono)" }}>
