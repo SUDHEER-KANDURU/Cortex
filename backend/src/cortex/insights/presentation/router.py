@@ -6,7 +6,7 @@ from fastapi.responses import PlainTextResponse
 from cortex.insights.application.engine import InsightsEngine
 from cortex.insights.presentation.models import InsightsReportResponse
 from cortex.graph.infrastructure.sqlite_repository import SQLiteGraphRepository
-from cortex.jobs.infrastructure.pg_repository import PostgresJobRepository
+from cortex.jobs.infrastructure.dependencies import job_repository
 from cortex.config import get_settings
 from shared.exceptions import NotFoundError
 import structlog
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/insights", tags=["insights"])
 
 _settings = get_settings()
 _graph_repo = SQLiteGraphRepository(_settings.database_url)
-_job_repo = PostgresJobRepository(_settings.database_url)
+_job_repo = job_repository
 _engine = InsightsEngine()
 
 

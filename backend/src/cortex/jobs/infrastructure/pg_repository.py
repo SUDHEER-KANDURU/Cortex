@@ -2,11 +2,10 @@
 
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    create_async_engine,
     async_sessionmaker,
 )
 from sqlalchemy import select, update, func
+from cortex.db import get_engine
 from cortex.jobs.domain.entities import Job, JobStatus, ArtifactType
 from cortex.jobs.domain.interfaces import AbstractJobRepository
 from cortex.schema.models import JobModel
@@ -47,15 +46,9 @@ class PostgresJobRepository(AbstractJobRepository):
     Set DATABASE_URL in .env to switch backends."""
 
     def __init__(self, database_url: str) -> None:
-        connect_args: dict = {}
-        if "sqlite" in database_url:
-            connect_args = {"check_same_thread": False}
-
-        self._engine = create_async_engine(
-            database_url,
-            echo=False,
-            connect_args=connect_args,
-        )
+        # Use the shared engine singleton — avoids creating a separate
+        # connection pool for every repository that points at the same DB.
+        self._engine = get_engine(database_url)
         # Fix 2 — use async_sessionmaker instead of deprecated sessionmaker
         self._session_factory = async_sessionmaker(
             self._engine,

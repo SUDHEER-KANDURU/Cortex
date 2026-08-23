@@ -133,7 +133,7 @@ class ContextRetriever:
             "me", "about", "tell", "explain", "describe", "show",
         }
         words = question.lower().replace("?", "").replace(",", "").split()
-        return [w for w in words if w not in stopwords and len(w) > 2]
+        return [w for w in words if w not in stopwords and len(w) >= 2]
 
     def _score_node(
         self,

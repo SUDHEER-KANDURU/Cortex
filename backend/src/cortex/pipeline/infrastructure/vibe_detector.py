@@ -194,12 +194,18 @@ class VibeDetector:
             if parsed_file.has_errors():
                 continue
 
-            self._detect_god_functions(parsed_file, report)
-            self._detect_long_parameter_lists(parsed_file, report)
+            # Build the combined function list once per file and pass it
+            # to every detector. Previously each detector called
+            # all_functions() independently — up to 6 redundant list
+            # constructions per file (up to 900 total for 150 files).
+            all_fns = parsed_file.all_functions()
+
+            self._detect_god_functions(parsed_file, report, all_fns)
+            self._detect_long_parameter_lists(parsed_file, report, all_fns)
             self._detect_missing_docstrings(parsed_file, report)
-            self._detect_hardcoded_values(parsed_file, report)
-            self._detect_inconsistent_naming(parsed_file, report)
-            self._detect_no_error_handling(parsed_file, report)
+            self._detect_hardcoded_values(parsed_file, report, all_fns)
+            self._detect_inconsistent_naming(parsed_file, report, all_fns)
+            self._detect_no_error_handling(parsed_file, report, all_fns)
 
         self._detect_duplicate_logic(parsed_files, report)
 
@@ -219,10 +225,11 @@ class VibeDetector:
         self,
         parsed_file: ParsedFile,
         report: VibeReport,
+        all_fns: list[ParsedFunction],
     ) -> None:
         """Flag functions over 50 lines — AI tends to generate
         monolithic functions that do too many things."""
-        for fn in parsed_file.all_functions():
+        for fn in all_fns:
             if fn.line_count() > 50:
                 report.flags.append(VibeFlag(
                     pattern=VibePattern.GOD_FUNCTION,
@@ -257,11 +264,12 @@ class VibeDetector:
         self,
         parsed_file: ParsedFile,
         report: VibeReport,
+        all_fns: list[ParsedFunction],
     ) -> None:
         """Flag functions with more than 5 parameters.
         AI often generates functions with excessive parameters
         instead of using objects or dataclasses."""
-        for fn in parsed_file.all_functions():
+        for fn in all_fns:
             param_count = len(fn.parameters)
             if param_count > 7:
                 report.flags.append(VibeFlag(
@@ -339,6 +347,7 @@ class VibeDetector:
         self,
         parsed_file: ParsedFile,
         report: VibeReport,
+        all_fns: list[ParsedFunction],
     ) -> None:
         """Detect hardcoded strings that look like secrets or config.
         AI frequently hardcodes passwords, URLs, and API keys."""
@@ -357,7 +366,7 @@ class VibeDetector:
         for pattern, description in suspicious_patterns:
             # We check via function names as a proxy
             # (full content analysis requires content storage)
-            for fn in parsed_file.all_functions():
+            for fn in all_fns:
                 if any(
                     kw in fn.name.lower()
                     for kw in ["password", "secret", "token", "key"]
@@ -382,6 +391,7 @@ class VibeDetector:
         self,
         parsed_file: ParsedFile,
         report: VibeReport,
+        all_fns: list[ParsedFunction],
     ) -> None:
         """Detect mixed naming conventions — camelCase vs snake_case.
         AI often mixes conventions when combining code from
@@ -389,7 +399,7 @@ class VibeDetector:
         camel_count = 0
         snake_count = 0
 
-        for fn in parsed_file.all_functions():
+        for fn in all_fns:
             if re.search(r'[a-z][A-Z]', fn.name):
                 camel_count += 1
             elif "_" in fn.name:
@@ -417,10 +427,11 @@ class VibeDetector:
         self,
         parsed_file: ParsedFile,
         report: VibeReport,
+        all_fns: list[ParsedFunction],
     ) -> None:
         """Flag files with many functions but no exception classes.
         AI often skips error handling entirely."""
-        if len(parsed_file.all_functions()) < 3:
+        if len(all_fns) < 3:
             return
 
         has_error_class = any(
@@ -442,7 +453,7 @@ class VibeDetector:
         if (
             not has_error_class
             and not has_try_import
-            and len(parsed_file.all_functions()) > 5
+            and len(all_fns) > 5
         ):
             report.flags.append(VibeFlag(
                 pattern=VibePattern.NO_ERROR_HANDLING,
@@ -450,7 +461,7 @@ class VibeDetector:
                 file_path=parsed_file.path,
                 line=1,
                 message=(
-                    f"File has {len(parsed_file.all_functions())} "
+                    f"File has {len(all_fns)} "
                     f"functions but no error handling imports or "
                     f"exception classes detected."
                 ),

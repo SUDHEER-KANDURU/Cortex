@@ -30,6 +30,8 @@ class GraphBuildResult:
     job_id: str = ""
     repo_url: str = ""
     stats: dict = field(default_factory=dict)
+    # O(1) node lookup by id — populated by GraphBuilder.build()
+    node_by_id: dict = field(default_factory=dict)
 
     def node_count(self) -> int:
         return len(self.nodes)
@@ -253,6 +255,9 @@ class GraphBuilder:
                         ))
 
         result.stats = result.summary()
+        # Build the O(1) lookup dict so artifact generators don't need
+        # to do linear scans over result.nodes.
+        result.node_by_id = {n.id: n for n in result.nodes}
         self._emit_debug_summary(parsed_files, result, modules)
 
         logger.info(
@@ -497,15 +502,19 @@ class GraphBuilder:
         result: GraphBuildResult,
         modules: list[str],
     ) -> None:
-        """Temporary debug logging for graph construction."""
-        print("[graph_debug] total_repository_files", len(parsed_files))
-        print("[graph_debug] total_asts_parsed", len(parsed_files))
-        print("[graph_debug] total_graph_nodes", len(result.nodes))
-        print("[graph_debug] total_graph_edges", len(result.edges))
-        print("[graph_debug] detected_modules", modules[:50])
-        print(
-            "[graph_debug] first_20_nodes",
-            [
+        """Emit graph construction summary at DEBUG level.
+
+        Previously used print() calls that fired unconditionally in
+        production. Now uses structlog at debug level — only appears
+        when LOG_LEVEL=DEBUG is set.
+        """
+        logger.debug(
+            "graph_debug_summary",
+            total_repository_files=len(parsed_files),
+            total_graph_nodes=len(result.nodes),
+            total_graph_edges=len(result.edges),
+            detected_modules=modules[:50],
+            first_20_nodes=[
                 {
                     "type": node.node_type.value,
                     "label": node.label,
@@ -513,10 +522,7 @@ class GraphBuilder:
                 }
                 for node in result.nodes[:20]
             ],
-        )
-        print(
-            "[graph_debug] first_20_edges",
-            [
+            first_20_edges=[
                 {
                     "source": edge.source_id,
                     "target": edge.target_id,

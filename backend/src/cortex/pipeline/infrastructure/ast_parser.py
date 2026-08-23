@@ -92,8 +92,13 @@ class ParsedFile:
         return len(self.parse_errors) > 0
 
     def file_contents_available(self) -> bool:
-        """Returns False — content is not stored in parsed files.
-        Used by detectors that need raw content access."""
+        """Always returns False — raw file content is not stored in ParsedFile.
+
+        KNOWN LIMITATION: Content-based detection (scanning for hardcoded
+        secrets in function bodies, etc.) is gated by this method.
+        Implementing full content storage would require keeping the raw
+        source in ParsedFile and is a future enhancement.
+        """
         return False
 
     def all_functions(self) -> list[ParsedFunction]:
@@ -168,11 +173,12 @@ class PythonASTParser:
                 parsed_fn = self._parse_function(node, file_path)
                 result.functions.append(parsed_fn)
 
-                logger.info(
-                    "python_file_parsed",
-                    file=file_path,
-                    **result.summary(),
-                )
+        # Log once per file after the loop, not once per top-level function.
+        logger.info(
+            "python_file_parsed",
+            file=file_path,
+            **result.summary(),
+        )
         logger.debug(
             "python_file_structure",
             path=file_path,
@@ -317,17 +323,6 @@ class PythonASTParser:
 class JavaASTParser:
     """Parses Java source files using regex patterns.
     Not as precise as a real Java parser but covers the common cases."""
-
-    # Regex patterns for Java
-    CLASS_PATTERN = re.compile(
-        r'(?:public|private|protected)?\s*'
-        r'(?:abstract|final)?\s*'
-        r'class\s+(\w+)'
-        r'(?:\s+extends\s+(\w+))?'
-        r'(?:\s+implements\s+([\w,\s]+))?'
-        r'\s*\{',
-        re.MULTILINE,
-    )
 
     METHOD_PATTERN = re.compile(
         r'(?:public|private|protected)\s+'

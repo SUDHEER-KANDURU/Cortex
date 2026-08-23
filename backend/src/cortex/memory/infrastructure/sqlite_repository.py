@@ -6,10 +6,10 @@ DATABASE_URL — same pattern as jobs/artifacts/chat repositories.
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
-    create_async_engine,
     async_sessionmaker,
 )
 from sqlalchemy import select
+from cortex.db import get_engine
 from cortex.memory.domain.entities import RepositorySummary, RepositoryFact
 from cortex.memory.domain.interfaces import AbstractMemoryRepository
 from cortex.schema.models import RepositorySummaryModel, RepositoryFactModel
@@ -56,15 +56,7 @@ class SQLiteMemoryRepository(AbstractMemoryRepository):
     Set DATABASE_URL in .env to switch backends."""
 
     def __init__(self, database_url: str) -> None:
-        connect_args: dict = {}
-        if "sqlite" in database_url:
-            connect_args = {"check_same_thread": False}
-
-        self._engine = create_async_engine(
-            database_url,
-            echo=False,
-            connect_args=connect_args,
-        )
+        self._engine = get_engine(database_url)
         self._session_factory = async_sessionmaker(
             self._engine,
             class_=AsyncSession,

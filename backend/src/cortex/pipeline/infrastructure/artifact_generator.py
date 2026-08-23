@@ -361,11 +361,19 @@ class MermaidGenerator:
             return self._esc(label + hint)
 
         # ── Build diagram ─────────────────────────────────────────────────────
-        # graph LR gives a cleaner horizontal flow for layered architectures.
-        # Each layer is a subgraph; nodes sit inside their layer — this is the
-        # key change that eliminates the spaghetti: nodes are co-located with
-        # their peers, so intra-layer edges are zero-length.
-        out: list[str] = ["graph LR"]
+        # graph TB (top-to-bottom) stacks architecture layers vertically —
+        # Frontend at the top, Infra/Domain at the bottom — matching the
+        # natural reading direction of a layered architecture.
+        #
+        # Previously used graph LR which spread layers horizontally, producing
+        # a wide diagram that compressed into overlapping thin horizontal lines
+        # inside the fixed-height canvas. graph TB works correctly with the
+        # dynamic canvas height and produces a readable top-down flow.
+        #
+        # Each layer is a subgraph with direction LR so its file nodes lay out
+        # side-by-side within the row — combining TB between layers with LR
+        # within each layer gives the classic "swimlane" architecture view.
+        out: list[str] = ["graph TB"]
 
         # Colour palette — one classDef per layer
         out += [
@@ -405,7 +413,9 @@ class MermaidGenerator:
 
             sid = sg_id.get(ln, f"SG{ln[:4].upper()}")
             out.append(f"  subgraph {sid} [{ln}]")
-            out.append(f"    direction TB")
+            # Nodes within a layer flow left-to-right so files sit side-by-side
+            # in a horizontal row rather than stacking vertically inside the band.
+            out.append(f"    direction LR")
 
             for module in lmodules:
                 mid = id_map[module.id]
@@ -856,10 +866,10 @@ class GraphInterviewQuestionGenerator:
         return cycles
 
     def _node_by_id(self, graph: GraphBuildResult, node_id: str) -> GraphNode | None:
-        for n in graph.nodes:
-            if n.id == node_id:
-                return n
-        return None
+        # Use the pre-built O(1) dict on GraphBuildResult instead of a
+        # linear scan over all nodes (previously O(N) per call, called
+        # inside an edge loop making it O(E×N) total).
+        return graph.node_by_id.get(node_id)
 
 
 class MarkdownReportGenerator:

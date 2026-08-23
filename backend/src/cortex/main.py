@@ -2,6 +2,7 @@
 
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from cortex.config import get_settings
@@ -15,22 +16,52 @@ from cortex.memory.presentation.router import router as memory_router
 from shared.correlation import CorrelationMiddleware
 from shared.logging import configure_logging
 
+_startup_logger = structlog.get_logger()
+
+
+def _warn_missing_secrets(settings) -> None:  # type: ignore[type-arg]
+    """Emit structured warnings for configuration that will cause silent
+    degradation at runtime. Called once at startup so the operator sees
+    the problem immediately rather than discovering it mid-job.
+
+    Missing github_token  → GitHub API limited to 60 req/hr (unauthenticated).
+                            Large repos or rapid submissions will hit rate limits.
+    Missing nim_api_key   → Chat falls back to the rule-based stub; no real AI.
+    Missing internal_secret → /complete and /fail endpoints are disabled (503).
+    """
+    if not settings.github_token:
+        _startup_logger.warning(
+            "config_missing_github_token",
+            effect="GitHub API running unauthenticated (60 req/hr limit). "
+                   "Set GITHUB_TOKEN in backend/.env to raise limit to 5000 req/hr.",
+        )
+    if not settings.nim_api_key:
+        _startup_logger.warning(
+            "config_missing_nim_api_key",
+            effect="NIM API key not set. AI chat will use rule-based fallback. "
+                   "Set NIM_API_KEY in backend/.env for real AI responses.",
+        )
+    if not settings.internal_secret:
+        _startup_logger.warning(
+            "config_missing_internal_secret",
+            effect="INTERNAL_SECRET not set. "
+                   "POST /jobs/{id}/complete and /fail endpoints are disabled (503). "
+                   "Set INTERNAL_SECRET in backend/.env to enable them.",
+        )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Create all database tables on startup, then reset orphaned jobs."""
     from cortex.schema.models import Base
-    from sqlalchemy.ext.asyncio import create_async_engine
+    from cortex.db import get_engine
     from sqlalchemy import update as sa_update
     from cortex.schema.models import JobModel
 
     settings = get_settings()
 
-    connect_args = {}
-    if "sqlite" in settings.database_url:
-        connect_args = {"check_same_thread": False}
-
-    engine = create_async_engine(settings.database_url, connect_args=connect_args)
+    # Use the shared engine singleton — avoids a separate pool just for startup.
+    engine = get_engine(settings.database_url)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         # Reset jobs stuck in running/pending from a previous process —
@@ -41,10 +72,15 @@ async def lifespan(app: FastAPI):
             .values(
                 status="failed",
                 error_message="Server restarted — job was lost. Please resubmit.",
-                updated_at=datetime.now(timezone.utc),  # Fix 1
+                updated_at=datetime.now(timezone.utc),
             )
         )
-    await engine.dispose()
+    # No engine.dispose() here — the shared singleton must stay alive
+    # for the lifetime of the process.
+
+    # Warn about any missing secrets/config that cause silent degradation.
+    _warn_missing_secrets(settings)
+
     yield
 
 

@@ -1,34 +1,52 @@
 """Jobs API router — uses JobService via FastAPI dependency injection."""
 import structlog
 
-from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks, Header
 from cortex.artifacts.domain.entities import ArtifactContentType
 from cortex.artifacts.application.use_cases import ArtifactService
 from cortex.artifacts.infrastructure.dependencies import artifact_repository
 from cortex.jobs.domain.entities import Job, JobStatus, ArtifactType
 from cortex.jobs.application.use_cases import JobService
-from cortex.jobs.infrastructure.pg_repository import PostgresJobRepository
-from cortex.config import get_settings
+from cortex.jobs.infrastructure.dependencies import job_repository
 from cortex.jobs.presentation.models import (
     JobCreateRequest,
     JobResponse,
     JobListResponse,
     JobCancelResponse,
 )
+from cortex.config import get_settings
 from shared.exceptions import NotFoundError, ValidationError
 
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
-# Single shared instances for the lifetime of the process
-_repository = PostgresJobRepository(get_settings().database_url)
 _artifact_service = ArtifactService(artifact_repository)
+
+
+def _require_internal(x_internal_token: str | None = Header(default=None)) -> None:
+    """Guard for internal-only state-mutation endpoints (/complete, /fail).
+
+    Callers must supply the header:  X-Internal-Token: <INTERNAL_SECRET>
+    If INTERNAL_SECRET is not configured, the endpoints are disabled entirely.
+    This prevents any external client from arbitrarily changing job state.
+    """
+    secret = get_settings().internal_secret
+    if not secret:
+        raise HTTPException(
+            status_code=503,
+            detail="Internal endpoints are disabled — INTERNAL_SECRET is not configured.",
+        )
+    if x_internal_token != secret:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid or missing X-Internal-Token header.",
+        )
 
 
 def get_job_service() -> JobService:
     """FastAPI dependency — returns JobService with the shared repository."""
-    return JobService(_repository)
+    return JobService(job_repository)
 
 
 async def _run_pipeline_for_job(job: Job, service: JobService) -> None:
@@ -78,8 +96,17 @@ async def _run_pipeline_for_job(job: Job, service: JobService) -> None:
         traceback.print_exc()
         try:
             await service.mark_failed(job.id, str(e))
-        except Exception:
-            pass
+        except Exception as mark_err:
+            # mark_failed itself failed (e.g. DB unreachable).
+            # Log it — do not swallow it silently. The job will be stuck in
+            # 'running' and will be reset to 'failed' on next server restart
+            # via the lifespan startup reset.
+            logger.error(
+                "mark_failed_error",
+                job_id=job.id,
+                original_error=str(e),
+                mark_failed_error=str(mark_err),
+            )
 
 
 @router.post(
@@ -225,7 +252,8 @@ async def retry_job(
     "/{job_id}/complete",
     response_model=JobResponse,
     summary="Mark a job as completed",
-    description="Called internally when processing succeeds.",
+    description="Called internally when processing succeeds. Requires X-Internal-Token header.",
+    dependencies=[Depends(_require_internal)],
 )
 async def complete_job(
     job_id: str,
@@ -244,7 +272,8 @@ async def complete_job(
     "/{job_id}/fail",
     response_model=JobResponse,
     summary="Mark a job as failed",
-    description="Called internally when processing fails.",
+    description="Called internally when processing fails. Requires X-Internal-Token header.",
+    dependencies=[Depends(_require_internal)],
 )
 async def fail_job(
     job_id: str,
@@ -259,6 +288,19 @@ async def fail_job(
 
 
 @router.get(
+    "/stats/summary",
+    response_model=dict,
+    summary="Job counts by status",
+    description="Returns total job counts grouped by status.",
+)
+async def get_stats(
+    service: JobService = Depends(get_job_service),
+) -> dict:
+    stats = await service.get_stats()
+    return {status.value: count for status, count in stats.items()}
+
+
+@router.get(
     "/repo/{repo_url:path}",
     response_model=JobListResponse,
     summary="Get all jobs for a repository",
@@ -270,19 +312,6 @@ async def get_jobs_by_repo(
 ) -> JobListResponse:
     jobs = await service.list_by_repo(repo_url)
     return JobListResponse.from_jobs(jobs)
-
-
-@router.get(
-    "/stats/summary",
-    response_model=dict,
-    summary="Job counts by status",
-    description="Returns total job counts grouped by status.",
-)
-async def get_stats(
-    service: JobService = Depends(get_job_service),
-) -> dict:
-    stats = await service.get_stats()
-    return {status.value: count for status, count in stats.items()}
 
 
 @router.post(

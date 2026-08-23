@@ -13,7 +13,6 @@ Design contract:
 
 from __future__ import annotations
 
-import re
 import statistics
 from collections import defaultdict
 from typing import TYPE_CHECKING
@@ -809,10 +808,6 @@ class InsightsEngine:
                     evidence={"afferent_coupling": ca, "threshold": int(T.FANIN_CRITICAL.value)},
                     confidence=0.85,
                 ))
-
-        # Deep multiple inheritance (coupling smell)
-        for cls in []:  # classes not passed here — handled in architecture
-            pass
 
         n_files = max(1, len(source_files))
         fanout_pct = len(high_fanout) / n_files

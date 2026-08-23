@@ -55,6 +55,11 @@ class GitHubFetchStage(AbstractPipelineStage):
         except Exception as e:
             context.mark_error(f"GitHubFetchStage failed: {str(e)}")
 
+        finally:
+            # Always close the underlying httpx.AsyncClient connection pool.
+            # Call the public close() method — never access _github directly.
+            await self._analyzer.close()
+
         return context
 
 
@@ -85,7 +90,14 @@ class ASTParseStage(AbstractPipelineStage):
                 for path, content in context.file_contents.items()
             ]
 
-            context.parsed_files = self._parser.parse_many(files_to_parse)
+            # parse_many is CPU-bound (ast.parse + regex over up to 150 files).
+            # Running it directly would block the event loop for the duration.
+            # asyncio.to_thread offloads it to a thread-pool worker, keeping
+            # the loop responsive for other in-flight requests.
+            import asyncio
+            context.parsed_files = await asyncio.to_thread(
+                self._parser.parse_many, files_to_parse
+            )
 
             successful = [p for p in context.parsed_files if not p.has_errors()]
             failed = [p for p in context.parsed_files if p.has_errors()]
@@ -162,16 +174,19 @@ class GraphBuildStage(AbstractPipelineStage):
             context.node_count = graph_result.node_count()
             context.edge_count = graph_result.edge_count()
 
-            # Fix 9 — persist to SQLite with engine disposal to prevent resource leak
+            # Persist graph to SQLite using bulk inserts — one transaction
+            # for all nodes, one for all edges. This replaces the previous
+            # per-node/per-edge loop that issued thousands of round-trips.
             try:
                 from cortex.graph.infrastructure.sqlite_repository import SQLiteGraphRepository
                 from cortex.config import get_settings
                 graph_repo = SQLiteGraphRepository(get_settings().database_url)
-                for node in graph_result.nodes:
-                    await graph_repo.save_node(node)
-                for edge in graph_result.edges:
-                    await graph_repo.save_edge(edge)
-                await graph_repo._engine.dispose()
+                await graph_repo.save_nodes_bulk(graph_result.nodes)
+                await graph_repo.save_edges_bulk(graph_result.edges)
+                # Do NOT call graph_repo._engine.dispose() here.
+                # SQLiteGraphRepository now uses the shared get_engine() singleton;
+                # disposing it would close the connection pool for every other
+                # repository in the process.
                 logger.info(
                     "graph_persisted_to_sqlite",
                     job_id=context.job.id,

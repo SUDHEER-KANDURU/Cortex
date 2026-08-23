@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from cortex.insights.application.engine import InsightsEngine
 from cortex.graph.infrastructure.sqlite_repository import SQLiteGraphRepository
-from cortex.jobs.infrastructure.pg_repository import PostgresJobRepository
+from cortex.jobs.infrastructure.dependencies import job_repository
 from cortex.memory.application.summarizer import RepositoryMemorySummarizer
 from cortex.memory.infrastructure.dependencies import memory_repository
 from cortex.config import get_settings
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/memory", tags=["memory"])
 
 _settings = get_settings()
 _graph_repo = SQLiteGraphRepository(_settings.database_url)
-_job_repo = PostgresJobRepository(_settings.database_url)
+_job_repo = job_repository
 _engine = InsightsEngine()
 _summarizer = RepositoryMemorySummarizer()
 
@@ -177,9 +177,9 @@ async def search_facts(
     repo_url: str | None = Query(None, description="Optionally scope to one repo"),
     limit: int = Query(10, ge=1, le=50),
 ) -> list[RepositoryFactResponse]:
-    keywords = [kw.strip().lower() for kw in q.split() if len(kw.strip()) > 2]
+    keywords = [kw.strip().lower() for kw in q.split() if len(kw.strip()) >= 2]
     if not keywords:
-        raise HTTPException(status_code=400, detail="Query too short — use at least one word over 2 characters.")
+        raise HTTPException(status_code=400, detail="Query too short — use at least one word of 2 or more characters.")
 
     results = await memory_repository.search_facts(keywords, repo_url=repo_url, limit=limit)
     return [

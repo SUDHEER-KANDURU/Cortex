@@ -91,6 +91,15 @@ class GitHubAnalyzer:
         self._parser = ASTParser()
         self._detector = VibeDetector()
 
+    async def close(self) -> None:
+        """Close the underlying httpx.AsyncClient connection pool.
+
+        Must be called when the analyzer is no longer needed to prevent
+        connection-pool leaks. GitHubFetchStage calls this in its
+        finally block.
+        """
+        await self._github.close()
+
     async def analyze(
         self,
         repo_url: str,

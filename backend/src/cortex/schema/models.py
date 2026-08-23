@@ -11,7 +11,6 @@ from cortex.jobs.domain.entities import JobStatus, ArtifactType
 from cortex.artifacts.domain.entities import ArtifactContentType
 from cortex.graph.domain.entities import NodeType, RelationshipType
 from cortex.chat.domain.entities import MessageRole
-from cortex.memory.domain.entities import RepositoryFact
 
 
 class Base(DeclarativeBase):
@@ -132,7 +131,7 @@ class ChatSessionModel(Base):
         "ChatMessageModel",
         back_populates="session",
         cascade="all, delete-orphan",
-        order_by="ChatMessageModel.created_at",
+        order_by=lambda: ChatMessageModel.created_at.asc(),
     )
 
     __table_args__ = (Index("ix_chat_sessions_job", "job_id"),)

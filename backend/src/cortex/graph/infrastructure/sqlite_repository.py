@@ -1,13 +1,13 @@
 """SQLite graph repository — persists knowledge graph nodes and edges.
 Replaces InMemoryGraphRepository with real storage.
-Uses the same SQLAlchemy async engine as jobs and artifacts."""
+Uses the shared SQLAlchemy async engine as jobs and artifacts."""
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
-    create_async_engine,
     async_sessionmaker,
 )
 from sqlalchemy import select, delete, func
+from cortex.db import get_engine
 from cortex.graph.domain.entities import (
     GraphNode,
     GraphEdge,
@@ -16,7 +16,7 @@ from cortex.graph.domain.entities import (
 )
 from cortex.graph.domain.interfaces import AbstractGraphRepository
 from cortex.schema.models import GraphNodeModel, GraphEdgeModel
-from shared.exceptions import NotFoundError, InfrastructureError
+from shared.exceptions import InfrastructureError
 import structlog
 import json
 
@@ -102,20 +102,70 @@ class SQLiteGraphRepository(AbstractGraphRepository):
     """
 
     def __init__(self, database_url: str) -> None:
-        connect_args = {}
-        if "sqlite" in database_url:
-            connect_args = {"check_same_thread": False}
-
-        self._engine = create_async_engine(
-            database_url,
-            echo=False,
-            connect_args=connect_args,
-        )
+        self._engine = get_engine(database_url)
         self._session_factory = async_sessionmaker(
             self._engine,
             class_=AsyncSession,
             expire_on_commit=False,
         )
+
+    async def save_nodes_bulk(self, nodes: list[GraphNode]) -> None:
+        """Insert all nodes in a single transaction.
+
+        This is dramatically faster than calling save_node() in a loop —
+        one BEGIN/COMMIT wrapping all inserts instead of one per node.
+        Existing nodes (same id) are skipped to stay idempotent.
+        """
+        if not nodes:
+            return
+        async with self._session_factory() as session:
+            try:
+                # Fetch all existing IDs in one query to decide skip/insert
+                existing_result = await session.execute(
+                    select(GraphNodeModel.id).where(
+                        GraphNodeModel.id.in_([n.id for n in nodes])
+                    )
+                )
+                existing_ids = {row[0] for row in existing_result.all()}
+
+                for node in nodes:
+                    if node.id not in existing_ids:
+                        session.add(_node_to_model(node))
+
+                await session.commit()
+            except Exception as e:
+                await session.rollback()
+                raise InfrastructureError(
+                    f"Failed to bulk-save {len(nodes)} nodes: {e}"
+                )
+
+    async def save_edges_bulk(self, edges: list[GraphEdge]) -> None:
+        """Insert all edges in a single transaction.
+
+        Same rationale as save_nodes_bulk — one transaction for the full
+        set instead of one per edge.
+        """
+        if not edges:
+            return
+        async with self._session_factory() as session:
+            try:
+                existing_result = await session.execute(
+                    select(GraphEdgeModel.id).where(
+                        GraphEdgeModel.id.in_([e.id for e in edges])
+                    )
+                )
+                existing_ids = {row[0] for row in existing_result.all()}
+
+                for edge in edges:
+                    if edge.id not in existing_ids:
+                        session.add(_edge_to_model(edge))
+
+                await session.commit()
+            except Exception as e:
+                await session.rollback()
+                raise InfrastructureError(
+                    f"Failed to bulk-save {len(edges)} edges: {e}"
+                )
 
     async def save_node(self, node: GraphNode) -> GraphNode:
         async with self._session_factory() as session:
@@ -260,20 +310,22 @@ class SQLiteGraphRepository(AbstractGraphRepository):
     ) -> tuple[int, int]:
         async with self._session_factory() as session:
             try:
-                # Count before deleting
-                node_result = await session.execute(
-                    select(GraphNodeModel).where(
-                        GraphNodeModel.job_id == job_id
-                    )
+                # Count before deleting using scalar COUNT queries — avoids
+                # loading full ORM rows (including JSON properties) just to
+                # call len() on them. Same pattern as count_by_job().
+                node_count_result = await session.execute(
+                    select(func.count())
+                    .select_from(GraphNodeModel)
+                    .where(GraphNodeModel.job_id == job_id)
                 )
-                node_count = len(node_result.scalars().all())
+                node_count = node_count_result.scalar_one()
 
-                edge_result = await session.execute(
-                    select(GraphEdgeModel).where(
-                        GraphEdgeModel.job_id == job_id
-                    )
+                edge_count_result = await session.execute(
+                    select(func.count())
+                    .select_from(GraphEdgeModel)
+                    .where(GraphEdgeModel.job_id == job_id)
                 )
-                edge_count = len(edge_result.scalars().all())
+                edge_count = edge_count_result.scalar_one()
 
                 # Delete edges first (foreign key constraint)
                 await session.execute(
