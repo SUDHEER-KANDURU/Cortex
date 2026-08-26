@@ -341,8 +341,8 @@ export function PortfolioHero() {
               <div style={{
                 position: "absolute", inset: "16px 0",
                 borderRadius: "24px",
-                background: "var(--card)",
-                boxShadow: "var(--shadow-xl)",
+                background: "#0F1923",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.20)",
                 overflow: "hidden",
               }}>
                 {/* Window chrome */}
@@ -361,21 +361,21 @@ export function PortfolioHero() {
                   transform: "translateX(-50%)",
                   zIndex: 10, pointerEvents: "none",
                   display: "flex", alignItems: "center", gap: "8px",
-                  background: "var(--glass-card)",
+                  background: "rgba(255,255,255,0.08)",
                   backdropFilter: "blur(8px) saturate(160%)",
                   WebkitBackdropFilter: "blur(8px) saturate(160%)",
-                  border: "1px solid var(--border)",
-                  boxShadow: "var(--shadow-sm)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.30)",
                   borderRadius: "100px", padding: "5px 14px", whiteSpace: "nowrap",
                 }}>
                   <span style={{
                     width: "6px", height: "6px", borderRadius: "50%",
-                    background: "#aaa", display: "inline-block",
+                    background: "#6ee7b7", display: "inline-block",
                     animation: "pulse-dot 2s ease-in-out infinite",
                   }} />
                   <span style={{
                     fontSize: "10px", fontWeight: 600, letterSpacing: "0.14em",
-                    textTransform: "uppercase", color: "var(--text-muted)",
+                    textTransform: "uppercase", color: "rgba(255,255,255,0.60)",
                     fontFamily: "var(--font-mono,'JetBrains Mono',monospace)",
                   }}>
                     Live Repository Graph
@@ -388,7 +388,7 @@ export function PortfolioHero() {
                 <div style={{
                   position: "absolute", bottom: 0, left: 0, right: 0,
                   height: "80px",
-                  background: "linear-gradient(to top, var(--card) 0%, transparent 100%)",
+                  background: "linear-gradient(to top, #0F1923 0%, transparent 100%)",
                   pointerEvents: "none", zIndex: 5,
                 }} />
               </div>

@@ -14,16 +14,16 @@ import * as THREE from 'three';
 
 // ── Ink palette ───────────────────────────────────────────────────────────────
 const COLOR = {
-  0: '#ffffff', // root — pure white
-  1: '#e0e0e0', // trunk/modules — light grey
-  2: '#aaaaaa', // branches/files — mid grey
-  3: '#ffffff', // crown/leaves — white
+  0: '#e8f0fe', // root — pale ice-blue white
+  1: '#94b8d8', // trunk/modules — soft steel-blue
+  2: '#6a9fc0', // branches/files — medium blue-grey
+  3: '#c8dff0', // crown/leaves — light sky blue
 } as const;
 type Lv = keyof typeof COLOR;
 
 // Larger sizes so the tree fills the panel properly
 const SIZE  = { 0: 0.42, 1: 0.28, 2: 0.18, 3: 0.12 } as const;
-const GLOW  = { 0: 2.0,  1: 1.2,  2: 0.8,  3: 0.6  } as const;
+const GLOW  = { 0: 3.0,  1: 2.0,  2: 1.4,  3: 1.0  } as const;
 
 // ── Node definitions ──────────────────────────────────────────────────────────
 const NODES = [
@@ -188,7 +188,7 @@ function SapParticle({ fromPos, toPos, speed, offset, progress }: {
   return (
     <mesh ref={meshRef}>
       <sphereGeometry args={[0.04, 7, 7]} />
-      <meshBasicMaterial ref={matRef} color="#ffffff" transparent opacity={0} />
+      <meshBasicMaterial ref={matRef} color="#94b8d8" transparent opacity={0} />
     </mesh>
   );
 }
@@ -220,7 +220,7 @@ function RootHalo({ progress }: { progress: React.MutableRefObject<number> }) {
   return (
     <mesh position={[0, -4, 0]}>
       <sphereGeometry args={[1.6, 24, 24]} />
-      <meshBasicMaterial ref={matRef} color="#ffffff" transparent opacity={0} side={THREE.BackSide} />
+      <meshBasicMaterial ref={matRef} color="#94b8d8" transparent opacity={0} side={THREE.BackSide} />
     </mesh>
   );
 }
@@ -245,11 +245,11 @@ function TreeScene({ progress }: { progress: React.MutableRefObject<number> }) {
 
   return (
     <>
-      {/* Neutral white lighting — no colour tinting */}
-      <ambientLight intensity={1.2} />
-      <directionalLight position={[0, 8, 10]}  intensity={1.8} color="#ffffff" />
-      <pointLight      position={[0, 6, 6]}    intensity={2.5} color="#ffffff" />
-      <pointLight      position={[0, -6, 5]}   intensity={2.0} color="#ffffff" distance={16} />
+      {/* Cool-tinted lighting to complement the blue node palette */}
+      <ambientLight intensity={1.6} />
+      <directionalLight position={[0, 8, 10]}  intensity={2.2} color="#d0e8ff" />
+      <pointLight      position={[0, 6, 6]}    intensity={3.0} color="#b8d4f0" />
+      <pointLight      position={[0, -6, 5]}   intensity={2.4} color="#a0c4e8" distance={18} />
 
       <ScrollCamera progress={progress} />
 

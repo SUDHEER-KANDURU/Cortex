@@ -24,18 +24,32 @@ import type {
 import { exportInsightsMarkdown } from '@/lib/api/insights.api';
 import { staggerFastContainer, staggerFastChild } from '@/lib/utils/motion';
 
-// Severity — soft, not alarming
+// Severity — solid pill colors for the badge, muted for border
 const SEV: Record<IssueSeverity | 'default', string> = {
-  critical: '#B94040',
-  high:     '#A06828',
-  medium:   '#8A7820',
-  low:      '#4E9B6F',
-  info:     '#A1A1AA',
-  default:  '#A1A1AA',
+  critical: '#dc2626',
+  high:     '#ea580c',
+  medium:   '#d97706',
+  low:      '#16a34a',
+  info:     '#6b7280',
+  default:  '#6b7280',
+};
+
+// Solid background for the badge pill
+const SEV_BG: Record<string, string> = {
+  critical: 'rgba(220,38,38,0.12)',
+  high:     'rgba(234,88,12,0.12)',
+  medium:   'rgba(217,119,6,0.12)',
+  low:      'rgba(22,163,74,0.10)',
+  info:     'rgba(107,114,128,0.10)',
+  default:  'rgba(107,114,128,0.10)',
 };
 
 function sevColor(s: IssueSeverity): string {
   return SEV[s] ?? SEV.default;
+}
+
+function sevBg(s: IssueSeverity): string {
+  return SEV_BG[s] ?? SEV_BG.default;
 }
 
 function sevLabel(s: IssueSeverity): string {
@@ -116,15 +130,15 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Inline pill — neutral, token-driven
+// Inline pill — higher contrast
 function Pill({ children, active }: { children: React.ReactNode; active?: boolean }) {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center',
-      fontSize: 10, padding: '2px 8px', borderRadius: 6,
-      background: active ? 'var(--surface)' : 'var(--bg)',
-      border: `1px solid ${active ? 'var(--border-hover)' : 'var(--border)'}`,
-      color: active ? 'var(--text-secondary)' : 'var(--text-muted)',
+      fontSize: 11, padding: '3px 9px', borderRadius: 6,
+      background: active ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.04)',
+      border: `1px solid ${active ? 'rgba(0,0,0,0.14)' : 'rgba(0,0,0,0.09)'}`,
+      color: active ? 'var(--text)' : 'var(--text-secondary)',
       fontFamily: 'var(--font-mono)',
       whiteSpace: 'nowrap',
     }}>
@@ -189,7 +203,7 @@ function DimensionCard({ dim }: { dim: HealthDimension }) {
       onKeyDown={e => e.key === 'Enter' && setOpen(o => !o)}
       style={{
         background: 'var(--glass-card)',
-        border: '1px solid var(--border)',
+        border: '1px solid rgba(0,0,0,0.10)',
         borderLeft: `3px solid ${borderColor}`,
         borderRadius: 8,
         padding: '14px 16px',
@@ -233,12 +247,12 @@ function DimensionCard({ dim }: { dim: HealthDimension }) {
         }}>▼</span>
       </div>
 
-      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.55 }}>
+      <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
         {dim.summary}
       </p>
 
       {dim.issue_count > 0 && (
-        <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '6px 0 0' }}>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '6px 0 0', fontWeight: 500 }}>
           {dim.issue_count} issue{dim.issue_count !== 1 ? 's' : ''} ·{' '}
           {Math.round((dim.confidence ?? 1) * 100)}% confidence
         </p>
@@ -303,29 +317,34 @@ function IssueCard({ issue }: { issue: CodeIssue }) {
   return (
     <div style={{
       background: 'var(--glass-card)',
-      border: '1px solid var(--border)',
-      borderLeft: `3px solid ${color}`,
+      border: '1px solid rgba(0,0,0,0.10)',
+      borderLeft: `4px solid ${color}`,
       borderRadius: 8,
       overflow: 'hidden',
     }}>
       <div style={{ padding: '12px 14px' }}>
 
-        {/* Row 1: severity label (text only, no emoji) + category */}
+        {/* Row 1: severity PILL + category + confidence */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8,
           marginBottom: 8, flexWrap: 'wrap',
         }}>
+          {/* Solid severity badge */}
           <span style={{
             fontSize: 10, fontWeight: 700, color,
-            textTransform: 'uppercase', letterSpacing: '0.06em',
+            background: sevBg(issue.severity),
+            border: `1px solid ${color}40`,
+            borderRadius: 5,
+            padding: '2px 8px',
+            textTransform: 'uppercase', letterSpacing: '0.07em',
           }}>
             {sevLabel(issue.severity)}
           </span>
-          <span style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.03em' }}>
+          <span style={{ fontSize: 11, color: 'var(--text-secondary)', letterSpacing: '0.03em', fontWeight: 500 }}>
             {catLabel(issue.category)}
           </span>
           {issue.confidence < 1 && (
-            <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 'auto' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto', fontWeight: 500 }}>
               {Math.round(issue.confidence * 100)}% confidence
             </span>
           )}
@@ -342,7 +361,7 @@ function IssueCard({ issue }: { issue: CodeIssue }) {
               {issue.affected_symbol}
             </code>
           )}
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
             {issue.title}
           </span>
         </div>
@@ -351,11 +370,11 @@ function IssueCard({ issue }: { issue: CodeIssue }) {
         {location && (
           <div style={{ marginBottom: 10 }}>
             <code style={{
-              fontSize: 10, fontFamily: 'var(--font-mono)',
-              color: 'var(--text-muted)',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 4, padding: '2px 7px',
+              fontSize: 11, fontFamily: 'var(--font-mono)',
+              color: 'var(--text-secondary)',
+              background: 'rgba(0,0,0,0.05)',
+              border: '1px solid rgba(0,0,0,0.10)',
+              borderRadius: 4, padding: '2px 8px',
             }}>
               {location}
             </code>
@@ -365,7 +384,7 @@ function IssueCard({ issue }: { issue: CodeIssue }) {
         {/* Row 4: description */}
         {issue.description && (
           <p style={{
-            fontSize: 12, color: 'var(--text-secondary)',
+            fontSize: 13, color: 'var(--text-secondary)',
             margin: '0 0 10px', lineHeight: 1.65,
           }}>
             {issue.description.replace(/`/g, '').replace(/\(threshold:\s*\d+\)/g, '').trim()}
@@ -378,7 +397,7 @@ function IssueCard({ issue }: { issue: CodeIssue }) {
             {topEvidence.map(([k, v]) => (
               <Pill key={k}>
                 <span style={{ color: 'var(--text-muted)', marginRight: 4 }}>{k}</span>
-                <span style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>{String(v)}</span>
+                <span style={{ color: 'var(--text)', fontWeight: 700 }}>{String(v)}</span>
               </Pill>
             ))}
           </div>
@@ -476,9 +495,10 @@ function FileGroup({ filePath, issues }: { filePath: string; issues: CodeIssue[]
         }}>▶</span>
 
         <code style={{
-          fontSize: 11, color: 'var(--text-secondary)',
+          fontSize: 12, color: 'var(--text)',
           fontFamily: 'var(--font-mono)', flex: 1,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          fontWeight: 500,
         }}>
           {displayPath}
         </code>
@@ -486,26 +506,26 @@ function FileGroup({ filePath, issues }: { filePath: string; issues: CodeIssue[]
         {/* Compact issue counts — text only, no emoji */}
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
           {counts.critical > 0 && (
-            <span style={{ fontSize: 10, color: SEV.critical, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+            <span style={{ fontSize: 11, color: SEV.critical, fontWeight: 700, fontFamily: 'var(--font-mono)', background: 'rgba(220,38,38,0.10)', borderRadius: 4, padding: '1px 6px' }}>
               {counts.critical}C
             </span>
           )}
           {counts.high > 0 && (
-            <span style={{ fontSize: 10, color: SEV.high, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+            <span style={{ fontSize: 11, color: SEV.high, fontWeight: 700, fontFamily: 'var(--font-mono)', background: 'rgba(234,88,12,0.10)', borderRadius: 4, padding: '1px 6px' }}>
               {counts.high}H
             </span>
           )}
           {counts.medium > 0 && (
-            <span style={{ fontSize: 10, color: SEV.medium, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+            <span style={{ fontSize: 11, color: SEV.medium, fontWeight: 600, fontFamily: 'var(--font-mono)', background: 'rgba(217,119,6,0.10)', borderRadius: 4, padding: '1px 6px' }}>
               {counts.medium}M
             </span>
           )}
           {counts.low > 0 && (
-            <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
               {counts.low}L
             </span>
           )}
-          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
             {issues.length} total
           </span>
         </div>
@@ -700,7 +720,7 @@ function IssuesPanel({ issues }: { issues: CodeIssue[] }) {
 
 interface Props {
   report: InsightsReport;
-  isDark: boolean;
+  isDark?: boolean;   // accepted for compat, ignored — always light
 }
 
 export default function InsightsDashboard({ report }: Props) {

@@ -1,38 +1,8 @@
 import type { Metadata, Viewport } from 'next';
-import { Syne, Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 
-// =============================================================================
-// Fonts — Premium Liquid Glass type system
-//
-// --font-display : Syne          — geometric, precise, used for hero headings
-// --font-sans    : Inter         — highly legible body + UI font (Apple-grade)
-// --font-mono    : JetBrains Mono — clear, readable monospace for code & terminals
-// =============================================================================
-
-const syne = Syne({
-  subsets: ['latin'],
-  variable: '--font-display',
-  weight: ['400', '500', '600', '700', '800'],
-  display: 'swap',
-});
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-sans',
-  weight: ['300', '400', '500', '600', '700'],
-  display: 'swap',
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono',
-  weight: ['400', '500', '600'],
-  display: 'swap',
-});
-
 export const viewport: Viewport = {
-  themeColor: '#EAEAEB',
+  themeColor: '#F0EEEB',
 };
 
 export const metadata: Metadata = {
@@ -45,47 +15,40 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      data-theme="light"
-      className={`${syne.variable} ${inter.variable} ${jetbrainsMono.variable}`}
       suppressHydrationWarning
     >
-      {/*
-        Inline theme script — runs before first paint.
-        Reads localStorage and sets data-theme immediately so the browser
-        doesn't render a flash before React hydrates.
-        Default is 'light' to match the reference design.
-      */}
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                var t = localStorage.getItem('cortex-theme') || 'light';
-                document.documentElement.setAttribute('data-theme', t);
-                document.documentElement.classList.toggle('dark', t === 'dark');
-              } catch(e) {}
-            `,
-          }}
-        />
+        {/* Preconnect so fonts load fast when online; silently skipped when offline */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Font stacks — loaded via CSS @import so the build never fails offline */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+          :root {
+            --font-display: 'Syne', system-ui, sans-serif;
+            --font-sans:    'Inter', system-ui, -apple-system, sans-serif;
+            --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+          }
+        `}} />
       </head>
       <body
         className="min-h-screen antialiased"
-        style={{ color: 'var(--text, #18181B)' }}
+        style={{ color: 'var(--text, #1A1814)', background: '#F0EEEB' }}
         suppressHydrationWarning
       >
-        {/* ── Global liquid-blob background — fixed, covers every page ── */}
-        <div className="liquid-bg-mesh" aria-hidden="true">
-          <div className="liquid-blob liquid-blob-1" />
-          <div className="liquid-blob liquid-blob-2" />
-          <div className="liquid-blob liquid-blob-3" />
+        {/* ── Flux warm ambient background ── */}
+        <div className="flux-bg" aria-hidden="true">
+          <div className="flux-blob flux-blob-1" />
+          <div className="flux-blob flux-blob-2" />
+          <div className="flux-blob flux-blob-3" />
+          <div className="flux-blob flux-blob-4" />
         </div>
 
         {/* All page content sits above the blobs */}
-        <div style={{ position: 'relative', zIndex: 1 }}>
+        <div className="flux-content">
           {children}
         </div>
       </body>
     </html>
   );
 }
-

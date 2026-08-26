@@ -11,7 +11,8 @@ const config: Config = {
     './src/features/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
-  darkMode: ['class', '[data-theme="dark"]'],
+  // Dark mode removed — light only. Use 'class' as a no-op to satisfy TS type.
+  darkMode: 'class',
   theme: {
     extend: {
       fontFamily: {
@@ -20,7 +21,6 @@ const config: Config = {
         display: ['var(--font-display)', 'Syne', 'system-ui', 'sans-serif'],
       },
       colors: {
-        // CSS variable colors — pick up dark/light automatically
         bg:              'var(--bg)',
         surface:         'var(--surface)',
         card:            'var(--card)',
@@ -54,13 +54,13 @@ const config: Config = {
           foreground:     'hsl(var(--popover-foreground))',
         },
         // Raw brand tokens
-        'cortex-green':  'var(--primary)',
-        'cortex-accent': 'var(--accent)',
-        'cortex-text':   'var(--text)',
-        'cortex-muted':  'var(--text-muted)',
-        'cortex-success':'var(--success)',
-        'cortex-warning':'var(--warning)',
-        'cortex-danger': 'var(--danger)',
+        'cortex-slate':   'var(--primary)',
+        'cortex-accent':  'var(--accent)',
+        'cortex-text':    'var(--text)',
+        'cortex-muted':   'var(--text-muted)',
+        'cortex-success': 'var(--success)',
+        'cortex-warning': 'var(--warning)',
+        'cortex-danger':  'var(--danger)',
       },
       borderRadius: {
         sm:   'var(--radius-sm)',

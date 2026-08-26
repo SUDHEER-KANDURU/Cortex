@@ -9,6 +9,7 @@
 // =============================================================================
 
 import React, { useState, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { TransitionOverlay } from './BrandedLoader';
 
@@ -52,16 +53,22 @@ export function DashboardLink({ children, onClick, onMouseEnter, onMouseLeave, .
       // Navigate after one rAF so the overlay renders before the route swap
       requestAnimationFrame(() => {
         router.push('/dashboard');
-        // Keep overlay visible until the dashboard shell streams (~700ms)
-        setTimeout(() => setTransitioning(false), 700);
       });
     },
     [router, onClick],
   );
 
+  // Portal the overlay to document.body so it is never a descendant of any
+  // element with backdrop-filter / transform / will-change (which would create
+  // a new containing block and break position:fixed centering).
+  const overlay =
+    typeof document !== 'undefined'
+      ? createPortal(<TransitionOverlay visible={transitioning} />, document.body)
+      : null;
+
   return (
     <>
-      <TransitionOverlay visible={transitioning} />
+      {overlay}
       <a
         href="/dashboard"
         onClick={handleClick}

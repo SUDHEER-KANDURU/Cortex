@@ -21,13 +21,13 @@ export interface AnimatedCortexLogoProps {
 }
 
 // ── Color palette ─────────────────────────────────────────────────────────────
-// Soft, muted slate/neutral tones — no neon, no rainbow
+// Deep navy to steel-blue tones matching the new dark primary
 const COLOR_STOPS = [
-  { r: 107, g: 143, b: 174 }, // #6B8FAE soft slate-blue (brand primary light)
-  { r: 122, g: 142, b: 164 }, // #7A8EA4 slightly warmer slate
-  { r: 139, g: 155, b: 175 }, // #8B9BAF muted periwinkle
-  { r: 120, g: 138, b: 158 }, // #788A9E cool neutral
-  { r: 107, g: 143, b: 174 }, // loop back
+  { r: 30,  g: 42,  b: 56  }, // #1E2A38 deep navy (brand primary)
+  { r: 42,  g: 62,  b: 84  }, // #2A3E54 navy-steel
+  { r: 58,  g: 84,  b: 112 }, // #3A5470 mid steel-blue
+  { r: 42,  g: 62,  b: 84  }, // #2A3E54 back to navy-steel
+  { r: 30,  g: 42,  b: 56  }, // loop back
 ] as const;
 
 // Total animation duration for one full color cycle (ms)

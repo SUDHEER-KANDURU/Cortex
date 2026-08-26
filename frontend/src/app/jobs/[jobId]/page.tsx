@@ -207,7 +207,7 @@ export default function JobDetailPage() {
                       {/* Content-type label */}
                       <p style={{
                         display: 'inline-flex', alignItems: 'center', marginBottom: 12,
-                        borderRadius: 'var(--radius-full)', border: '1px solid rgba(0,229,168,0.22)',
+                        borderRadius: 'var(--radius-full)', border: '1px solid var(--border-hover)',
                         background: 'var(--primary-dim)', padding: '3px 12px',
                         fontSize: 10, fontWeight: 700, letterSpacing: '0.10em',
                         textTransform: 'uppercase', color: 'var(--primary)',
@@ -249,7 +249,7 @@ export default function JobDetailPage() {
                 <div style={{
                   display: 'flex', alignItems: 'flex-start', gap: 10,
                   padding: '12px 16px', borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+                  background: 'var(--danger-dim)', border: '1px solid var(--danger-dim)',
                 }}>
                   <p style={{ fontSize: 12, color: 'var(--danger)', margin: 0, fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
                     {job.error_message}
@@ -268,8 +268,8 @@ export default function JobDetailPage() {
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8,
                       padding: '10px 22px', borderRadius: 'var(--radius-md)',
-                      border: '1px solid rgba(239,68,68,0.35)',
-                      background: 'rgba(239,68,68,0.08)', color: 'var(--danger)',
+                      border: '1px solid var(--danger-dim)',
+                      background: 'var(--danger-dim)', color: 'var(--danger)',
                       fontSize: 13, fontWeight: 600,
                       cursor: isRetrying ? 'not-allowed' : 'pointer',
                       opacity: isRetrying ? 0.6 : 1,

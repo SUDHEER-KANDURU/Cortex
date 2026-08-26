@@ -18,67 +18,60 @@ export interface StatusBadgeProps {
 
 const STATUS_CONFIG: Record<JobStatus, {
   label: string;
-  // Tailwind class kept for test compatibility (slate / yellow / emerald / red)
   twClass: string;
   dotClass: string;
   textClass: string;
-  darkBg: string;    darkBorder: string;
-  lightBg: string;   lightBorder: string;
+  bg: string;
+  border: string;
   glowColor?: string;
   pulse?: boolean;
 }> = {
   pending: {
-    label:       'Pending',
-    twClass:     'slate',
-    dotClass:    'bg-[var(--text-muted)]',
-    textClass:   'text-[var(--text-muted)]',
-    darkBg:      'rgba(120,128,145,0.10)',  darkBorder:  'rgba(120,128,145,0.20)',
-    lightBg:     'rgba(100,108,124,0.07)',  lightBorder: 'rgba(100,108,124,0.18)',
+    label:    'Pending',
+    twClass:  'slate',
+    dotClass: 'bg-[var(--text-muted)]',
+    textClass:'text-[var(--text-muted)]',
+    bg:       'rgba(255,255,255,0.30)',
+    border:   'rgba(255,255,255,0.52)',
   },
   running: {
-    label:       'Running',
-    twClass:     'yellow',
-    dotClass:    'bg-[var(--primary)]',
-    textClass:   'text-[var(--primary)]',
-    // Soft slate — not teal
-    darkBg:      'rgba(139,175,201,0.10)',  darkBorder:  'rgba(139,175,201,0.28)',
-    lightBg:     'rgba(107,143,174,0.08)',  lightBorder: 'rgba(107,143,174,0.26)',
-    glowColor:   'var(--primary)',
-    pulse:       true,
+    label:    'Running',
+    twClass:  'yellow',
+    dotClass: 'bg-[var(--primary)]',
+    textClass:'text-[var(--primary)]',
+    bg:       'rgba(255,255,255,0.35)',
+    border:   'rgba(255,255,255,0.58)',
+    glowColor:'var(--primary)',
+    pulse:    true,
   },
   completed: {
-    label:       'Completed',
-    twClass:     'emerald',
-    dotClass:    'bg-[var(--success)]',
-    textClass:   'text-[var(--success)]',
-    darkBg:      'rgba(95,175,130,0.09)',   darkBorder:  'rgba(95,175,130,0.24)',
-    lightBg:     'rgba(78,155,111,0.08)',   lightBorder: 'rgba(78,155,111,0.24)',
+    label:    'Completed',
+    twClass:  'emerald',
+    dotClass: 'bg-[var(--primary)]',
+    textClass:'text-[var(--primary)]',
+    bg:       'rgba(255,255,255,0.35)',
+    border:   'rgba(255,255,255,0.58)',
   },
   failed: {
-    label:       'Failed',
-    twClass:     'red',
-    dotClass:    'bg-[var(--danger)]',
-    textClass:   'text-[var(--danger)]',
-    darkBg:      'rgba(204,90,90,0.09)',    darkBorder:  'rgba(204,90,90,0.24)',
-    lightBg:     'rgba(185,64,64,0.07)',    lightBorder: 'rgba(185,64,64,0.22)',
+    label:    'Failed',
+    twClass:  'red',
+    dotClass: 'bg-[var(--danger)]',
+    textClass:'text-[var(--danger)]',
+    bg:       'rgba(255,255,255,0.28)',
+    border:   'rgba(255,255,255,0.48)',
   },
   cancelled: {
-    label:       'Cancelled',
-    twClass:     'slate',
-    dotClass:    'bg-[var(--text-muted)]',
-    textClass:   'text-[var(--text-muted)]',
-    darkBg:      'rgba(100,100,110,0.07)',  darkBorder:  'rgba(100,100,110,0.16)',
-    lightBg:     'rgba(80,80,90,0.06)',     lightBorder: 'rgba(80,80,90,0.16)',
+    label:    'Cancelled',
+    twClass:  'slate',
+    dotClass: 'bg-[var(--text-muted)]',
+    textClass:'text-[var(--text-muted)]',
+    bg:       'rgba(255,255,255,0.25)',
+    border:   'rgba(255,255,255,0.45)',
   },
 };
 
 export default React.memo(function StatusBadge({ status, className }: StatusBadgeProps) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending;
-
-  const isDark =
-    typeof document !== 'undefined'
-      ? document.documentElement.getAttribute('data-theme') !== 'light'
-      : true;
 
   return (
     <span
@@ -93,12 +86,12 @@ export default React.memo(function StatusBadge({ status, className }: StatusBadg
         className,
       )}
       style={{
-        background:           isDark ? cfg.darkBg     : cfg.lightBg,
-        border:               `1px solid ${isDark ? cfg.darkBorder : cfg.lightBorder}`,
-        backdropFilter:       'blur(6px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(6px) saturate(180%)',
+        background:           cfg.bg,
+        border:               `0.5px solid ${cfg.border}`,
+        backdropFilter:       'blur(12px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(12px) saturate(180%)',
         fontFamily:           'var(--font-mono, "JetBrains Mono", monospace)',
-        transition:           'background 0.3s ease, border-color 0.3s ease',
+        boxShadow:            'inset 0 1px 2px rgba(255,255,255,0.60)',
       }}
       data-testid="status-badge"
       data-status={status}

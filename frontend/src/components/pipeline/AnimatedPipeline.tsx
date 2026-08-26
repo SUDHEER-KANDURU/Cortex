@@ -24,7 +24,7 @@ export interface PipelineStage {
 
 export interface AnimatedPipelineProps {
   jobId: string;
-  isDark: boolean;
+  isDark?: boolean;          // kept for compat but ignored — light only
   /** Optional: real stage index from backend (0-3). Falls back to timed cycling. */
   activeStageIndex?: number;
   /** If set, pipeline shows failure on this stage index */
@@ -54,14 +54,12 @@ const C_MUTED     = 'var(--text-muted)';
 const C_TEXT      = 'var(--text)';
 const C_TEXT_SEC  = 'var(--text-secondary)';
 
-// Theme helpers — token-driven, no hardcoded rgba
-function tint(d: boolean, s: 'xs' | 'sm' | 'md' = 'sm') {
-  const dk = { xs: 'rgba(255,255,255,0.02)', sm: 'rgba(255,255,255,0.04)', md: 'rgba(255,255,255,0.07)' };
-  const lt = { xs: 'rgba(0,0,0,0.02)',       sm: 'rgba(0,0,0,0.035)',      md: 'rgba(0,0,0,0.06)'      };
-  return d ? dk[s] : lt[s];
+// Light-only surface helpers
+function tint(_d: boolean, s: 'xs' | 'sm' | 'md' = 'sm') {
+  const lt = { xs: 'rgba(255,255,255,0.18)', sm: 'rgba(255,255,255,0.22)', md: 'rgba(255,255,255,0.28)' };
+  return lt[s];
 }
-function tintBorder(d: boolean) { return d ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'; }
-function logBg(d: boolean)      { return d ? 'rgba(0,0,0,0.30)'       : 'rgba(0,0,0,0.03)'; }
+function tintBorder(_d: boolean) { return 'rgba(255,255,255,0.45)'; }
 
 // ── SVG Checkmark (drawn with stroke animation) ───────────────────────────────
 function AnimatedCheckmark() {
@@ -125,11 +123,10 @@ function AnimatedErrorX() {
 // ── Connector line with liquid pulse ─────────────────────────────────────────
 interface ConnectorProps {
   state: 'pending' | 'flowing' | 'done';
-  isDark: boolean;
 }
 
-function Connector({ state, isDark }: ConnectorProps) {
-  const bdr = tintBorder(isDark);
+function Connector({ state }: ConnectorProps) {
+  const bdr = tintBorder(false);
   return (
     <div style={{ position: 'relative', width: 52, height: 2, margin: '0 2px', marginBottom: 28, flexShrink: 0 }} aria-hidden="true">
       {/* Base track */}
@@ -179,10 +176,9 @@ interface PipelineNodeProps {
   stage: PipelineStage;
   status: StageStatus;
   index: number;
-  isDark: boolean;
 }
 
-function PipelineNode({ stage, status, index, isDark }: PipelineNodeProps) {
+function PipelineNode({ stage, status, index }: PipelineNodeProps) {
   const { Icon } = stage;
   const isActive  = status === 'active';
   const isDone    = status === 'done';
@@ -201,16 +197,14 @@ function PipelineNode({ stage, status, index, isDark }: PipelineNodeProps) {
     }
   }, [isActive, ringControls]);
 
-  // Circle border color
   const borderColor = isFailed ? C_DANGER
-    : isDone                   ? C_SUCCESS
-    : isActive                 ? C_PRIMARY
-    : tintBorder(isDark);
+    : isDone    ? C_SUCCESS
+    : isActive  ? C_PRIMARY
+    : tintBorder(false);
 
-  // Circle bg
-  const circleBg = isFailed ? (isDark ? 'rgba(239,83,80,0.12)' : 'rgba(239,83,80,0.08)')
-    : (isDone || isActive)   ? 'var(--primary-dim)'
-    : tint(isDark, 'xs');
+  const circleBg = isFailed ? 'var(--danger-dim)'
+    : (isDone || isActive) ? 'var(--primary-dim)'
+    : tint(false, 'xs');
 
   return (
     <motion.div
@@ -426,13 +420,11 @@ function StatusPill({ elapsed, activeLabel, failed }: StatusPillProps) {
 // ── Log terminal ──────────────────────────────────────────────────────────────
 interface LogPanelProps {
   lines: string[];
-  isDark: boolean;
 }
 
-function LogPanel({ lines, isDark }: LogPanelProps) {
+function LogPanel({ lines }: LogPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Smooth-follow new entries
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -446,21 +438,26 @@ function LogPanel({ lines, isDark }: LogPanelProps) {
       transition={{ duration: 0.5, delay: 0.2, ease: EASE_OUT }}
       style={{
         width: '100%', maxWidth: 500,
-        background: logBg(isDark), border: `1px solid ${tintBorder(isDark)}`,
+        background: 'rgba(255,255,255,0.28)',
+        backdropFilter: 'blur(20px) saturate(160%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+        border: '0.5px solid rgba(255,255,255,0.50)',
         borderRadius: 'var(--radius-md)',
         fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: 1.9,
         overflow: 'hidden',
-        transition: 'background 0.3s ease, border-color 0.3s ease',
+        boxShadow:
+          '0 4px 20px rgba(80,60,20,0.08),' +
+          'inset 0 2px 6px rgba(255,255,255,0.60),' +
+          'inset 0 -4px 12px rgba(255,255,255,0.55)',
       }}
     >
-      {/* Terminal header bar */}
+      {/* Terminal header bar — liquid glass */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6,
-        padding: '8px 14px', borderBottom: `1px solid ${tintBorder(isDark)}`,
-        background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
+        padding: '8px 14px', borderBottom: '0.5px solid rgba(255,255,255,0.45)',
+        background: 'rgba(255,255,255,0.15)',
       }}>
-        {/* macOS traffic lights — softer palette */}
-        {['rgba(185,64,64,0.65)', 'rgba(172,122,42,0.65)', 'rgba(78,155,111,0.65)'].map((c, i) => (
+        {['rgba(185,64,64,0.55)', 'rgba(172,122,42,0.55)', 'rgba(78,155,111,0.55)'].map((c, i) => (
           <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: c }} aria-hidden="true" />
         ))}
         <span style={{ fontSize: 10, color: C_MUTED, marginLeft: 6, letterSpacing: '0.06em' }}>
@@ -527,7 +524,7 @@ function CompletionFlash() {
 // ── Main AnimatedPipeline component ──────────────────────────────────────────
 export default function AnimatedPipeline({
   jobId,
-  isDark,
+  isDark: _isDark,           // accepted for compat, not used — always light
   activeStageIndex,
   failedStageIndex,
   onCompletionEnd,
@@ -632,16 +629,16 @@ export default function AnimatedPipeline({
       >
         {PIPELINE_STAGES.map((stage, i) => (
           <React.Fragment key={stage.key}>
-            <PipelineNode stage={stage} status={stageStatuses[i]} index={i} isDark={isDark} />
+            <PipelineNode stage={stage} status={stageStatuses[i]} index={i} />
             {i < PIPELINE_STAGES.length - 1 && (
-              <Connector state={connectorState(i)} isDark={isDark} />
+              <Connector state={connectorState(i)} />
             )}
           </React.Fragment>
         ))}
       </motion.div>
 
       {/* Log terminal */}
-      <LogPanel lines={logLines} isDark={isDark} />
+      <LogPanel lines={logLines} />
 
       {/* Hint */}
       {!isFailed && (

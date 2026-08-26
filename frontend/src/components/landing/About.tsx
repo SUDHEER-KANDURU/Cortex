@@ -61,13 +61,13 @@ function AnimatedNumber({ value, suffix = "", active }: { value: number; suffix?
 function ParsingAnimation({ active }: { active: boolean }) {
   const [activeLine, setActiveLine] = useState(0)
   const lines = [
-    { text: "class JobRepository:",          color: "var(--text-secondary)" },
-    { text: "  def create(self, job):",       color: "var(--text-muted)" },
-    { text: "    # → Neo4j node created",     color: "var(--success)" },
-    { text: "  def find_by_id(id):",          color: "var(--text-muted)" },
-    { text: "    # → Graph edge traversed",   color: "var(--success)" },
-    { text: "  async def list_all():",        color: "var(--text-muted)" },
-    { text: "    # → Cypher query generated", color: "var(--success)" },
+    { text: "class JobRepository:",          color: "#e4e4e7" },
+    { text: "  def create(self, job):",       color: "#a1a1aa" },
+    { text: "    # → Neo4j node created",     color: "#34d399" },
+    { text: "  def find_by_id(id):",          color: "#a1a1aa" },
+    { text: "    # → Graph edge traversed",   color: "#34d399" },
+    { text: "  async def list_all():",        color: "#a1a1aa" },
+    { text: "    # → Cypher query generated", color: "#34d399" },
   ]
   useEffect(() => {
     if (!active) return
@@ -81,28 +81,30 @@ function ParsingAnimation({ active }: { active: boolean }) {
 
   return (
     <div style={{
-      background: "var(--surface)", borderRadius: "16px", overflow: "hidden",
-      border: "1px solid var(--border)",
-      boxShadow: "var(--shadow-md)",
+      background: "rgba(18, 20, 24, 0.88)", borderRadius: "16px", overflow: "hidden",
+      border: "1px solid rgba(255,255,255,0.10)",
+      boxShadow: "0 16px 48px rgba(0,0,0,0.28), 0 4px 12px rgba(0,0,0,0.18)",
     }}>
+      {/* Chrome bar */}
       <div style={{
-        background: "var(--bg)", borderBottom: "1px solid var(--border)",
+        background: "rgba(30, 32, 36, 0.92)", borderBottom: "1px solid rgba(255,255,255,0.08)",
         padding: "10px 16px", display: "flex", alignItems: "center", gap: "8px",
       }}>
         <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#E07070", display: "block" }} />
         <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#D4A055", display: "block" }} />
         <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#6AAF7C", display: "block" }} />
-        <span style={{ marginLeft: "auto", fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", letterSpacing: "0.08em" }}>
+        <span style={{ marginLeft: "auto", fontSize: "10px", fontFamily: "var(--font-mono)", color: "rgba(160,160,170,0.7)", letterSpacing: "0.08em" }}>
           repository.py
         </span>
       </div>
+      {/* Code body */}
       <div style={{ padding: "16px 20px" }}>
         {lines.map((line, i) => (
           <motion.div
             key={i}
             animate={{
-              color: i === activeLine ? line.color : "var(--text-muted)",
-              backgroundColor: i === activeLine ? "var(--primary-dim)" : "transparent",
+              color: i === activeLine ? line.color : "#52525b",
+              backgroundColor: i === activeLine ? "rgba(255,255,255,0.06)" : "transparent",
               x: i === activeLine ? 2 : 0,
             }}
             transition={{ duration: 0.25, ease: EASE.out }}
@@ -122,12 +124,14 @@ function ParsingAnimation({ active }: { active: boolean }) {
           </motion.div>
         ))}
       </div>
+      {/* Status bar */}
       <div style={{
-        borderTop: "1px solid var(--border)", padding: "8px 16px",
-        display: "flex", alignItems: "center", gap: "12px", background: "var(--bg)",
+        borderTop: "1px solid rgba(255,255,255,0.08)", padding: "8px 16px",
+        display: "flex", alignItems: "center", gap: "12px",
+        background: "rgba(30, 32, 36, 0.92)",
       }}>
-        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--success)", display: "inline-block" }} />
-        <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#34d399", display: "inline-block" }} />
+        <span style={{ fontSize: "10px", color: "rgba(160,160,170,0.75)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
           AST parsing active · 241 nodes mapped
         </span>
       </div>
@@ -159,7 +163,7 @@ export function PortfolioAbout() {
     <section
       id="about"
       ref={sectionRef}
-      className="py-20 md:py-10 md:pb-32 md:pt-32"
+      className="py-16 md:py-20"
       style={{
         borderTop: "1px solid var(--cx-card-border)",
         background: "var(--cx-section-bg)",
@@ -167,7 +171,7 @@ export function PortfolioAbout() {
         WebkitBackdropFilter: "saturate(200%) blur(24px)",
       }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 mb-16 md:mb-24">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 mb-10 md:mb-14">
 
           {/* ── Left column ── */}
           <motion.div
@@ -201,7 +205,7 @@ export function PortfolioAbout() {
               variants={prefersReduced ? undefined : staggerContainer}
               initial={prefersReduced ? false : "hidden"}
               animate={statsVisible ? "visible" : "hidden"}
-              className="grid grid-cols-3 gap-3 mt-10"
+              className="grid grid-cols-3 gap-3 mt-6"
               data-stagger
             >
               {stats.map(stat => (

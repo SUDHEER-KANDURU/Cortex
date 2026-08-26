@@ -20,17 +20,34 @@ export function PortfolioAwards() {
   const prefersReduced = useReducedMotion()
 
   return (
-    <section id="awards" className="py-20 md:py-32 md:pt-0 md:pb-0"
+    <section id="awards" className="py-16 md:py-20"
       style={{ borderTop: "1px solid var(--cx-card-border)", background: "var(--cx-section-bg)", backdropFilter: "blur(20px) saturate(200%)", WebkitBackdropFilter: "blur(20px) saturate(200%)" }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
 
-        <SectionReveal className="mb-12 md:mb-16">
+        <SectionReveal className="mb-10 md:mb-12">
           <p className="cx-eyebrow" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", marginBottom: "10px" }}>Architecture</p>
           <SectionTitle className="text-3xl md:text-4xl lg:text-[52px] font-semibold tracking-tight">Tech &amp; Architecture</SectionTitle>
         </SectionReveal>
 
+        {/* Column headers */}
+        <div className="hidden md:flex items-center justify-between px-5 mb-2"
+          style={{ borderBottom: "1px solid var(--cx-card-border)", paddingBottom: "8px" }}>
+          <div className="flex items-center gap-5 flex-1">
+            <div style={{ width: 48, flexShrink: 0 }} />
+            <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--cx-text-muted)", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)" }}>
+              Feature
+            </span>
+          </div>
+          <div className="flex items-center gap-5 ml-4 flex-shrink-0">
+            <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--cx-text-muted)", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", minWidth: 80, textAlign: "right" }}>
+              Metric
+            </span>
+            <div style={{ width: 36 }} />
+          </div>
+        </div>
+
         <motion.div
-          className="flex flex-col gap-3"
+          className="flex flex-col gap-2"
           variants={prefersReduced ? undefined : staggerFastContainer}
           initial={prefersReduced ? false : "hidden"}
           whileInView="visible"
@@ -42,37 +59,39 @@ export function PortfolioAwards() {
               variants={prefersReduced ? undefined : staggerFastChild}
             >
               <Link href={item.link}
-                className="cx-row group flex items-center justify-between p-5 md:p-6 rounded-2xl transition-all duration-300"
+                className="cx-row group flex items-center justify-between py-4 px-5 rounded-2xl transition-all duration-200"
                 style={{ backdropFilter: "blur(12px) saturate(200%)", WebkitBackdropFilter: "blur(12px) saturate(200%)" }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)' }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}>
 
-                <div className="flex items-center gap-5 flex-1 min-w-0">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  {/* Badge — tall enough for multi-word labels */}
                   <motion.div
-                    className="cx-stat-card group-hover:!bg-black group-hover:!border-black flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
-                    style={{ backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}
-                    whileHover={prefersReduced ? {} : { scale: 1.1, transition: SPRING.snappy }}
+                    className="cx-stat-card group-hover:!bg-[#1E2A38] group-hover:!border-[#1E2A38] flex-shrink-0 rounded-xl flex items-center justify-center"
+                    style={{ backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", minWidth: 48, padding: "6px 8px" }}
+                    whileHover={prefersReduced ? {} : { scale: 1.05, transition: SPRING.snappy }}
                   >
-                    <span className="cx-text-muted group-hover:!text-white" style={{ fontSize: "9px", fontWeight: 700, fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", letterSpacing: "0.04em" }}>
+                    <span className="cx-text-muted group-hover:!text-white" style={{ fontSize: "9px", fontWeight: 700, fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", letterSpacing: "0.04em", textAlign: "center", lineHeight: 1.3 }}>
                       {item.year}
                     </span>
                   </motion.div>
                   <div className="min-w-0">
-                    <h3 className="cx-text font-semibold text-lg md:text-xl">{item.title}</h3>
-                    <p className="cx-text-muted text-sm mt-0.5 leading-relaxed">{item.organization}</p>
+                    <h3 className="cx-text font-semibold text-base md:text-lg leading-tight">{item.title}</h3>
+                    <p className="cx-text-muted text-sm mt-0.5 leading-relaxed line-clamp-1 hidden md:block">{item.organization}</p>
+                    <p className="cx-text-muted text-xs mt-0.5 leading-relaxed md:hidden">{item.organization}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-5 ml-4 flex-shrink-0">
-                  <div className="hidden md:block text-right">
-                    <div className="cx-stat-number text-xl font-semibold" style={{ fontVariantNumeric: "tabular-nums" }}>{item.metric}</div>
+                <div className="flex items-center gap-4 ml-4 flex-shrink-0">
+                  <div className="text-right" style={{ minWidth: 80 }}>
+                    <div className="cx-stat-number text-lg md:text-xl font-semibold" style={{ fontVariantNumeric: "tabular-nums" }}>{item.metric}</div>
                     <div className="cx-text-muted text-xs">{item.metricLabel}</div>
                   </div>
                   <motion.div
-                    className="cx-arrow-circle group-hover:!bg-black group-hover:!border-black w-9 h-9 rounded-full flex items-center justify-center"
+                    className="cx-arrow-circle group-hover:!bg-[#1E2A38] group-hover:!border-[#1E2A38] w-8 h-8 rounded-full flex items-center justify-center"
                     whileHover={prefersReduced ? {} : { scale: 1.12, transition: SPRING.snappy }}
                   >
-                    <ArrowUpRight className="w-4 h-4 transition-all duration-300 group-hover:!text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                    <ArrowUpRight className="w-3.5 h-3.5 transition-all duration-200 group-hover:!text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                   </motion.div>
                 </div>
               </Link>

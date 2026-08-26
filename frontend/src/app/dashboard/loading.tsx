@@ -1,16 +1,7 @@
 // Dashboard route loading.tsx
-// ──────────────────────────────────────────────────────────────────────────────
-// Shown by Next.js App Router while the dashboard JS bundle is being fetched
-// (before React hydration). Matches the exact same visual as the inline loader
-// in DashboardPage so there is zero visual jump between the two states.
-//
-// Flow:
-//   1. Browser requests /dashboard
-//   2. Next.js streams this loading.tsx shell immediately (fast)
-//   3. Dashboard JS bundle downloads → React hydrates
-//   4. DashboardPage renders with its own initialLoading guard (same visuals)
-//   5. Once jobs fetch resolves, initialLoading → false → full UI appears
-// ──────────────────────────────────────────────────────────────────────────────
+// Shown by Next.js App Router while the dashboard JS bundle is being fetched.
+// Matches the visual of the inline loader in DashboardPage so there is zero
+// visual jump between the two states.
 
 export default function DashboardLoading() {
   return (
@@ -24,7 +15,7 @@ export default function DashboardLoading() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#060810',
+        background: 'var(--bg, #EAEAEB)',
       }}
     >
       <div
@@ -35,11 +26,11 @@ export default function DashboardLoading() {
           gap: 20,
           padding: '36px 32px',
           borderRadius: 26,
-          background: 'rgba(14,18,28,0.88)',
-          border: '1px solid rgba(255,255,255,0.07)',
-          boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
-          backdropFilter: 'blur(32px) saturate(200%)',
-          WebkitBackdropFilter: 'blur(32px) saturate(200%)',
+          background: 'var(--glass-card, rgba(255,255,255,0.92))',
+          border: '1px solid var(--border, rgba(0,0,0,0.07))',
+          boxShadow: 'var(--shadow-xl, 0 8px 32px rgba(0,0,0,0.11))',
+          backdropFilter: 'blur(32px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(32px) saturate(180%)',
           minWidth: 260,
           maxWidth: 360,
         }}
@@ -50,19 +41,17 @@ export default function DashboardLoading() {
             width: 56,
             height: 56,
             borderRadius: 16,
-            background:
-              'radial-gradient(circle at 35% 35%, rgba(0,229,168,0.18) 0%, rgba(108,124,255,0.08) 60%, transparent 100%)',
-            border: '1px solid rgba(0,229,168,0.28)',
+            background: 'var(--primary-dim, rgba(107,143,174,0.12))',
+            border: '1px solid var(--border-hover, rgba(0,0,0,0.13))',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 32px rgba(0,229,168,0.12)',
           }}
         >
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path
               d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-              stroke="#00E5A8"
+              stroke="var(--primary, #1E2A38)"
               strokeWidth="1.8"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -71,21 +60,14 @@ export default function DashboardLoading() {
         </div>
 
         {/* Label */}
-        <div
-          style={{
-            textAlign: 'center',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 6,
-          }}
-        >
+        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span
             style={{
               fontFamily: 'Syne, sans-serif',
               fontSize: 15,
               fontWeight: 700,
               letterSpacing: '-0.03em',
-              color: '#F0F4FF',
+              color: 'var(--text, #18181B)',
             }}
           >
             Cortex
@@ -95,7 +77,7 @@ export default function DashboardLoading() {
               fontFamily: '"JetBrains Mono", monospace',
               fontSize: 11,
               letterSpacing: '0.07em',
-              color: '#6E7A90',
+              color: 'var(--text-muted, #A1A1AA)',
               textTransform: 'uppercase',
             }}
           >
@@ -103,13 +85,13 @@ export default function DashboardLoading() {
           </span>
         </div>
 
-        {/* Progress bar — CSS animation, no JS needed in loading.tsx */}
+        {/* Progress bar — CSS animation only, no JS */}
         <div
           style={{
             width: '100%',
             height: 2,
             borderRadius: 9999,
-            background: 'rgba(255,255,255,0.06)',
+            background: 'var(--border, rgba(0,0,0,0.07))',
             overflow: 'hidden',
             position: 'relative',
           }}
@@ -122,8 +104,8 @@ export default function DashboardLoading() {
               height: '100%',
               width: '40%',
               borderRadius: 9999,
-              background:
-                'linear-gradient(90deg, transparent 0%, #00E5A8 50%, transparent 100%)',
+              background: 'var(--primary, #1E2A38)',
+              opacity: 0.8,
               animation: 'cortex-bar-sweep 1.8s cubic-bezier(0.4,0,0.2,1) infinite',
             }}
           />

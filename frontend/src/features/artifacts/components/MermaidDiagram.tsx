@@ -21,47 +21,29 @@ export interface MermaidDiagramProps { definition: string }
 // ── Clamp ─────────────────────────────────────────────────────────────────────
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-// ── Mermaid config ────────────────────────────────────────────────────────────
-function mermaidConfig(dark: boolean) {
+// ── Mermaid config — light only ───────────────────────────────────────────────
+function mermaidConfig() {
   return {
-    theme: dark ? 'dark' : 'neutral',
+    theme: 'neutral',
     themeVariables: {
-      background:          dark ? '#1C1D21' : '#FFFFFF',
-      primaryColor:        dark ? '#2a3040' : '#EEF1F5',
-      primaryTextColor:    dark ? '#E8E8EA' : '#18181B',
-      lineColor:           dark ? '#606068' : '#A1A1AA',
-      edgeLabelBackground: dark ? '#222428' : '#F4F4F5',
+      background:          '#FFFFFF',
+      primaryColor:        '#F0EEE8',
+      primaryTextColor:    '#1A1814',
+      lineColor:           '#A1A1AA',
+      edgeLabelBackground: '#F4F2EE',
     },
-    flowchart: {
-      // Give nodes and layers breathing room — prevents the
-      // overlapping / compressed-line visual that occurred with defaults.
-      nodeSpacing:  60,
-      rankSpacing:  80,
-      htmlLabels:   true,
-      curve:        'basis',
-    },
+    flowchart: { nodeSpacing: 60, rankSpacing: 80, htmlLabels: true, curve: 'basis' },
     securityLevel: 'loose',
   };
 }
 
-// ── Theme-aware SVG line CSS ──────────────────────────────────────────────────
-// Previously a single dark-mode constant was always injected, making edge
-// labels appear on a dark background even in light mode.
-function svgLineCss(dark: boolean): string {
-  const edgeColor   = dark ? '#606068' : '#A1A1AA';
-  const labelBg     = dark ? '#222428' : '#F4F4F5';
-  const labelColor  = dark ? '#E8E8EA' : '#18181B';
+function svgLineCss(): string {
   return `
-  .edgePath path, .edgePath .path {
-    stroke: ${edgeColor} !important;
-    stroke-width: 1.8px !important;
-  }
-  .edgeLabel { background: ${labelBg} !important; color: ${labelColor} !important; }
-  marker path { fill: ${edgeColor} !important; }
-  .node rect, .node polygon, .node circle, .node ellipse {
-    stroke-width: 1.5px !important;
-  }
-  .label { color: ${labelColor} !important; fill: ${labelColor} !important; }
+  .edgePath path, .edgePath .path { stroke: #A1A1AA !important; stroke-width: 1.8px !important; }
+  .edgeLabel { background: #F4F2EE !important; color: #1A1814 !important; }
+  marker path { fill: #A1A1AA !important; }
+  .node rect, .node polygon, .node circle, .node ellipse { stroke-width: 1.5px !important; }
+  .label { color: #1A1814 !important; fill: #1A1814 !important; }
 `;
 }
 
@@ -112,9 +94,7 @@ export default function MermaidDiagram({ definition }: MermaidDiagramProps) {
   const [dl,         setDl]         = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
 
-  const dark = typeof document !== 'undefined'
-    ? document.documentElement.getAttribute('data-theme') === 'dark'
-    : false;
+  // Light-only — no dark theme
 
   // ── Patch SVG lines once it renders ──────────────────────────────────────
   const patchSvg = useCallback(() => {
@@ -123,18 +103,17 @@ export default function MermaidDiagram({ definition }: MermaidDiagramProps) {
     svg.querySelectorAll('style[data-cortex]').forEach(el => el.remove());
     const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
     style.setAttribute('data-cortex', '1');
-    style.textContent = svgLineCss(dark);
+    style.textContent = svgLineCss();
     svg.insertBefore(style, svg.firstChild);
-    // Also imperatively set stroke on already-rendered paths
-    const edgeColor = dark ? '#94a3b8' : '#475569';
     svg.querySelectorAll('.edgePath path, .edgePath .path').forEach(p => {
-      (p as SVGElement).style.stroke = edgeColor;
+      (p as SVGElement).style.stroke = '#A1A1AA';
       (p as SVGElement).style.strokeWidth = '1.8px';
     });
     svg.querySelectorAll('marker path').forEach(p => {
-      (p as SVGElement).style.fill = edgeColor;
+      (p as SVGElement).style.fill = '#A1A1AA';
     });
-  }, [dark]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Auto-fit: scale SVG to fill container width, centre vertically ────────
   // Previous implementation used Math.min(wW/sW, wH/sH) which caused a
@@ -285,7 +264,7 @@ export default function MermaidDiagram({ definition }: MermaidDiagramProps) {
       const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       bg.setAttribute('width', '100%');
       bg.setAttribute('height', '100%');
-      bg.setAttribute('fill', dark ? '#1C1D21' : '#FFFFFF');
+      bg.setAttribute('fill', '#FFFFFF');
       clone.insertBefore(bg, clone.firstChild);
 
       const svgStr = new XMLSerializer().serializeToString(clone);
@@ -301,7 +280,7 @@ export default function MermaidDiagram({ definition }: MermaidDiagramProps) {
     } finally {
       setDl(false);
     }
-  }, [dark, patchSvg]);
+  }, [patchSvg]);
 
   // ── Canvas height ─────────────────────────────────────────────────────────
   // Dynamic: minimum 480px in normal mode, fills the viewport in fullscreen.
@@ -309,19 +288,24 @@ export default function MermaidDiagram({ definition }: MermaidDiagramProps) {
   // thin horizontal band when the SVG was taller than wide.
   const canvasHeight = fullscreen ? 'calc(100vh - 90px)' : 'clamp(480px, 55vh, 800px)';
 
-  // ── Fullscreen overlay styles ─────────────────────────────────────────────
   const outerStyle: React.CSSProperties = fullscreen
     ? {
         position: 'fixed', inset: 0, zIndex: 9999,
         display: 'flex', flexDirection: 'column',
         borderRadius: 0, border: 'none',
-        background: dark ? 'var(--bg)' : 'var(--bg)',
+        background: 'var(--bg)',
       }
     : {
         display: 'flex', flexDirection: 'column',
-        width: '100%', borderRadius: 12,
-        border: '1px solid var(--border)',
-        background: dark ? 'var(--glass-card)' : 'var(--card)',
+        width: '100%', borderRadius: 16,
+        border: '0.5px solid rgba(255,255,255,0.52)',
+        background: 'rgba(255,255,255,0.25)',
+        backdropFilter: 'blur(30px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(30px) saturate(180%)',
+        boxShadow:
+          '0 4px 24px rgba(80,60,20,0.09),' +
+          'inset 0 2px 6px rgba(255,255,255,0.65),' +
+          'inset 0 -5px 16px rgba(255,255,255,0.70)',
       };
 
   return (
@@ -371,16 +355,10 @@ export default function MermaidDiagram({ definition }: MermaidDiagramProps) {
         onMouseDown={onMD} onMouseMove={onMM}
         onMouseUp={onMU}   onMouseLeave={onMU}
         style={{
-          position: 'relative',
-          width: '100%',
-          // Dynamic height — grows with content, escapes the old fixed 580px
-          // that collapsed tall diagrams into a thin horizontal band.
+          position: 'relative', width: '100%',
           height: canvasHeight,
-          // Allow overflow to be visible during transform; the outer container
-          // clips. Removing overflow:hidden here prevents silent content clipping
-          // before fit() has run.
           overflow: 'hidden',
-          background: dark ? '#080b14' : '#f8faff',
+          background: '#FAFAF8',
           cursor: isDragging.current ? 'grabbing' : 'grab',
           userSelect: 'none',
           flex: fullscreen ? 1 : undefined,
@@ -414,13 +392,12 @@ export default function MermaidDiagram({ definition }: MermaidDiagramProps) {
           }}
         >
           <ErrBound onErr={m => { setErr(m); setReady(false); }}>
-            <Mermaid chart={definition} config={mermaidConfig(dark)} key={definition} />
+            <Mermaid chart={definition} config={mermaidConfig()} key={definition} />
           </ErrBound>
         </div>
 
-        {/* Usage hint */}
         {ready && (
-          <div style={{ position: 'absolute', bottom: 10, right: 14, fontSize: 10, color: dark ? '#475569' : '#94a3b8', pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', bottom: 10, right: 14, fontSize: 10, color: '#94a3b8', pointerEvents: 'none' }}>
             Scroll to zoom · Drag to pan
           </div>
         )}

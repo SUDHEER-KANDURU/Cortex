@@ -22,7 +22,7 @@ import { SidebarJobsSkeleton, ArtifactSkeleton, InsightsSkeleton } from '@/compo
 import {
   Github, ChevronDown, Sparkles, Code2, LayoutDashboard,
   GitBranch, ExternalLink, Clock, AlertCircle, CheckCircle2,
-  XCircle, ArrowLeft, Sun, Moon, Check, RotateCcw,
+  XCircle, ArrowLeft, Check, RotateCcw,
 } from 'lucide-react';
 import AnimatedPipelineComponent from '@/components/pipeline/AnimatedPipeline';
 import * as Select from '@radix-ui/react-select';
@@ -55,28 +55,18 @@ function extractShortName(url: string) {
   return url.replace(/\/$/, '').split('/').pop() ?? url;
 }
 
-// ── Theme-aware surface helpers ───────────────────────────────────────────────
-// Returns a thin surface tint that reads correctly in both themes.
-// Dark = white veil  /  Light = black veil
-function tint(d: boolean, s: 'xs' | 'sm' | 'md' = 'sm'): string {
-  const dk = { xs: 'rgba(255,255,255,0.025)', sm: 'rgba(255,255,255,0.05)', md: 'rgba(255,255,255,0.09)' };
-  const lt = { xs: 'rgba(0,0,0,0.025)',       sm: 'rgba(0,0,0,0.04)',       md: 'rgba(0,0,0,0.07)'      };
-  return d ? dk[s] : lt[s];
-}
-function tintBorder(d: boolean) { return d ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)'; }
-function hoverBg(d: boolean)    { return d ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'; }
-function selectedBg(d: boolean) { return d ? 'rgba(139,175,201,0.10)'  : 'rgba(107,143,174,0.09)'; }
-function rowHoverBg(d: boolean) { return d ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'; }
+// ── Light-only surface helpers ────────────────────────────────────────────────
+// Dark mode removed. All values are static light-theme values.
+function tintBorder(_d: boolean) { return 'rgba(255,255,255,0.45)'; }
+function hoverBg(_d: boolean)    { return 'rgba(255,255,255,0.30)'; }
 
 // ── Dashboard background ──────────────────────────────────────────────────────
 // Removed — the global liquid-blob background in layout.tsx covers all pages.
 
 // ── Navbar ────────────────────────────────────────────────────────────────────
-interface NavbarProps { isDark: boolean; onToggleTheme: () => void }
-
-function DashboardNavbar({ isDark, onToggleTheme }: NavbarProps) {
-  const hov = hoverBg(isDark);
-  const bdr = tintBorder(isDark);
+function DashboardNavbar() {
+  const hov = hoverBg(false);
+  const bdr = tintBorder(false);
   return (
     <header style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200,
@@ -85,24 +75,28 @@ function DashboardNavbar({ isDark, onToggleTheme }: NavbarProps) {
       <nav aria-label="Dashboard navigation" style={{
         pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 4,
         padding: '7px 10px', borderRadius: 9999, width: '100%', maxWidth: 960,
-        background: isDark ? 'rgba(22,23,26,0.72)' : 'rgba(244,244,245,0.82)',
-        backdropFilter: 'blur(44px) saturate(220%)', WebkitBackdropFilter: 'blur(44px) saturate(220%)',
-        border: `1px solid ${bdr}`,
-        boxShadow: 'var(--shadow-nav)',
-        transition: 'background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
+        background: 'rgba(255,255,255,0.72)',
+        backdropFilter: 'blur(50px) saturate(200%) brightness(1.04)',
+        WebkitBackdropFilter: 'blur(50px) saturate(200%) brightness(1.04)',
+        border: '0.5px solid rgba(255,255,255,0.90)',
+        boxShadow:
+          '0 4px 24px rgba(80,60,20,0.09), 0 1px 6px rgba(80,60,20,0.05),' +
+          'inset 0 1px 0 rgba(255,255,255,0.98),' +
+          'inset 0 -1px 0 rgba(255,255,255,0.55),' +
+          'inset 0 0 0 0.5px rgba(255,255,255,0.65)',
       }}>
         {/* Logo */}
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', borderRadius: 16, textDecoration: 'none', flexShrink: 0, transition: 'background 0.2s ease' }}
           onMouseEnter={e => (e.currentTarget.style.background = hov)}
           onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0)')}>
-          <span style={{ width: 24, height: 24, borderRadius: 7, flexShrink: 0, background: 'var(--primary-dim)', border: '1px solid var(--border-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ width: 24, height: 24, borderRadius: 7, flexShrink: 0, background: 'var(--primary-dim)', border: '0.5px solid rgba(255,255,255,0.60)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <LayoutDashboard style={{ width: 12, height: 12, color: 'var(--primary)' }} />
           </span>
           <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--text)', fontFamily: 'var(--font-sans)' }}>Cortex</span>
         </Link>
         {/* Center pill */}
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', background: tint(isDark, 'xs'), border: `1px solid ${bdr}`, borderRadius: 100, padding: '4px 14px' }}>Dashboard</span>
+          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', background: 'rgba(255,255,255,0.22)', border: `0.5px solid ${bdr}`, borderRadius: 100, padding: '4px 14px' }}>Dashboard</span>
         </div>
         {/* Right */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
@@ -117,14 +111,6 @@ function DashboardNavbar({ isDark, onToggleTheme }: NavbarProps) {
             onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
             GitHub
           </a>
-          <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
-          <button onClick={onToggleTheme} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            suppressHydrationWarning
-            style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(0,0,0,0)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', transition: 'all 0.2s ease' }}
-            onMouseEnter={e => { e.currentTarget.style.background = hov; e.currentTarget.style.color = 'var(--primary)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
-            {isDark ? <Sun style={{ width: 16, height: 16 }} /> : <Moon style={{ width: 16, height: 16 }} />}
-          </button>
         </div>
       </nav>
     </header>
@@ -132,9 +118,9 @@ function DashboardNavbar({ isDark, onToggleTheme }: NavbarProps) {
 }
 
 // ── Sidebar submit form ───────────────────────────────────────────────────────
-interface SidebarFormProps { isDark: boolean; onJobSubmitted: (job: Job) => void }
+interface SidebarFormProps { onJobSubmitted: (job: Job) => void }
 
-function SidebarForm({ isDark, onJobSubmitted }: SidebarFormProps) {
+function SidebarForm({ onJobSubmitted }: SidebarFormProps) {
   const [repoUrl, setRepoUrl] = useState('');
   const [artifactType, setArtifactType] = useState<ArtifactType>('architecture_diagram');
   const [urlError, setUrlError] = useState<string | null>(null);
@@ -153,13 +139,15 @@ function SidebarForm({ isDark, onJobSubmitted }: SidebarFormProps) {
     await submitJob({ repo_url: t, artifact_type: artifactType });
   };
 
-  const bdr = tintBorder(isDark);
+  const bdr = 'rgba(255,255,255,0.45)';
   const inputStyle: React.CSSProperties = {
     width: '100%', borderRadius: 14, padding: '10px 12px', fontSize: 13,
-    background: tint(isDark, 'xs'), color: 'var(--text)',
-    border: `1px solid ${bdr}`, outline: 'none',
-    transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.3s ease',
+    background: 'rgba(255,255,255,0.68)',
+    color: 'var(--text)',
+    border: `0.5px solid ${bdr}`, outline: 'none',
+    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
     fontFamily: 'var(--font-sans)', boxSizing: 'border-box' as const,
+    boxShadow: 'inset 0 1px 3px rgba(255,255,255,0.55)',
   };
 
   return (
@@ -199,12 +187,11 @@ function SidebarForm({ isDark, onJobSubmitted }: SidebarFormProps) {
         <Select.Portal>
           <Select.Content position="popper" sideOffset={6} style={{
             width: 'var(--radix-select-trigger-width)',
-            background: isDark ? 'rgba(28,29,33,0.97)' : 'rgba(255,255,255,0.98)',
-            border: `1px solid ${bdr}`, borderRadius: 16,
-            boxShadow: isDark
-              ? 'var(--shadow-xl), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 0 1px rgba(255,255,255,0.04)'
-              : '0 16px 56px rgba(0,0,0,0.14), 0 4px 16px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.90)',
-            backdropFilter: 'blur(36px) saturate(200%)', WebkitBackdropFilter: 'blur(36px) saturate(200%)',
+            background: 'rgba(255,255,255,0.88)',
+            backdropFilter: 'blur(40px) saturate(200%)',
+            WebkitBackdropFilter: 'blur(40px) saturate(200%)',
+            border: `0.5px solid rgba(255,255,255,0.60)`, borderRadius: 16,
+            boxShadow: '0 8px 40px rgba(80,60,20,0.12), inset 0 2px 8px rgba(255,255,255,0.65)',
             padding: 4, zIndex: 9999, overflow: 'hidden',
             animation: 'dash-select-in 0.15s cubic-bezier(0.16,1,0.3,1)',
           }}>
@@ -217,9 +204,9 @@ function SidebarForm({ isDark, onJobSubmitted }: SidebarFormProps) {
                   transition: 'background 0.15s ease, color 0.15s ease',
                   fontFamily: 'var(--font-sans)', userSelect: 'none',
                 }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = hoverBg(isDark); (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.35)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
-                  onFocus={e => { (e.currentTarget as HTMLElement).style.background = hoverBg(isDark); (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
+                  onFocus={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.35)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
                   onBlur={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
                 >
                   <Select.ItemText>{ARTIFACT_TYPE_LABELS[t]}</Select.ItemText>
@@ -253,9 +240,9 @@ function SidebarForm({ isDark, onJobSubmitted }: SidebarFormProps) {
 }
 
 // ── Job row ───────────────────────────────────────────────────────────────────
-interface JobRowProps { job: Job; isSelected: boolean; isDark: boolean; onClick: () => void; onDelete: (id: string) => void; onRetried: (newJob: Job) => void }
+interface JobRowProps { job: Job; isSelected: boolean; onClick: () => void; onDelete: (id: string) => void; onRetried: (newJob: Job) => void }
 
-const JobRow = React.memo(function JobRow({ job, isSelected, isDark, onClick, onDelete, onRetried }: JobRowProps) {
+const JobRow = React.memo(function JobRow({ job, isSelected, onClick, onDelete, onRetried }: JobRowProps) {
   const short = extractShortName(job.repo_url);
   const owner = extractRepoName(job.repo_url).split('/')[0] ?? '';
   const isRunning = job.status === 'running';
@@ -318,8 +305,8 @@ const JobRow = React.memo(function JobRow({ job, isSelected, isDark, onClick, on
           style={{
             width: '100%', textAlign: 'left', cursor: 'pointer', borderRadius: 14,
             padding: '10px 12px', border: 'none',
-            background: isSelected ? selectedBg(isDark) : hovered ? rowHoverBg(isDark) : 'rgba(0,0,0,0)',
-            borderLeft: `2px solid ${isSelected ? 'var(--primary)' : 'rgba(0,0,0,0)'}`,
+            background: isSelected ? '#1E2A38' : hovered ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0)',
+            borderLeft: `2px solid ${isSelected ? '#1E2A38' : 'rgba(0,0,0,0)'}`,
             boxSizing: 'border-box',
             // Slide left only when cursor is in the right 30% zone
             transform: deleteVisible ? 'translateX(-32px)' : 'translateX(0)',
@@ -334,11 +321,11 @@ const JobRow = React.memo(function JobRow({ job, isSelected, isDark, onClick, on
                   boxShadow: isRunning ? `0 0 6px ${dotColor}` : 'none',
                   animation: isRunning ? 'pulse-dot 1.8s ease-in-out infinite' : 'none',
                 }} aria-hidden="true" />
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: isSelected ? '#ffffff' : 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {short}
                 </span>
               </div>
-              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
+              <p style={{ fontSize: 11, color: isSelected ? 'rgba(255,255,255,0.60)' : 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
                 {owner} · {ARTIFACT_TYPE_LABELS[job.artifact_type]}
               </p>
             </div>
@@ -383,15 +370,15 @@ const JobRow = React.memo(function JobRow({ job, isSelected, isDark, onClick, on
             aria-busy={isRetrying}
             style={{
               width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-              padding: '5px 10px', borderRadius: 10, border: '1px solid rgba(239,68,68,0.3)',
-              background: 'rgba(239,68,68,0.07)', color: 'var(--danger)',
+              padding: '5px 10px', borderRadius: 10, border: '1px solid var(--danger-dim)',
+              background: 'var(--danger-dim)', color: 'var(--danger)',
               fontSize: 11, fontWeight: 600, cursor: isRetrying ? 'not-allowed' : 'pointer',
               opacity: isRetrying ? 0.6 : 1,
               transition: 'background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease',
               fontFamily: 'var(--font-sans)',
             }}
-            onMouseEnter={e => { if (!isRetrying) { e.currentTarget.style.background = 'rgba(239,68,68,0.14)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.5)'; }}}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.07)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)'; }}
+            onMouseEnter={e => { if (!isRetrying) e.currentTarget.style.opacity = '0.8'; }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
           >
             <RotateCcw style={{ width: 10, height: 10, flexShrink: 0, animation: isRetrying ? 'spin 0.8s linear infinite' : 'none' }} aria-hidden="true" />
             {isRetrying ? 'Retrying…' : 'Retry Job'}
@@ -407,30 +394,30 @@ const JobRow = React.memo(function JobRow({ job, isSelected, isDark, onClick, on
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 interface SidebarProps {
-  isDark: boolean; jobs: Job[]; jobsLoading: boolean; jobsError: string | null;
+  jobs: Job[]; jobsLoading: boolean; jobsError: string | null;
   selectedJobId: string | null; onJobSelected: (job: Job) => void;
   onJobSubmitted: (job: Job) => void; onJobDeleted: (id: string) => void;
   onJobRetried: (newJob: Job) => void;
 }
 
-function Sidebar({ isDark, jobs, jobsLoading, jobsError, selectedJobId, onJobSelected, onJobSubmitted, onJobDeleted, onJobRetried }: SidebarProps) {
-  const bdr = tintBorder(isDark);
+function Sidebar({ jobs, jobsLoading, jobsError, selectedJobId, onJobSelected, onJobSubmitted, onJobDeleted, onJobRetried }: SidebarProps) {
+  const bdr = 'rgba(255,255,255,0.45)';
   return (
     <aside aria-label="Repository sidebar" style={{
-      background: isDark ? 'rgba(14,18,28,0.52)' : 'rgba(255,255,255,0.60)',
-      backdropFilter: 'blur(48px) saturate(200%)',
-      WebkitBackdropFilter: 'blur(48px) saturate(200%)',
+      background: 'rgba(255,255,255,0.68)',
+      backdropFilter: 'blur(40px) saturate(180%) brightness(1.03)',
+      WebkitBackdropFilter: 'blur(40px) saturate(180%) brightness(1.03)',
       isolation: 'isolate',
-      border: `1px solid ${bdr}`,
-      boxShadow: isDark
-        ? 'var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.07)'
-        : 'var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.85)',
+      border: '0.5px solid rgba(255,255,255,0.88)',
+      boxShadow:
+        '0 8px 40px rgba(80,60,20,0.09),' +
+        'inset 0 1px 0 rgba(255,255,255,0.98),' +
+        'inset 0 0 0 0.5px rgba(255,255,255,0.65)',
       width: 300, minWidth: 300, maxWidth: 300,
       display: 'flex', flexDirection: 'column', borderRadius: 20, overflow: 'hidden', flexShrink: 0,
-      transition: 'border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease',
     }}>
-      <div style={{ padding: '20px 18px', borderBottom: `1px solid ${bdr}` }}>
-        <SidebarForm isDark={isDark} onJobSubmitted={onJobSubmitted} />
+      <div style={{ padding: '20px 18px', borderBottom: `0.5px solid ${bdr}` }}>
+        <SidebarForm onJobSubmitted={onJobSubmitted} />
       </div>
       <div className="dash-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 10px 12px' }}>
         <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10, paddingLeft: 4, fontFamily: 'var(--font-mono)' }}>Recent Jobs</p>
@@ -438,7 +425,7 @@ function Sidebar({ isDark, jobs, jobsLoading, jobsError, selectedJobId, onJobSel
         {jobsError && <p style={{ fontSize: 12, color: 'var(--danger)', padding: '8px 4px' }}>Could not load jobs</p>}
         {!jobsLoading && jobs.length === 0 && !jobsError && (
           <div style={{ textAlign: 'center', padding: '32px 16px' }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: tint(isDark, 'xs'), border: `1px solid ${bdr}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255,255,255,0.25)', border: '0.5px solid rgba(255,255,255,0.50)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
               <Code2 style={{ width: 16, height: 16, color: 'var(--text-muted)' }} />
             </div>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>No jobs yet</p>
@@ -474,7 +461,6 @@ function Sidebar({ isDark, jobs, jobsLoading, jobsError, selectedJobId, onJobSel
               >
                 <JobRow
                   job={job}
-                  isDark={isDark}
                   isSelected={job.id === selectedJobId}
                   onClick={() => onJobSelected(job)}
                   onDelete={onJobDeleted}
@@ -492,16 +478,15 @@ function Sidebar({ isDark, jobs, jobsLoading, jobsError, selectedJobId, onJobSel
 // ── Animated pipeline — delegates to the full Framer Motion component ─────────
 // The old inline implementation is replaced. All animation logic lives in
 // src/components/pipeline/AnimatedPipeline.tsx
-function AnimatedPipeline({ jobId, isDark, pipelineStatus, onCompletionEnd }: {
+function AnimatedPipeline({ jobId, pipelineStatus, onCompletionEnd }: {
   jobId: string;
-  isDark: boolean;
   pipelineStatus?: 'idle' | 'running' | 'completed' | 'failed';
   onCompletionEnd?: () => void;
 }) {
   return (
     <AnimatedPipelineComponent
       jobId={jobId}
-      isDark={isDark}
+      isDark={false}
       pipelineStatus={pipelineStatus ?? 'running'}
       onCompletionEnd={onCompletionEnd}
     />
@@ -509,7 +494,7 @@ function AnimatedPipeline({ jobId, isDark, pipelineStatus, onCompletionEnd }: {
 }
 
 // ── Empty state ───────────────────────────────────────────────────────────────
-function EmptyState({ isDark }: { isDark: boolean }) {
+function EmptyState() {
   return (
     <motion.div
       initial={{ opacity: 0, y: 24, filter: 'blur(4px)' }}
@@ -520,7 +505,7 @@ function EmptyState({ isDark }: { isDark: boolean }) {
       <div style={{
         width: 80, height: 80, borderRadius: '50%', flexShrink: 0,
         background: 'var(--primary-dim)',
-        border: '1px solid var(--border-hover)', boxShadow: 'var(--shadow-sm)',
+        border: '0.5px solid rgba(255,255,255,0.60)', boxShadow: 'var(--shadow-sm)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <GitBranch style={{ width: 28, height: 28, color: 'var(--primary)' }} />
@@ -533,7 +518,7 @@ function EmptyState({ isDark }: { isDark: boolean }) {
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
         {['Architecture Diagram', 'Learning Path', 'Interview Prep', 'Knowledge Graph'].map(label => (
-          <span key={label} style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', padding: '5px 14px', borderRadius: 100, background: tint(isDark, 'xs'), border: `1px solid ${tintBorder(isDark)}`, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{label}</span>
+          <span key={label} style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', padding: '5px 14px', borderRadius: 100, background: 'rgba(255,255,255,0.25)', border: '0.5px solid rgba(255,255,255,0.50)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{label}</span>
         ))}
       </div>
     </motion.div>
@@ -541,10 +526,10 @@ function EmptyState({ isDark }: { isDark: boolean }) {
 }
 
 // ── Panel header ──────────────────────────────────────────────────────────────
-function PanelHeader({ activeJob, isDark }: { activeJob: Job; isDark: boolean }) {
+function PanelHeader({ activeJob }: { activeJob: Job }) {
   const repoName = extractShortName(activeJob.repo_url);
   const repoFull = extractRepoName(activeJob.repo_url);
-  const bdr = tintBorder(isDark);
+  const bdr = 'rgba(255,255,255,0.45)';
   const statusIcon = {
     completed: <CheckCircle2 style={{ width: 14, height: 14, color: 'var(--success)' }} />,
     running:   <ButtonSpinner size={14} />,
@@ -554,9 +539,9 @@ function PanelHeader({ activeJob, isDark }: { activeJob: Job; isDark: boolean })
   }[activeJob.status] ?? null;
 
   return (
-    <div style={{ padding: '16px 24px', borderBottom: `1px solid ${bdr}`, background: 'rgba(0,0,0,0)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexShrink: 0, transition: 'border-color 0.3s ease' }}>
+    <div style={{ padding: '16px 24px', borderBottom: `0.5px solid ${bdr}`, background: 'rgba(0,0,0,0)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexShrink: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'var(--primary-dim)', border: '1px solid var(--border-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'var(--primary-dim)', border: '0.5px solid rgba(255,255,255,0.60)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <GitBranch style={{ width: 15, height: 15, color: 'var(--primary)' }} />
         </div>
         <div style={{ minWidth: 0 }}>
@@ -636,7 +621,7 @@ function classifyInsightsError(message: string): { heading: string; detail: stri
 }
 
 // ── Insights tab — lazy-loaded inside the right panel ────────────────────────
-function InsightsTab({ jobId, isDark }: { jobId: string; isDark: boolean }) {
+function InsightsTab({ jobId }: { jobId: string }) {
   const { report, isLoading, error, refetch } = useInsights(jobId);
 
   if (isLoading) {
@@ -677,46 +662,44 @@ function InsightsTab({ jobId, isDark }: { jobId: string; isDark: boolean }) {
 
   if (!report) return null;
 
-  return <InsightsDashboard report={report} isDark={isDark} />;
+  return <InsightsDashboard report={report} isDark={false} />;
 }
 
 // ── Right panel ───────────────────────────────────────────────────────────────
 interface RightPanelProps {
-  isDark: boolean; activeJob: Job | null;
+  activeJob: Job | null;
   artifacts: ReturnType<typeof useArtifact>['artifacts'];
   artifactsLoading: boolean; artifactsError: string | null;
   onJobRetried: (newJob: Job) => void;
 }
 
-function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsError, onJobRetried }: RightPanelProps) {
+function RightPanel({ activeJob, artifacts, artifactsLoading, artifactsError, onJobRetried }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState<'artifact' | 'insights'>('artifact');
   const { retriedJob, isRetrying, error: retryError, retry } = useRetryJob();
 
-  // Bubble retried job up to page level
   React.useEffect(() => {
     if (retriedJob) onJobRetried(retriedJob);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [retriedJob]);
 
-  // Must be before any early return — Rules of Hooks
   React.useEffect(() => {
     setActiveTab('artifact');
   }, [activeJob?.id]);
 
-  if (!activeJob) return <EmptyState isDark={isDark} />;
+  if (!activeJob) return <EmptyState />;
 
-  const bdr = tintBorder(isDark);
+  const bdr = 'rgba(255,255,255,0.45)';
   const isCompleted = activeJob.status === 'completed';
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
-      <PanelHeader activeJob={activeJob} isDark={isDark} />
+      <PanelHeader activeJob={activeJob} />
 
       {/* Tab bar — only show when job is completed */}
       {isCompleted && (
         <div style={{
           display: 'flex', gap: 2, padding: '0 24px',
-          borderBottom: `1px solid ${bdr}`,
+          borderBottom: `0.5px solid ${bdr}`,
           background: 'rgba(0,0,0,0)',
           flexShrink: 0,
         }}>
@@ -769,13 +752,13 @@ function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsE
 
         {/* Running */}
         {activeJob.status === 'running' && artifacts.length === 0 && (
-          <AnimatedPipeline jobId={activeJob.id} isDark={isDark} pipelineStatus="running" />
+          <AnimatedPipeline jobId={activeJob.id} pipelineStatus="running" />
         )}
 
         {/* Failed — show pipeline frozen at failure point */}
         {activeJob.status === 'failed' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <AnimatedPipeline jobId={activeJob.id} isDark={isDark} pipelineStatus="failed" />
+            <AnimatedPipeline jobId={activeJob.id} pipelineStatus="failed" />
 
             {/* Error message from backend */}
             {activeJob.error_message && (
@@ -799,15 +782,15 @@ function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsE
               aria-busy={isRetrying}
               style={{
                 alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 7,
-                padding: '9px 20px', borderRadius: 12, border: '1px solid rgba(239,68,68,0.35)',
-                background: 'rgba(239,68,68,0.08)', color: 'var(--danger)',
+                padding: '9px 20px', borderRadius: 12, border: '1px solid var(--danger-dim)',
+                background: 'var(--danger-dim)', color: 'var(--danger)',
                 fontSize: 13, fontWeight: 600, cursor: isRetrying ? 'not-allowed' : 'pointer',
                 opacity: isRetrying ? 0.6 : 1,
                 transition: 'background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease',
                 fontFamily: 'var(--font-sans)',
               }}
-              onMouseEnter={e => { if (!isRetrying) { e.currentTarget.style.background = 'rgba(239,68,68,0.16)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.55)'; }}}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.35)'; }}
+              onMouseEnter={e => { if (!isRetrying) e.currentTarget.style.opacity = '0.75'; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
             >
               <RotateCcw style={{ width: 13, height: 13, flexShrink: 0, animation: isRetrying ? 'spin 0.8s linear infinite' : 'none' }} aria-hidden="true" />
               {isRetrying ? 'Retrying…' : 'Retry Job'}
@@ -850,18 +833,18 @@ function RightPanel({ isDark, activeJob, artifacts, artifactsLoading, artifactsE
               style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
             >
               {activeTab === 'insights' && isCompleted ? (
-                <InsightsTab jobId={activeJob.id} isDark={isDark} />
+                <InsightsTab jobId={activeJob.id} />
               ) : (
                 artifacts.map(artifact => (
                   <div key={artifact.id} style={{
                     borderRadius: 'var(--radius-lg)', overflow: 'hidden',
-                    background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.025)',
-                    border: `1px solid ${bdr}`,
-                    boxShadow: isDark ? 'var(--shadow-md)' : '0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)',
+                    background: 'rgba(255,255,255,0.30)',
+                    border: `0.5px solid rgba(255,255,255,0.50)`,
+                    boxShadow: '0 2px 8px rgba(80,60,20,0.06), inset 0 1px 3px rgba(255,255,255,0.60)',
                     transition: 'background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
                   }}>
-                    <div style={{ padding: '12px 18px', borderBottom: `1px solid ${bdr}`, background: isDark ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--primary)', padding: '3px 10px', borderRadius: 100, background: 'var(--primary-dim)', border: '1px solid var(--border-hover)', fontFamily: 'var(--font-mono)' }}>
+                    <div style={{ padding: '12px 18px', borderBottom: `0.5px solid rgba(255,255,255,0.45)`, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--primary)', padding: '3px 10px', borderRadius: 100, background: 'var(--primary-dim)', border: '0.5px solid rgba(255,255,255,0.60)', fontFamily: 'var(--font-mono)' }}>
                         {artifact.content_type}
                       </span>
                       <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -888,36 +871,13 @@ export default function DashboardPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jobsLoading, setJobsLoading] = useState(true);
   const [jobsError, setJobsError] = useState<string | null>(null);
-  // Client-side hidden job IDs — jobs removed from the list without touching the DB
   const [hiddenJobIds, setHiddenJobIds] = useState<Set<string>>(new Set());
-  // Always start light (matches SSR default), read localStorage after mount to avoid
-  // hydration mismatch — same pattern as the landing Header.
-  const [isDark, setIsDark] = useState(false);
-
-  // Controls the full-screen splash shown during hydration + initial data fetch.
-  // Starts true so the server-rendered shell never shows blank content.
-  // Set to false only after the jobs list resolves (or errors) AND the
-  // component has been mounted on the client.
   const [initialLoading, setInitialLoading] = useState(true);
-  // Track whether we are mounted on client (avoids SSR mismatch)
   const [mounted, setMounted] = useState(false);
 
-  // Hydration-safe theme init — runs only on client after first paint
   React.useEffect(() => {
     setMounted(true);
-    try {
-      const stored = localStorage.getItem('cortex-theme');
-      if (stored) setIsDark(stored === 'dark');
-    } catch { /* ignore */ }
   }, []);
-
-  // Sync theme to DOM — runs synchronously on first render via getInitialTheme to avoid flash
-  React.useEffect(() => {
-    const theme = isDark ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', theme);
-    document.documentElement.classList.toggle('dark', isDark);
-    try { localStorage.setItem('cortex-theme', theme); } catch {}
-  }, [isDark]);
 
   // Initial jobs fetch — serve from session cache first to avoid blank sidebar
   React.useEffect(() => {
@@ -1012,11 +972,14 @@ export default function DashboardPage() {
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20,
           padding: '36px 32px',
-          background: 'var(--glass-card)',
-          border: '1px solid var(--border)',
-          boxShadow: 'var(--shadow-xl)',
-          backdropFilter: 'blur(32px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(32px) saturate(180%)',
+          background: 'rgba(255,255,255,0.78)',
+          border: '0.5px solid rgba(255,255,255,0.92)',
+          boxShadow:
+            '0 16px 60px rgba(80,60,20,0.10),' +
+            'inset 0 1px 0 rgba(255,255,255,0.98),' +
+            'inset 0 0 0 0.5px rgba(255,255,255,0.70)',
+          backdropFilter: 'blur(40px) saturate(200%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(200%)',
           minWidth: 260, maxWidth: 360,
           borderRadius: 26,
         }}>
@@ -1024,9 +987,8 @@ export default function DashboardPage() {
           <div style={{
             width: 56, height: 56, borderRadius: 16,
             background: 'var(--primary-dim)',
-            border: '1px solid var(--border-hover)',
+            border: '0.5px solid rgba(255,255,255,0.65)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: 'var(--shadow-sm)',
           }}>
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
@@ -1067,13 +1029,12 @@ export default function DashboardPage() {
   return (
     <>
       <div style={{ position: 'fixed', inset: 0, zIndex: 1, display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-sans)' }}>
-        <DashboardNavbar isDark={isDark} onToggleTheme={() => setIsDark(d => !d)} />
+        <DashboardNavbar />
 
         <div style={{ flex: 1, display: 'flex', paddingTop: 80, paddingBottom: 20, paddingLeft: 20, paddingRight: 20, gap: 16, overflow: 'hidden', boxSizing: 'border-box' }}>
           {/* Sidebar */}
           <div className="dash-scroll" style={{ display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto', overflowX: 'clip', height: '100%' }}>
             <Sidebar
-              isDark={isDark}
               jobs={jobs.filter(j => !hiddenJobIds.has(j.id))}
               jobsLoading={jobsLoading}
               jobsError={jobsError}
@@ -1087,18 +1048,18 @@ export default function DashboardPage() {
 
           {/* Main glass panel */}
           <main className="dash-content" style={{
-            background: isDark ? 'rgba(14,18,28,0.60)' : 'rgba(255,255,255,0.68)',
-            backdropFilter: 'blur(48px) saturate(200%)',
-            WebkitBackdropFilter: 'blur(48px) saturate(200%)',
+            background: 'rgba(255,255,255,0.68)',
+            backdropFilter: 'blur(40px) saturate(180%) brightness(1.03)',
+            WebkitBackdropFilter: 'blur(40px) saturate(180%) brightness(1.03)',
             isolation: 'isolate',
-            border: `1px solid ${tintBorder(isDark)}`,
-            boxShadow: isDark
-              ? 'var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.07)'
-              : 'var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.85)',
+            border: '0.5px solid rgba(255,255,255,0.88)',
+            boxShadow:
+              '0 8px 40px rgba(80,60,20,0.09),' +
+              'inset 0 1px 0 rgba(255,255,255,0.98),' +
+              'inset 0 0 0 0.5px rgba(255,255,255,0.65)',
             flex: 1, borderRadius: 20, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0,
-            transition: 'border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease',
           }}>
-            <RightPanel isDark={isDark} activeJob={activeJob}
+            <RightPanel activeJob={activeJob}
               artifacts={artifacts} artifactsLoading={artifactsLoading} artifactsError={artifactsError}
               onJobRetried={handleJobSubmitted} />
           </main>

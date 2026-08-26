@@ -653,10 +653,10 @@ function EngineeringTerminal({ activeStep }: { activeStep: number }) {
 
   return (
     <div style={{
-      background: "var(--surface)",
+      background: "rgba(18, 20, 24, 0.88)",
       borderRadius: "16px",
-      border: "1px solid var(--border)",
-      boxShadow: "var(--shadow-lg)",
+      border: "1px solid rgba(255,255,255,0.10)",
+      boxShadow: "0 16px 48px rgba(0,0,0,0.28), 0 4px 12px rgba(0,0,0,0.18)",
       overflow: "hidden",
       height: "100%",
       display: "flex",
@@ -664,8 +664,8 @@ function EngineeringTerminal({ activeStep }: { activeStep: number }) {
     }}>
       {/* Terminal chrome bar */}
       <div style={{
-        background: "var(--bg)",
-        borderBottom: "1px solid var(--border)",
+        background: "rgba(30, 32, 36, 0.92)",
+        borderBottom: "1px solid rgba(255,255,255,0.08)",
         padding: "11px 16px",
         display: "flex",
         alignItems: "center",
@@ -678,7 +678,7 @@ function EngineeringTerminal({ activeStep }: { activeStep: number }) {
         <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", gap: "8px" }}>
           <span style={{
             fontSize: "10px", fontWeight: 700, letterSpacing: "0.12em",
-            textTransform: "uppercase", color: "var(--text-muted)",
+            textTransform: "uppercase", color: "rgba(160,160,170,0.85)",
             fontFamily: "var(--font-mono)",
           }}>
             cortex — step {stepNum} / {STEPS.length} — {stepLabel}
@@ -686,7 +686,7 @@ function EngineeringTerminal({ activeStep }: { activeStep: number }) {
         </div>
         <span style={{
           width: "6px", height: "6px", borderRadius: "50%",
-          background: "var(--success)", display: "inline-block",
+          background: "#34d399", display: "inline-block",
         }} />
       </div>
 
@@ -729,21 +729,21 @@ function EngineeringTerminal({ activeStep }: { activeStep: number }) {
 
       {/* Status bar */}
       <div style={{
-        borderTop: "1px solid rgba(255,255,255,0.05)",
+        borderTop: "1px solid rgba(255,255,255,0.08)",
         padding: "6px 16px",
-        background: "#0d0d0d",
+        background: "rgba(30, 32, 36, 0.92)",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
         flexShrink: 0,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#28C840", display: "inline-block", boxShadow: "0 0 4px #28C840" }} />
-          <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.25)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#34d399", display: "inline-block" }} />
+          <span style={{ fontSize: "10px", color: "rgba(160,160,170,0.75)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
             cortex-engine · python 3.12 · neo4j connected
           </span>
         </div>
-        <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.2)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
+        <span style={{ fontSize: "10px", color: "rgba(160,160,170,0.75)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
           UTF-8
         </span>
       </div>
@@ -850,8 +850,8 @@ export function PortfolioHowItWorks() {
       }}>
         <div className="max-w-[1280px] mx-auto px-6 md:px-12 w-full">
 
-          {/* Header row */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-5 md:mb-8">
+          {/* Mobile-only header */}
+          <div className="flex flex-col gap-3 mb-5 md:hidden">
             <div>
               <p style={{
                 fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em",
@@ -861,21 +861,42 @@ export function PortfolioHowItWorks() {
               }}>
                 Pipeline
               </p>
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight cx-text"
+              <h2 className="text-3xl font-semibold tracking-tight cx-text"
                 style={{ fontFamily: "var(--font-sans)", letterSpacing: "-0.04em", lineHeight: 1.1 }}>
                 How Cortex works
               </h2>
             </div>
-            <p className="text-sm max-w-[280px] md:text-right leading-relaxed hidden md:block cx-text-muted">
+            <p className="text-sm leading-relaxed cx-text-muted">
               Six steps from raw repository to structured understanding.
             </p>
           </div>
 
           {/* ── Desktop layout ── */}
-          <div className="hidden md:grid gap-8 lg:gap-14 items-start" style={{ gridTemplateColumns: "5fr 7fr" }}>
+          <div className="hidden md:grid gap-8 lg:gap-14" style={{ gridTemplateColumns: "5fr 7fr", alignItems: "center" }}>
 
-            {/* Left: step list */}
+            {/* Left: header + step list */}
             <div className="flex flex-col gap-0">
+
+              {/* Header — title + subtitle stacked in the left column */}
+              <div className="mb-5 md:mb-8">
+                <div>
+                  <p style={{
+                    fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em",
+                    textTransform: "uppercase", color: "var(--cx-eyebrow)",
+                    fontFamily: "var(--font-mono)",
+                    marginBottom: "8px",
+                  }}>
+                    Pipeline
+                  </p>
+                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight cx-text"
+                    style={{ fontFamily: "var(--font-sans)", letterSpacing: "-0.04em", lineHeight: 1.1 }}>
+                    How Cortex works
+                  </h2>
+                  <p className="text-sm leading-relaxed cx-text-muted mt-2">
+                    Six steps from raw repository to structured understanding.
+                  </p>
+                </div>
+              </div>
               {STEPS.map((step, i) => {
                 const isActive = i === activeStep
                 const isDone   = i < activeStep
@@ -969,9 +990,17 @@ export function PortfolioHowItWorks() {
               </div>
             </div>
 
-            {/* Right: engineering terminal — full-height, dominant visual */}
-            <div style={{ height: "calc(100vh - 56px - 180px)", minHeight: "360px" }}>
-              <EngineeringTerminal activeStep={activeStep} />
+            {/* Right: engineering terminal — vertically centered */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "calc(100vh - 56px - 80px)",
+              minHeight: "360px",
+            }}>
+              <div style={{ width: "100%", maxHeight: "480px", height: "100%" }}>
+                <EngineeringTerminal activeStep={activeStep} />
+              </div>
             </div>
           </div>
 
@@ -993,7 +1022,7 @@ export function PortfolioHowItWorks() {
                 <div style={{
                   padding: "14px 16px",
                   borderBottom: "1px solid var(--cx-card-border)",
-                  background: "rgba(255,255,255,0.02)",
+                  background: "var(--surface)",
                   display: "flex", alignItems: "center", gap: "12px",
                 }}>
                   <div style={{
@@ -1002,7 +1031,7 @@ export function PortfolioHowItWorks() {
                     border: `1px solid ${i === activeStep ? "transparent" : "var(--cx-stat-border)"}`,
                     display: "flex", alignItems: "center", justifyContent: "center",
                     transition: "background 0.3s ease",
-                    boxShadow: i === activeStep ? "0 0 10px var(--primary-glow)" : "none",
+                    boxShadow: i === activeStep ? "var(--shadow-sm)" : "none",
                   }}>
                     <span style={{
                       fontSize: "10px", fontWeight: 700,
