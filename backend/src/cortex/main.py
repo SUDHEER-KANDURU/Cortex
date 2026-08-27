@@ -14,6 +14,8 @@ from cortex.insights.presentation.router import router as insights_router
 from cortex.chat.presentation.router import router as chat_router
 from cortex.memory.presentation.router import router as memory_router
 from cortex.diagrams.router import router as diagrams_router
+from cortex.search.router import router as search_router
+from cortex.overview.router import router as overview_router
 from shared.correlation import CorrelationMiddleware
 from shared.logging import configure_logging
 
@@ -79,6 +81,16 @@ async def lifespan(app: FastAPI):
     # No engine.dispose() here — the shared singleton must stay alive
     # for the lifetime of the process.
 
+    # Create FTS5 virtual tables for search
+    from cortex.search.fts_engine import FTSEngine
+    fts = FTSEngine(settings.database_url)
+    await fts.ensure_fts_tables()
+
+    # Create incremental analysis table
+    from cortex.pipeline.infrastructure.incremental_analyzer import IncrementalAnalyzer
+    incremental = IncrementalAnalyzer(settings.database_url)
+    await incremental.ensure_table()
+
     # Warn about any missing secrets/config that cause silent degradation.
     _warn_missing_secrets(settings)
 
@@ -116,6 +128,8 @@ def create_app() -> FastAPI:
     app.include_router(chat_router, prefix="/api/v1")
     app.include_router(memory_router, prefix="/api/v1")
     app.include_router(diagrams_router, prefix="/api/v1")
+    app.include_router(search_router, prefix="/api/v1")
+    app.include_router(overview_router, prefix="/api/v1")
 
     return app
 

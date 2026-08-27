@@ -52,6 +52,18 @@ class GitHubFetchStage(AbstractPipelineStage):
                 code_files=len(context.file_contents),
             )
 
+            # Store file hashes for incremental analysis on next run
+            try:
+                from cortex.pipeline.infrastructure.incremental_analyzer import IncrementalAnalyzer
+                incremental = IncrementalAnalyzer()
+                await incremental.store_hashes(
+                    repo_url=context.repo_url,
+                    job_id=context.job.id,
+                    file_contents=context.file_contents,
+                )
+            except Exception as hash_err:
+                logger.warning("file_hash_storage_failed", error=str(hash_err))
+
         except Exception as e:
             context.mark_error(f"GitHubFetchStage failed: {str(e)}")
 

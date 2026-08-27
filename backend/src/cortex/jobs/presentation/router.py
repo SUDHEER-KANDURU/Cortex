@@ -49,6 +49,81 @@ def get_job_service() -> JobService:
     return JobService(job_repository)
 
 
+async def _post_pipeline_intelligence(job: Job) -> None:
+    """Run post-pipeline intelligence: memory persistence + FTS indexing +
+    extended analysis (security, performance, testing).
+
+    This is Cortex's own intelligence — it persists durable facts and
+    indexes them for search. Fire-and-forget: failures here never fail the job.
+    """
+    from cortex.insights.application.engine import InsightsEngine
+    from cortex.insights.application.security_analyzer import SecurityAnalyzer
+    from cortex.insights.application.performance_analyzer import PerformanceAnalyzer
+    from cortex.insights.application.testing_analyzer import TestingAnalyzer
+    from cortex.memory.application.summarizer import RepositoryMemorySummarizer
+    from cortex.memory.infrastructure.dependencies import memory_repository
+    from cortex.graph.infrastructure.dependencies import graph_repository
+    from cortex.search.fts_engine import FTSEngine
+
+    # Step 1: Load graph data
+    nodes = await graph_repository.get_nodes_by_job(job.id)
+    edges = await graph_repository.get_edges_by_job(job.id)
+
+    if not nodes:
+        return
+
+    # Step 2: Compute core insights
+    engine = InsightsEngine()
+    report = engine.compute(job_id=job.id, repo_url=job.repo_url, nodes=nodes, edges=edges)
+
+    # Step 3: Run extended analyzers (Cortex's own intelligence)
+    from cortex.pipeline.infrastructure.graph_builder import GraphBuildResult
+    graph_result = GraphBuildResult(
+        nodes=nodes, edges=edges, job_id=job.id, repo_url=job.repo_url,
+        node_by_id={n.id: n for n in nodes},
+    )
+
+    security_findings = SecurityAnalyzer().analyze(graph_result)
+    performance_findings = PerformanceAnalyzer().analyze(graph_result)
+    testing_report = TestingAnalyzer().analyze(graph_result)
+
+    logger.info(
+        "extended_analysis_complete",
+        job_id=job.id,
+        security_findings=len(security_findings),
+        performance_findings=len(performance_findings),
+        testing_findings=len(testing_report.findings),
+    )
+
+    # Step 4: Persist to memory
+    summarizer = RepositoryMemorySummarizer()
+    existing = await memory_repository.get_summary_by_repo_url(job.repo_url)
+    summary, facts = summarizer.summarize(report, existing)
+
+    await memory_repository.save_summary(summary)
+    await memory_repository.add_facts(facts)
+
+    # Step 5: Index for FTS5 search
+    fts = FTSEngine()
+    await fts.index_facts(repo_url=job.repo_url, job_id=job.id)
+    await fts.index_nodes(job_id=job.id)
+
+    # Step 6: Store file hashes for incremental analysis on next run
+    from cortex.pipeline.infrastructure.incremental_analyzer import IncrementalAnalyzer
+    incremental = IncrementalAnalyzer()
+    # File contents are not available here (they're in PipelineContext, not persisted).
+    # Hash storage is triggered from the pipeline stages instead. This is a no-op
+    # placeholder — actual hash storage happens in GitHubFetchStage when file_contents
+    # are available.
+
+    logger.info(
+        "post_pipeline_intelligence_complete",
+        job_id=job.id,
+        repo_url=job.repo_url,
+        facts_count=len(facts),
+    )
+
+
 async def _run_pipeline_for_job(job: Job, service: JobService) -> None:
     """Run the full analysis pipeline for a job.
 
@@ -85,6 +160,12 @@ async def _run_pipeline_for_job(job: Job, service: JobService) -> None:
         )
 
         await service.mark_completed(job.id)
+
+        # ── Post-pipeline intelligence: memory + search indexing ──────────
+        try:
+            await _post_pipeline_intelligence(job)
+        except Exception as intel_err:
+            logger.warning("post_pipeline_intelligence_failed", job_id=job.id, error=str(intel_err))
 
         logger.info(
             "pipeline_completed",
