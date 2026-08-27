@@ -64,7 +64,7 @@ function hoverBg(_d: boolean)    { return 'rgba(255,255,255,0.30)'; }
 // Removed — the global liquid-blob background in layout.tsx covers all pages.
 
 // ── Navbar ────────────────────────────────────────────────────────────────────
-function DashboardNavbar() {
+const DashboardNavbar = React.memo(function DashboardNavbar() {
   const hov = hoverBg(false);
   const bdr = tintBorder(false);
   return (
@@ -115,7 +115,7 @@ function DashboardNavbar() {
       </nav>
     </header>
   );
-}
+});
 
 // ── Sidebar submit form ───────────────────────────────────────────────────────
 interface SidebarFormProps { onJobSubmitted: (job: Job) => void }
@@ -400,7 +400,7 @@ interface SidebarProps {
   onJobRetried: (newJob: Job) => void;
 }
 
-function Sidebar({ jobs, jobsLoading, jobsError, selectedJobId, onJobSelected, onJobSubmitted, onJobDeleted, onJobRetried }: SidebarProps) {
+const Sidebar = React.memo(function Sidebar({ jobs, jobsLoading, jobsError, selectedJobId, onJobSelected, onJobSubmitted, onJobDeleted, onJobRetried }: SidebarProps) {
   const bdr = 'rgba(255,255,255,0.45)';
   return (
     <aside aria-label="Repository sidebar" style={{
@@ -473,7 +473,7 @@ function Sidebar({ jobs, jobsLoading, jobsError, selectedJobId, onJobSelected, o
       </div>
     </aside>
   );
-}
+});
 
 // ── Animated pipeline — delegates to the full Framer Motion component ─────────
 // The old inline implementation is replaced. All animation logic lives in
@@ -621,7 +621,7 @@ function classifyInsightsError(message: string): { heading: string; detail: stri
 }
 
 // ── Insights tab — lazy-loaded inside the right panel ────────────────────────
-function InsightsTab({ jobId }: { jobId: string }) {
+const InsightsTab = React.memo(function InsightsTab({ jobId }: { jobId: string }) {
   const { report, isLoading, error, refetch } = useInsights(jobId);
 
   if (isLoading) {
@@ -663,7 +663,7 @@ function InsightsTab({ jobId }: { jobId: string }) {
   if (!report) return null;
 
   return <InsightsDashboard report={report} isDark={false} />;
-}
+});
 
 // ── Right panel ───────────────────────────────────────────────────────────────
 interface RightPanelProps {
@@ -673,7 +673,7 @@ interface RightPanelProps {
   onJobRetried: (newJob: Job) => void;
 }
 
-function RightPanel({ activeJob, artifacts, artifactsLoading, artifactsError, onJobRetried }: RightPanelProps) {
+const RightPanel = React.memo(function RightPanel({ activeJob, artifacts, artifactsLoading, artifactsError, onJobRetried }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState<'artifact' | 'insights'>('artifact');
   const { retriedJob, isRetrying, error: retryError, retry } = useRetryJob();
 
@@ -863,7 +863,7 @@ function RightPanel({ activeJob, artifacts, artifactsLoading, artifactsError, on
       </div>
     </div>
   );
-}
+});
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
@@ -912,13 +912,24 @@ export default function DashboardPage() {
   const activeJob = polledJob ?? selectedJob;
 
   // Keep the sidebar list in sync with live poll results —
-  // whenever the selected job's status changes, patch it in the jobs array
+  // only patch when something actually changed (status or updated_at).
+  // Without this guard, every 3-second poll fires setJobs even when the
+  // job is completed/unchanged, re-rendering the entire Sidebar tree.
+  const polledJobRef = useRef<{ id: string; status: string; updated_at?: string } | null>(null)
   useEffect(() => {
-    if (!polledJob) return;
+    if (!polledJob) return
+    const prev = polledJobRef.current
+    if (
+      prev &&
+      prev.id === polledJob.id &&
+      prev.status === polledJob.status &&
+      prev.updated_at === polledJob.updated_at
+    ) return  // nothing changed — skip the re-render
+    polledJobRef.current = { id: polledJob.id, status: polledJob.status, updated_at: polledJob.updated_at }
     setJobs(prev =>
       prev.map(j => j.id === polledJob.id ? { ...j, ...polledJob } : j)
-    );
-  }, [polledJob]);
+    )
+  }, [polledJob])
 
   const { artifacts, isLoading: artifactsLoading, error: artifactsError, refetch } = useArtifact(
     activeJob?.status === 'completed' ? (selectedJob?.id ?? null) : null

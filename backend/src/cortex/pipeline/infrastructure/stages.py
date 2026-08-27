@@ -52,6 +52,18 @@ class GitHubFetchStage(AbstractPipelineStage):
                 code_files=len(context.file_contents),
             )
 
+            # Store file hashes for incremental analysis on next run
+            try:
+                from cortex.pipeline.infrastructure.incremental_analyzer import IncrementalAnalyzer
+                incremental = IncrementalAnalyzer()
+                await incremental.store_hashes(
+                    repo_url=context.repo_url,
+                    job_id=context.job.id,
+                    file_contents=context.file_contents,
+                )
+            except Exception as hash_err:
+                logger.warning("file_hash_storage_failed", error=str(hash_err))
+
         except Exception as e:
             context.mark_error(f"GitHubFetchStage failed: {str(e)}")
 
@@ -194,11 +206,13 @@ class GraphBuildStage(AbstractPipelineStage):
                     edges=context.edge_count,
                 )
             except Exception as e:
-                logger.warning(
+                logger.error(
                     "graph_persist_failed",
                     job_id=context.job.id,
                     error=str(e),
                 )
+                context.mark_error(f"GraphBuildStage: failed to persist graph — {e}")
+                return context
 
             logger.info(
                 "graph_build_stage_completed",
@@ -237,8 +251,11 @@ class ArtifactGenerateStage(AbstractPipelineStage):
             markdown_gen = MarkdownReportGenerator()
 
             if artifact_type == "architecture_diagram":
-                content = mermaid_gen.generate(graph_result, repo_name)
-                content_type = ArtifactContentType.MERMAID
+                from cortex.pipeline.infrastructure.architecture_diagram_generator import (
+                    ArchitectureDiagramGenerator,
+                )
+                content = ArchitectureDiagramGenerator().generate(graph_result, repo_name)
+                content_type = ArtifactContentType.MARKDOWN
 
             elif artifact_type == "module_breakdown":
                 content = markdown_gen.generate_module_breakdown(graph_result, repo_name)
@@ -257,14 +274,23 @@ class ArtifactGenerateStage(AbstractPipelineStage):
                 content_type = ArtifactContentType.MARKDOWN
 
             elif artifact_type == "vibe_code_detection":
-                if context.vibe_report:
-                    content = context.vibe_report.to_markdown()
-                else:
-                    content = "# Vibe Code Detection\n\nNo vibe data available."
+                from cortex.pipeline.infrastructure.code_quality_generator import (
+                    CodeQualityGenerator,
+                )
+                content = CodeQualityGenerator().generate(
+                    graph_result, repo_name, vibe_report=context.vibe_report
+                )
                 content_type = ArtifactContentType.MARKDOWN
 
             elif artifact_type == "folder_structure":
                 content = markdown_gen.generate_module_breakdown(graph_result, repo_name)
+                content_type = ArtifactContentType.MARKDOWN
+
+            elif artifact_type == "engineering_report":
+                from cortex.pipeline.infrastructure.engineering_report_generator import (
+                    EngineeringReportGenerator,
+                )
+                content = EngineeringReportGenerator().generate(graph_result, repo_name)
                 content_type = ArtifactContentType.MARKDOWN
 
             elif artifact_type == "database_schema":
@@ -277,7 +303,7 @@ class ArtifactGenerateStage(AbstractPipelineStage):
                     graph_result,
                     repo_name,
                 )
-                content_type = ArtifactContentType.MERMAID
+                content_type = ArtifactContentType.MARKDOWN
 
             else:
                 content = mermaid_gen.generate(graph_result, repo_name)

@@ -245,17 +245,20 @@ function useSpotlight() {
 // ── Hero parallax — hero visualization responds gently to mouse movement ──────
 // Targets the element with [data-hero-panel] — added to the RepoTree container
 // in Hero.tsx. Extremely subtle ±8px shift that creates depth.
+// The RAF loop is paused automatically when the hero panel scrolls off-screen
+// using an IntersectionObserver, saving ~60 GSAP calls/s during the rest of
+// the landing page scroll.
 function useHeroParallax() {
   useEffect(() => {
     if (!window.matchMedia('(pointer: fine)').matches) return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
-    // Use a stable data attribute — much safer than a deep CSS selector
     const heroPanel = document.querySelector<HTMLElement>('[data-hero-panel]')
     if (!heroPanel) return
 
     let rafId = 0
     let tx = 0, ty = 0, cx = 0, cy = 0
+    let isVisible = true
 
     const onMove = (e: MouseEvent) => {
       const nx = (e.clientX / window.innerWidth  - 0.5) * 2
@@ -265,11 +268,25 @@ function useHeroParallax() {
     }
 
     const tick = () => {
-      cx += (tx - cx) * 0.06
-      cy += (ty - cy) * 0.06
-      gsap.set(heroPanel, { x: cx, y: cy, transformPerspective: 1200, overwrite: 'auto' })
+      if (isVisible) {
+        const dx = tx - cx
+        const dy = ty - cy
+        // Skip GSAP call when lerp has settled (delta < 0.05px)
+        if (Math.abs(dx) > 0.05 || Math.abs(dy) > 0.05) {
+          cx += dx * 0.06
+          cy += dy * 0.06
+          gsap.set(heroPanel, { x: cx, y: cy, transformPerspective: 1200, overwrite: 'auto' })
+        }
+      }
       rafId = requestAnimationFrame(tick)
     }
+
+    // Pause when hero is fully off-screen — no point animating invisible element
+    const io = new IntersectionObserver(
+      ([entry]) => { isVisible = entry.isIntersecting },
+      { threshold: 0 },
+    )
+    io.observe(heroPanel)
 
     window.addEventListener('mousemove', onMove, { passive: true })
     rafId = requestAnimationFrame(tick)
@@ -277,6 +294,7 @@ function useHeroParallax() {
     return () => {
       window.removeEventListener('mousemove', onMove)
       cancelAnimationFrame(rafId)
+      io.disconnect()
       gsap.set(heroPanel, { clearProps: 'x,y,transformPerspective' })
     }
   }, [])

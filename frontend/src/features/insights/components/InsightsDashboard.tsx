@@ -190,7 +190,7 @@ function ScoreRing({ score, grade }: { score: number; grade: string }) {
 // ── Dimension card ────────────────────────────────────────────────────────────
 // Left border uses grade color. Everything else is neutral.
 
-function DimensionCard({ dim }: { dim: HealthDimension }) {
+const DimensionCard = React.memo(function DimensionCard({ dim }: { dim: HealthDimension }) {
   const [open, setOpen] = useState(false);
   const borderColor = gradeColor(dim.grade);
 
@@ -291,13 +291,13 @@ function DimensionCard({ dim }: { dim: HealthDimension }) {
       )}
     </div>
   );
-}
+});
 
 // ── Issue card ────────────────────────────────────────────────────────────────
 // Left border = only place severity color appears.
 // Everything else: neutral text, neutral pills, neutral background.
 
-function IssueCard({ issue }: { issue: CodeIssue }) {
+const IssueCard = React.memo(function IssueCard({ issue }: { issue: CodeIssue }) {
   const [open, setOpen] = useState(false);
   const color = sevColor(issue.severity);
 
@@ -445,7 +445,7 @@ function IssueCard({ issue }: { issue: CodeIssue }) {
       )}
     </div>
   );
-}
+});
 
 // ── File group ────────────────────────────────────────────────────────────────
 

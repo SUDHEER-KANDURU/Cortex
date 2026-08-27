@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
 )
-from sqlalchemy import select, delete, func
+from sqlalchemy import select, delete, func, text
 from cortex.db import get_engine
 from cortex.graph.domain.entities import (
     GraphNode,
@@ -110,29 +110,46 @@ class SQLiteGraphRepository(AbstractGraphRepository):
         )
 
     async def save_nodes_bulk(self, nodes: list[GraphNode]) -> None:
-        """Insert all nodes in a single transaction.
+        """Persist all nodes for a job using INSERT OR REPLACE.
 
-        This is dramatically faster than calling save_node() in a loop —
-        one BEGIN/COMMIT wrapping all inserts instead of one per node.
-        Existing nodes (same id) are skipped to stay idempotent.
+        Uses raw SQL INSERT OR REPLACE (SQLite upsert) so the ORM identity
+        map never interferes. Safe to call multiple times — retries just
+        overwrite the previous attempt.
         """
         if not nodes:
             return
+        job_id = nodes[0].job_id
         async with self._session_factory() as session:
             try:
-                # Fetch all existing IDs in one query to decide skip/insert
-                existing_result = await session.execute(
-                    select(GraphNodeModel.id).where(
-                        GraphNodeModel.id.in_([n.id for n in nodes])
-                    )
+                # Build batch of dicts for bulk insert
+                rows = [
+                    {
+                        "id":         node.id,
+                        "label":      node.label,
+                        "node_type":  node.node_type.value,
+                        "job_id":     node.job_id,
+                        "properties": json.dumps(node.properties or {}),
+                        "created_at": node.created_at.isoformat()
+                        if hasattr(node.created_at, "isoformat")
+                        else str(node.created_at),
+                    }
+                    for node in nodes
+                ]
+                # INSERT OR REPLACE — atomically upserts every row
+                await session.execute(
+                    text(
+                        "INSERT OR REPLACE INTO graph_nodes "
+                        "(id, label, node_type, job_id, properties, created_at) "
+                        "VALUES (:id, :label, :node_type, :job_id, :properties, :created_at)"
+                    ),
+                    rows,
                 )
-                existing_ids = {row[0] for row in existing_result.all()}
-
-                for node in nodes:
-                    if node.id not in existing_ids:
-                        session.add(_node_to_model(node))
-
                 await session.commit()
+                logger.info(
+                    "nodes_bulk_saved",
+                    job_id=job_id,
+                    count=len(nodes),
+                )
             except Exception as e:
                 await session.rollback()
                 raise InfrastructureError(
@@ -140,27 +157,43 @@ class SQLiteGraphRepository(AbstractGraphRepository):
                 )
 
     async def save_edges_bulk(self, edges: list[GraphEdge]) -> None:
-        """Insert all edges in a single transaction.
+        """Persist all edges for a job using INSERT OR REPLACE.
 
-        Same rationale as save_nodes_bulk — one transaction for the full
-        set instead of one per edge.
+        Same approach as save_nodes_bulk — raw SQL upsert, ORM-safe.
         """
         if not edges:
             return
+        job_id = edges[0].job_id
         async with self._session_factory() as session:
             try:
-                existing_result = await session.execute(
-                    select(GraphEdgeModel.id).where(
-                        GraphEdgeModel.id.in_([e.id for e in edges])
-                    )
+                rows = [
+                    {
+                        "id":           edge.id,
+                        "source_id":    edge.source_id,
+                        "target_id":    edge.target_id,
+                        "relationship": edge.relationship.value,
+                        "job_id":       edge.job_id,
+                        "properties":   json.dumps(edge.properties or {}),
+                        "created_at":   edge.created_at.isoformat()
+                        if hasattr(edge.created_at, "isoformat")
+                        else str(edge.created_at),
+                    }
+                    for edge in edges
+                ]
+                await session.execute(
+                    text(
+                        "INSERT OR REPLACE INTO graph_edges "
+                        "(id, source_id, target_id, relationship, job_id, properties, created_at) "
+                        "VALUES (:id, :source_id, :target_id, :relationship, :job_id, :properties, :created_at)"
+                    ),
+                    rows,
                 )
-                existing_ids = {row[0] for row in existing_result.all()}
-
-                for edge in edges:
-                    if edge.id not in existing_ids:
-                        session.add(_edge_to_model(edge))
-
                 await session.commit()
+                logger.info(
+                    "edges_bulk_saved",
+                    job_id=job_id,
+                    count=len(edges),
+                )
             except Exception as e:
                 await session.rollback()
                 raise InfrastructureError(

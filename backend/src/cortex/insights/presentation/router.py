@@ -50,8 +50,11 @@ async def get_insights(job_id: str) -> InsightsReportResponse:
     if not nodes:
         raise HTTPException(
             status_code=404,
-            detail="No graph data found for this job. "
-                   "The analysis may not have built a graph yet.",
+            detail=(
+                "No graph data found for this job. "
+                "The graph build stage may have failed silently — "
+                "re-run the analysis to generate a fresh graph."
+            ),
         )
 
     try:

@@ -1,6 +1,16 @@
 """AST parser — extracts code structure from source files.
-Supports Python and Java. Returns structured data that the
-graph builder uses to create Neo4j nodes and edges."""
+Supports Python, Java, TypeScript, and JavaScript. Returns structured
+data that the graph builder uses to create knowledge graph nodes and edges.
+
+Extraction capabilities:
+  - Functions/methods with parameters, return types, decorators, docstrings
+  - Classes with base classes, attributes, interface/enum detection
+  - Imports (module-level dependencies)
+  - Cyclomatic complexity, nesting depth, branch count per function
+  - API endpoint detection (route decorators)
+  - Test function/file detection
+  - Function call targets (for CALLS relationship edges)
+"""
 
 import ast
 import re
@@ -29,9 +39,23 @@ class ParsedFunction:
     is_method: bool = False
     parent_class: str | None = None
     parameters: list[str] = field(default_factory=list)
+    return_type: str | None = None
     decorators: list[str] = field(default_factory=list)
     is_async: bool = False
     docstring: str | None = None
+    # Complexity metrics (computed during parsing)
+    cyclomatic_complexity: int = 1
+    branch_count: int = 0
+    nesting_depth: int = 0
+    call_count: int = 0
+    # Calls made by this function (list of qualified names or identifiers)
+    calls: list[str] = field(default_factory=list)
+    # Whether this looks like a test function
+    is_test: bool = False
+    # Whether this is an API endpoint (has route decorator)
+    is_endpoint: bool = False
+    # Route info (e.g. "GET /api/v1/users")
+    route_info: str | None = None
 
     def qualified_name(self) -> str:
         """Returns class.method or just function name."""
@@ -41,6 +65,20 @@ class ParsedFunction:
 
     def line_count(self) -> int:
         return self.line_end - self.line_start + 1
+
+    def has_docstring(self) -> bool:
+        return self.docstring is not None and len(self.docstring.strip()) > 0
+
+    def is_complex(self, threshold: int = 10) -> bool:
+        """Returns True if cyclomatic complexity exceeds threshold."""
+        return self.cyclomatic_complexity >= threshold
+
+    def is_long(self, threshold: int = 50) -> bool:
+        """Returns True if function exceeds line count threshold."""
+        return self.line_count() >= threshold
+
+    def parameter_count(self) -> int:
+        return len(self.parameters)
 
 
 @dataclass
@@ -54,12 +92,43 @@ class ParsedClass:
     methods: list[ParsedFunction] = field(default_factory=list)
     decorators: list[str] = field(default_factory=list)
     docstring: str | None = None
+    # Whether this is an interface (ABC in Python, interface in TS/Java)
+    is_interface: bool = False
+    # Whether this is an enum
+    is_enum: bool = False
+    # Class-level attributes/fields detected
+    attributes: list[str] = field(default_factory=list)
 
     def method_count(self) -> int:
         return len(self.methods)
 
     def is_abstract(self) -> bool:
-        return "ABC" in self.base_classes or "ABCMeta" in self.base_classes
+        return (
+            "ABC" in self.base_classes
+            or "ABCMeta" in self.base_classes
+            or "Abstract" in self.name
+            or self.is_interface
+        )
+
+    def line_count(self) -> int:
+        return self.line_end - self.line_start + 1
+
+    def has_docstring(self) -> bool:
+        return self.docstring is not None and len(self.docstring.strip()) > 0
+
+    def total_complexity(self) -> int:
+        """Sum of cyclomatic complexity across all methods."""
+        return sum(m.cyclomatic_complexity for m in self.methods)
+
+    def avg_method_complexity(self) -> float:
+        """Average cyclomatic complexity per method."""
+        if not self.methods:
+            return 0.0
+        return self.total_complexity() / len(self.methods)
+
+    def is_god_class(self, method_threshold: int = 15, line_threshold: int = 300) -> bool:
+        """Heuristic: too many methods OR too many lines."""
+        return self.method_count() >= method_threshold or self.line_count() >= line_threshold
 
 
 @dataclass
@@ -87,18 +156,16 @@ class ParsedFile:
     imports: list[ParsedImport] = field(default_factory=list)
     line_count: int = 0
     parse_errors: list[str] = field(default_factory=list)
+    # Whether this file is a test file
+    is_test_file: bool = False
+    # Whether this file is a configuration file
+    is_config_file: bool = False
 
     def has_errors(self) -> bool:
         return len(self.parse_errors) > 0
 
     def file_contents_available(self) -> bool:
-        """Always returns False — raw file content is not stored in ParsedFile.
-
-        KNOWN LIMITATION: Content-based detection (scanning for hardcoded
-        secrets in function bodies, etc.) is gated by this method.
-        Implementing full content storage would require keeping the raw
-        source in ParsedFile and is a future enhancement.
-        """
+        """Always returns False — raw file content is not stored in ParsedFile."""
         return False
 
     def all_functions(self) -> list[ParsedFunction]:
@@ -107,6 +174,35 @@ class ParsedFile:
         for cls in self.classes:
             all_fns.extend(cls.methods)
         return all_fns
+
+    def all_endpoints(self) -> list[ParsedFunction]:
+        """Returns all functions that are detected API endpoints."""
+        return [f for f in self.all_functions() if f.is_endpoint]
+
+    def total_complexity(self) -> int:
+        """Total cyclomatic complexity across all functions in this file."""
+        return sum(f.cyclomatic_complexity for f in self.all_functions())
+
+    def max_complexity(self) -> int:
+        """Maximum cyclomatic complexity of any single function."""
+        fns = self.all_functions()
+        return max((f.cyclomatic_complexity for f in fns), default=1)
+
+    def complex_functions(self, threshold: int = 10) -> list[ParsedFunction]:
+        """Functions exceeding the complexity threshold."""
+        return [f for f in self.all_functions() if f.is_complex(threshold)]
+
+    def long_functions(self, threshold: int = 50) -> list[ParsedFunction]:
+        """Functions exceeding the line count threshold."""
+        return [f for f in self.all_functions() if f.is_long(threshold)]
+
+    def documentation_ratio(self) -> float:
+        """Fraction of functions/classes that have docstrings."""
+        all_symbols = self.all_functions() + self.classes  # type: ignore[operator]
+        if not all_symbols:
+            return 1.0
+        documented = sum(1 for s in all_symbols if s.has_docstring())
+        return documented / len(all_symbols)
 
     def summary(self) -> dict:
         return {
@@ -118,6 +214,9 @@ class ParsedFile:
             "imports": len(self.imports),
             "lines": self.line_count,
             "errors": len(self.parse_errors),
+            "endpoints": len(self.all_endpoints()),
+            "is_test": self.is_test_file,
+            "max_complexity": self.max_complexity(),
         }
 
 
@@ -131,6 +230,23 @@ class PythonASTParser:
             language=Language.PYTHON,
             line_count=len(content.splitlines()),
         )
+
+        # Detect test files by path pattern
+        import os
+        basename = os.path.basename(file_path)
+        result.is_test_file = (
+            basename.startswith("test_")
+            or basename.endswith("_test.py")
+            or "/tests/" in file_path.replace("\\", "/")
+            or "/test/" in file_path.replace("\\", "/")
+            or basename == "conftest.py"
+        )
+
+        # Detect config files
+        result.is_config_file = basename in (
+            "config.py", "settings.py", "conf.py", "setup.py",
+            "pyproject.toml", "setup.cfg",
+        ) or "config" in basename.lower()
 
         try:
             tree = ast.parse(content, filename=file_path)
@@ -209,6 +325,27 @@ class PythonASTParser:
             elif isinstance(dec, ast.Attribute):
                 decorators.append(dec.attr)
 
+        # Detect if this is an interface (ABC-based)
+        is_interface = any(
+            b in ("ABC", "ABCMeta", "Protocol") for b in base_classes
+        ) or "abstractmethod" in " ".join(decorators)
+
+        # Detect if this is an enum
+        is_enum = any(
+            b in ("Enum", "IntEnum", "StrEnum", "Flag", "IntFlag")
+            for b in base_classes
+        )
+
+        # Extract class-level attributes (annotated assignments)
+        attributes = []
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
+                attributes.append(child.target.id)
+            elif isinstance(child, ast.Assign):
+                for target in child.targets:
+                    if isinstance(target, ast.Name):
+                        attributes.append(target.id)
+
         parsed_class = ParsedClass(
             name=node.name,
             file_path=file_path,
@@ -217,6 +354,9 @@ class PythonASTParser:
             base_classes=base_classes,
             decorators=decorators,
             docstring=docstring,
+            is_interface=is_interface,
+            is_enum=is_enum,
+            attributes=attributes[:30],  # cap to avoid memory bloat
         )
 
         # Extract methods
@@ -252,18 +392,73 @@ class PythonASTParser:
             if arg.arg != "self" and arg.arg != "cls":
                 params.append(arg.arg)
 
+        # Extract return type annotation
+        return_type = None
+        if node.returns:
+            try:
+                return_type = ast.unparse(node.returns)
+            except Exception:
+                pass
+
         decorators = []
+        decorator_strs = []  # full decorator text for endpoint detection
         for dec in node.decorator_list:
             if isinstance(dec, ast.Name):
                 decorators.append(dec.id)
+                decorator_strs.append(dec.id)
             elif isinstance(dec, ast.Attribute):
                 decorators.append(dec.attr)
+                try:
+                    decorator_strs.append(ast.unparse(dec))
+                except Exception:
+                    decorator_strs.append(dec.attr)
+            elif isinstance(dec, ast.Call):
+                try:
+                    full_dec = ast.unparse(dec)
+                    decorator_strs.append(full_dec)
+                    # Get the base name
+                    if isinstance(dec.func, ast.Attribute):
+                        decorators.append(dec.func.attr)
+                    elif isinstance(dec.func, ast.Name):
+                        decorators.append(dec.func.id)
+                except Exception:
+                    pass
+
+        # ── Detect if this is an API endpoint ─────────────────────────────────
+        is_endpoint = False
+        route_info = None
+        _http_methods = {"get", "post", "put", "patch", "delete", "options", "head"}
+        for dec_str in decorator_strs:
+            dec_lower = dec_str.lower()
+            for method in _http_methods:
+                if f".{method}(" in dec_lower or f"@{method}(" in dec_lower:
+                    # Extract the route path from the decorator
+                    import re as _re
+                    path_match = _re.search(r'["\']([^"\']+)["\']', dec_str)
+                    path = path_match.group(1) if path_match else "/"
+                    route_info = f"{method.upper()} {path}"
+                    is_endpoint = True
+                    break
+            if f"route(" in dec_lower or f"api_view" in dec_lower:
+                is_endpoint = True
+            if is_endpoint:
+                break
+
+        # ── Detect if this is a test function ─────────────────────────────────
+        is_test = (
+            node.name.startswith("test_")
+            or node.name.startswith("test")
+            and node.name != "test"
+            or "pytest" in " ".join(decorators).lower()
+            or "parametrize" in " ".join(decorators).lower()
+        )
 
         # ── Cyclomatic complexity (McCabe) ────────────────────────────────────
         branch_count  = 0
         nesting_depth = 0
         call_count    = 0
         max_depth     = 0
+        calls_made: list[str] = []
 
         def _walk_complexity(subtree: ast.AST, depth: int) -> None:
             nonlocal branch_count, nesting_depth, call_count, max_depth
@@ -285,7 +480,6 @@ class PythonASTParser:
                 elif isinstance(child, ast.With):
                     _walk_complexity(child, depth + 1)
                 elif isinstance(child, ast.BoolOp):
-                    # each additional operand in and/or adds a branch
                     branch_count += len(child.values) - 1
                     _walk_complexity(child, depth)
                 elif isinstance(child, ast.Assert):
@@ -293,12 +487,31 @@ class PythonASTParser:
                     _walk_complexity(child, depth)
                 elif isinstance(child, ast.Call):
                     call_count += 1
+                    # Extract the call target name
+                    try:
+                        call_name = ast.unparse(child.func)
+                        # Simplify: keep last segment for attribute access
+                        if "." in call_name:
+                            # e.g. self._repo.save -> save
+                            parts = call_name.split(".")
+                            # Keep class.method or just method
+                            if len(parts) >= 2 and parts[0] == "self":
+                                calls_made.append(".".join(parts[1:]))
+                            else:
+                                calls_made.append(parts[-1])
+                        else:
+                            calls_made.append(call_name)
+                    except Exception:
+                        pass
                     _walk_complexity(child, depth)
                 else:
                     _walk_complexity(child, depth)
 
         _walk_complexity(node, 0)
-        cyclomatic = 1 + branch_count   # standard McCabe formula
+        cyclomatic = 1 + branch_count
+
+        # Deduplicate calls (keep unique call targets)
+        unique_calls = list(dict.fromkeys(calls_made))[:20]  # cap at 20
 
         fn = ParsedFunction(
             name=node.name,
@@ -308,15 +521,19 @@ class PythonASTParser:
             is_method=is_method,
             parent_class=parent_class,
             parameters=params,
+            return_type=return_type,
             decorators=decorators,
             is_async=isinstance(node, ast.AsyncFunctionDef),
             docstring=ast.get_docstring(node),
+            cyclomatic_complexity=cyclomatic,
+            branch_count=branch_count,
+            nesting_depth=max_depth,
+            call_count=call_count,
+            calls=unique_calls,
+            is_test=is_test,
+            is_endpoint=is_endpoint,
+            route_info=route_info,
         )
-        # Store complexity metrics as extra attributes for graph builder
-        fn._cyclomatic  = cyclomatic    # type: ignore[attr-defined]
-        fn._branch_count = branch_count  # type: ignore[attr-defined]
-        fn._nesting_depth= max_depth     # type: ignore[attr-defined]
-        fn._call_count   = call_count    # type: ignore[attr-defined]
         return fn
 
 
@@ -461,11 +678,11 @@ class JavaASTParser:
                 line_end=line_end,
                 is_method=True,
                 parameters=params,
+                cyclomatic_complexity=cyclo,
+                branch_count=branch_c,
+                nesting_depth=nest_d,
+                call_count=call_c,
             )
-            fn._cyclomatic   = cyclo    # type: ignore[attr-defined]
-            fn._branch_count = branch_c  # type: ignore[attr-defined]
-            fn._nesting_depth= nest_d    # type: ignore[attr-defined]
-            fn._call_count   = call_c    # type: ignore[attr-defined]
             result.functions.append(fn)
 
         logger.info("java_file_parsed", file=file_path, **result.summary())
@@ -807,11 +1024,11 @@ class TypeScriptASTParser:
                     parameters=params,
                     is_async=is_async,
                     docstring=jsdoc,
+                    cyclomatic_complexity=cyclo,
+                    branch_count=branch_c,
+                    nesting_depth=nest_d,
+                    call_count=call_c,
                 )
-                method._cyclomatic   = cyclo    # type: ignore[attr-defined]
-                method._branch_count = branch_c  # type: ignore[attr-defined]
-                method._nesting_depth= nest_d    # type: ignore[attr-defined]
-                method._call_count   = call_c    # type: ignore[attr-defined]
                 cls.methods.append(method)
 
         # ── Parse top-level function declarations ─────────────────────────────
@@ -843,11 +1060,11 @@ class TypeScriptASTParser:
                 parameters=params,
                 is_async=is_async,
                 docstring=jsdoc,
+                cyclomatic_complexity=cyclo,
+                branch_count=branch_c,
+                nesting_depth=nest_d,
+                call_count=call_c,
             )
-            fn._cyclomatic   = cyclo    # type: ignore[attr-defined]
-            fn._branch_count = branch_c  # type: ignore[attr-defined]
-            fn._nesting_depth= nest_d    # type: ignore[attr-defined]
-            fn._call_count   = call_c    # type: ignore[attr-defined]
             result.functions.append(fn)
 
         # ── Parse top-level arrow functions ───────────────────────────────────
@@ -890,11 +1107,11 @@ class TypeScriptASTParser:
                 parameters=params,
                 is_async=is_async,
                 docstring=jsdoc,
+                cyclomatic_complexity=cyclo,
+                branch_count=branch_c,
+                nesting_depth=nest_d,
+                call_count=call_c,
             )
-            arrow_fn._cyclomatic   = cyclo    # type: ignore[attr-defined]
-            arrow_fn._branch_count = branch_c  # type: ignore[attr-defined]
-            arrow_fn._nesting_depth= nest_d    # type: ignore[attr-defined]
-            arrow_fn._call_count   = call_c    # type: ignore[attr-defined]
             result.functions.append(arrow_fn)
 
         logger.info("ts_file_parsed", file=file_path, **result.summary())

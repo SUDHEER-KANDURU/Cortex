@@ -23,7 +23,8 @@ class ArtifactType(str, Enum):
     API_SPEC = "api_spec"
     LEARNING_PATH = "learning_path"
     INTERVIEW_QUESTIONS = "interview_questions"
-    VIBE_CODE_DETECTION = "vibe_code_detection"  # Fix 7
+    VIBE_CODE_DETECTION = "vibe_code_detection"
+    ENGINEERING_REPORT = "engineering_report"
 
 
 TERMINAL_STATUSES = {

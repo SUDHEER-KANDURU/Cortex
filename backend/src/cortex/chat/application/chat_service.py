@@ -1,19 +1,20 @@
 """Chat service — orchestrates context retrieval and NIM streaming."""
 
 import uuid
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
+
+import structlog
+
 from cortex.chat.domain.entities import (
     ChatSession,
-    ChatMessage,
     MessageRole,
 )
 from cortex.chat.infrastructure.context_retriever import ContextRetriever
-from cortex.chat.infrastructure.nim_client import NIMClient
 from cortex.chat.infrastructure.dependencies import chat_repository
-from cortex.graph.infrastructure.sqlite_repository import SQLiteGraphRepository
-from cortex.jobs.infrastructure.pg_repository import PostgresJobRepository
+from cortex.chat.infrastructure.nim_client import NIMClient
 from cortex.config import get_settings
-import structlog
+from cortex.graph.infrastructure.sqlite_repository import SQLiteGraphRepository
+from cortex.jobs.infrastructure.dependencies import job_repository
 
 logger = structlog.get_logger()
 
@@ -51,7 +52,9 @@ class ChatService:
         self._nim = NIMClient(settings.nim_api_key)
         self._use_nim = bool(settings.nim_api_key)
         self._repo = chat_repository
-        self._job_repo = PostgresJobRepository(settings.database_url)
+        # Use the shared singleton from jobs/infrastructure/dependencies
+        # instead of constructing a new engine per ChatService instance.
+        self._job_repo = job_repository
 
     async def create_session(self, job_id: str) -> ChatSession:
         """Create and persist a new chat session for a job."""
@@ -194,6 +197,10 @@ class ChatService:
             )
         elif any(w in q_lower for w in ["how many", "count", "total"]):
             repo = SQLiteGraphRepository(get_settings().database_url)
+            # SQLiteGraphRepository now uses the shared engine singleton via
+            # get_engine(). Do NOT dispose it — that would shut down the shared
+            # pool. The repo object itself is ephemeral; the engine it references
+            # is not.
             counts = await repo.count_by_job(job_id)
             return (
                 f"The repository has {counts.get('nodes', 0)} "
