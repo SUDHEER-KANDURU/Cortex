@@ -3,6 +3,7 @@ Takes ParsedFile objects from the AST parser and creates
 GraphNode and GraphEdge domain entities ready for Neo4j storage."""
 
 import uuid
+import hashlib
 from dataclasses import dataclass, field
 import structlog
 
@@ -226,11 +227,6 @@ class GraphBuilder:
                         source=file_node,
                         target=target_node,
                         relationship=RelationshipType.IMPORTS,
-                    ))
-                    result.edges.append(self._create_edge(
-                        source=file_node,
-                        target=target_node,
-                        relationship=RelationshipType.DEPENDS_ON,
                     ))
 
         # Step 8 — Add inheritance edges between classes
@@ -533,7 +529,11 @@ class GraphBuilder:
         )
 
     def _make_id(self, prefix: str, value: str) -> str:
-        """Create a deterministic node ID from a prefix and value.
-        Same input always produces same ID — no duplicates."""
-        clean = value.replace("/", "_").replace(".", "_").lower()
-        return f"{self._job_id[:8]}_{prefix}_{clean}"
+        """Create a deterministic, collision-free node ID.
+
+        Uses a short SHA-256 hash of the value so that paths that
+        differ only in separators (e.g. 'a/b.c' vs 'a/b/c') never
+        produce the same ID. The job prefix keeps IDs scoped per job.
+        """
+        digest = hashlib.sha256(value.encode()).hexdigest()[:12]
+        return f"{self._job_id[:8]}_{prefix}_{digest}"

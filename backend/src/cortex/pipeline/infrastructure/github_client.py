@@ -13,6 +13,32 @@ from shared.exceptions import InfrastructureError
 
 logger = structlog.get_logger()
 
+# Shared set of extensions considered "code" for fetching and classification.
+CODE_EXTENSIONS = {
+    ".py", ".java", ".ts", ".tsx", ".js", ".jsx",
+    ".go", ".rs", ".cpp", ".c", ".cs", ".rb",
+    ".kt", ".swift", ".scala", ".r", ".m",
+    ".php", ".dart", ".vue", ".svelte", ".lua",
+    ".zig", ".ex", ".exs", ".erl", ".hs",
+    ".ml", ".pl", ".pm", ".jl", ".sh", ".bash",
+    ".html", ".css", ".scss", ".sass", ".less",
+    ".sql", ".graphql", ".gql", ".proto",
+}
+
+# Fallback extensions used when no code files are found.
+CONFIG_EXTENSIONS = {
+    ".yaml", ".yml", ".toml", ".json", ".xml",
+    ".md", ".rst", ".txt", ".cfg", ".ini",
+    ".env", ".dockerfile",
+}
+
+CONFIG_FILENAMES = {
+    "Dockerfile", "Makefile", "Procfile", "Gemfile",
+    "package.json", "pyproject.toml", "pom.xml",
+    "build.gradle", "Cargo.toml", "go.mod",
+    "requirements.txt", "setup.py", "CMakeLists.txt",
+}
+
 
 @dataclass
 class GitHubFile:
@@ -24,12 +50,7 @@ class GitHubFile:
     encoding: str = "utf-8"
 
     def is_code_file(self) -> bool:
-        code_extensions = {
-            ".py", ".java", ".ts", ".tsx", ".js", ".jsx",
-            ".go", ".rs", ".cpp", ".c", ".cs", ".rb",
-            ".kt", ".swift", ".scala", ".r", ".m",
-        }
-        return any(self.path.endswith(ext) for ext in code_extensions)
+        return any(self.path.endswith(ext) for ext in CODE_EXTENSIONS)
 
     def is_config_file(self) -> bool:
         config_files = {
@@ -213,20 +234,35 @@ class GitHubClient:
         """Fetch code files in parallel with a concurrency limit of 10.
 
         Fix 10 — replaces sequential for-loop with asyncio.gather + semaphore.
+        Fix 12 — expanded extension whitelist; fallback to config/markup files
+        when no code files match so the pipeline never returns 0 files for a
+        non-empty repository.
         """
         tree = await self.get_file_tree(owner, repo)
 
         code_nodes = sorted(
             [
                 n for n in tree
-                if n.is_file() and n.extension() in {
-                    ".py", ".java", ".ts", ".tsx", ".js", ".jsx",
-                    ".go", ".rs", ".cpp", ".c", ".cs", ".rb",
-                }
+                if n.is_file() and n.extension() in CODE_EXTENSIONS
             ],
             key=lambda n: n.size,
             reverse=True,  # largest files first — they carry the most signal
         )[:max_files]
+
+        # Fallback: if no code files matched, fetch config/markup files so the
+        # pipeline has something to analyze rather than failing outright.
+        if not code_nodes:
+            code_nodes = sorted(
+                [
+                    n for n in tree
+                    if n.is_file() and (
+                        n.extension() in CONFIG_EXTENSIONS
+                        or n.path.split("/")[-1] in CONFIG_FILENAMES
+                    )
+                ],
+                key=lambda n: n.size,
+                reverse=True,
+            )[:max_files]
 
         logger.info(
             "github_fetching_code_files",

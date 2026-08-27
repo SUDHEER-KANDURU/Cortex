@@ -15,6 +15,7 @@ import { useArtifact } from '@/features/artifacts/hooks/useArtifact';
 import { useGraphData } from '@/features/graph/hooks/useGraphData';
 import ArtifactViewer from '@/features/artifacts/components/ArtifactViewer';
 import GraphCanvas from '@/features/graph/components/GraphCanvas';
+import { ArchitectureDiagramPanel } from '@/features/diagrams';
 import StatusBadge from '@/components/shared/StatusBadge';
 import Navbar from '@/components/layout/Navbar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -193,6 +194,15 @@ export default function JobDetailPage() {
                     Knowledge Graph
                   </TabsTrigger>
                 )}
+                {job.artifact_type === 'architecture_diagram' && (
+                  <TabsTrigger
+                    value="architecture"
+                    style={{ borderRadius: 'var(--radius-sm)', padding: '6px 16px', fontSize: 13, color: 'var(--text-muted)', transition: 'all 0.2s' }}
+                    className="data-[state=active]:bg-[var(--surface)] data-[state=active]:text-[var(--text)] data-[state=active]:shadow-sm"
+                  >
+                    Architecture
+                  </TabsTrigger>
+                )}
               </TabsList>
 
               <TabsContent value="artifacts">
@@ -226,6 +236,12 @@ export default function JobDetailPage() {
                   {graphLoading && <InlineLoader stage="building_graph" message="Loading Knowledge Graph…" />}
                   {graphError && <p style={{ fontSize: 13, color: 'var(--danger)' }}>{graphError}</p>}
                   {!graphLoading && <GraphCanvas nodes={nodes} edges={edges} />}
+                </TabsContent>
+              )}
+
+              {job.artifact_type === 'architecture_diagram' && (
+                <TabsContent value="architecture">
+                  <ArchitectureDiagramPanel jobId={job.id} />
                 </TabsContent>
               )}
             </Tabs>

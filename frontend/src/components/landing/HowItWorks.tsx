@@ -11,7 +11,7 @@
 //  • Zero blue, zero purple — monochrome + ink palette only
 // =============================================================================
 
-import { useEffect, useRef, useState, useCallback } from "react"
+import React, { useEffect, useRef, useState, useCallback } from "react"
 import gsap from "gsap"
 
 // ── Palette — NO blue, NO purple ─────────────────────────────────────────────
@@ -394,7 +394,6 @@ interface ConnectorLineProps {
 function ConnectorLine({ active, isDone }: ConnectorLineProps) {
   const lineRef = useRef<SVGLineElement>(null)
   const glowRef = useRef<SVGLineElement>(null)
-  const particleRef = useRef<SVGLineElement>(null)
   const hasAnimated = useRef(false)
 
   useEffect(() => {
@@ -410,7 +409,6 @@ function ConnectorLine({ active, isDone }: ConnectorLineProps) {
     }
 
     if (isDone) {
-      // Already past — show fully, no animation
       line.style.strokeDashoffset = "0"
       glow.style.strokeDashoffset = "0"
       hasAnimated.current = true
@@ -419,7 +417,6 @@ function ConnectorLine({ active, isDone }: ConnectorLineProps) {
 
     if (active && !hasAnimated.current) {
       hasAnimated.current = true
-      // Draw-on animation: strokeDashoffset from LINE_LENGTH → 0
       gsap.fromTo(
         [line, glow],
         { strokeDashoffset: LINE_LENGTH },
@@ -428,70 +425,66 @@ function ConnectorLine({ active, isDone }: ConnectorLineProps) {
     }
 
     if (!active && !isDone) {
-      // Reset so it can animate again if needed
       hasAnimated.current = false
       line.style.strokeDashoffset = String(LINE_LENGTH)
       glow.style.strokeDashoffset = String(LINE_LENGTH)
     }
   }, [active, isDone])
 
-  // Data-flow particle — loops continuously once this connector is done
-  useEffect(() => {
-    const particle = particleRef.current
-    if (!particle) return
-    if (!isDone) return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-
-    const tween = gsap.to(particle, {
-      strokeDashoffset: -LINE_LENGTH,
-      duration: 2,
-      ease: 'none',
-      repeat: -1,
-    })
-    return () => { tween.kill() }
-  }, [isDone])
+  // Particle animation runs entirely in CSS — no GSAP tween, no JS loop.
+  // The SVG element uses a CSS animation when isDone is true.
+  const particleStyle: React.CSSProperties = isDone
+    ? { animation: 'connector-flow 2s linear infinite', opacity: 0.6 }
+    : { opacity: 0 }
 
   return (
-    <svg
-      width="2"
-      height={LINE_LENGTH}
-      viewBox={`0 0 2 ${LINE_LENGTH}`}
-      overflow="visible"
-      style={{ display: "block", margin: "0 auto" }}
-      aria-hidden="true"
-    >
-      {/* Glow line */}
-      <line
-        ref={glowRef}
-        x1="1" y1="0" x2="1" y2={LINE_LENGTH}
-        stroke="var(--border-hover)"
-        strokeWidth="2"
-        strokeDasharray={LINE_LENGTH}
-        strokeDashoffset={isDone ? 0 : LINE_LENGTH}
-        opacity={(isDone || active) ? 0.4 : 0}
-        style={{ transition: "opacity 0.3s ease" }}
-      />
-      {/* Main connector line */}
-      <line
-        ref={lineRef}
-        x1="1" y1="0" x2="1" y2={LINE_LENGTH}
-        stroke={isDone ? "var(--text-muted)" : "var(--border)"}
-        strokeWidth="1"
-        strokeDasharray={LINE_LENGTH}
-        strokeDashoffset={isDone ? 0 : LINE_LENGTH}
-      />
-      {/* Data-flow particle */}
-      <line
-        ref={particleRef}
-        x1="1" y1="0" x2="1" y2={LINE_LENGTH}
-        stroke="var(--primary)"
-        strokeWidth="2"
-        strokeDasharray={`3 ${LINE_LENGTH}`}
-        strokeDashoffset={LINE_LENGTH}
-        opacity={isDone ? 0.6 : 0}
-        style={{ transition: "opacity 0.3s ease" }}
-      />
-    </svg>
+    <>
+      {/* Keyframe defined once per ConnectorLine instance — tiny overhead */}
+      <style>{`
+        @keyframes connector-flow {
+          from { stroke-dashoffset: ${LINE_LENGTH}; }
+          to   { stroke-dashoffset: ${-LINE_LENGTH}; }
+        }
+      `}</style>
+      <svg
+        width="2"
+        height={LINE_LENGTH}
+        viewBox={`0 0 2 ${LINE_LENGTH}`}
+        overflow="visible"
+        style={{ display: "block", margin: "0 auto" }}
+        aria-hidden="true"
+      >
+        {/* Glow line */}
+        <line
+          ref={glowRef}
+          x1="1" y1="0" x2="1" y2={LINE_LENGTH}
+          stroke="var(--border-hover)"
+          strokeWidth="2"
+          strokeDasharray={LINE_LENGTH}
+          strokeDashoffset={isDone ? 0 : LINE_LENGTH}
+          opacity={(isDone || active) ? 0.4 : 0}
+          style={{ transition: "opacity 0.3s ease" }}
+        />
+        {/* Main connector line */}
+        <line
+          ref={lineRef}
+          x1="1" y1="0" x2="1" y2={LINE_LENGTH}
+          stroke={isDone ? "var(--text-muted)" : "var(--border)"}
+          strokeWidth="1"
+          strokeDasharray={LINE_LENGTH}
+          strokeDashoffset={isDone ? 0 : LINE_LENGTH}
+        />
+        {/* Data-flow particle — CSS animation, zero JS overhead */}
+        <line
+          x1="1" y1="0" x2="1" y2={LINE_LENGTH}
+          stroke="var(--primary)"
+          strokeWidth="2"
+          strokeDasharray={`3 ${LINE_LENGTH}`}
+          strokeDashoffset={LINE_LENGTH}
+          style={particleStyle}
+        />
+      </svg>
+    </>
   )
 }
 
@@ -783,45 +776,68 @@ export function PortfolioHowItWorks() {
       return
     }
 
-    startAuto()
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
 
-    const onScroll = () => {
-      const wrapper = wrapperRef.current
-      if (!wrapper) return
+    // Only attach scroll listener and auto-timer while section is on-screen.
+    // This prevents the setInterval and scroll handler from firing across the
+    // entire landing page scroll, which caused ~60 calls/s of useless work.
+    let removeScroll: (() => void) | null = null
 
-      const rect   = wrapper.getBoundingClientRect()
-      const total  = wrapper.offsetHeight - window.innerHeight
-      // scrollY relative to the start of this section's scroll runway,
-      // offset by 56px (header height) so the first step activates correctly
-      const scrolled = -(rect.top - 56)
-      const progress  = Math.max(0, Math.min(1, scrolled / total))
+    const startListening = () => {
+      if (removeScroll) return  // already listening
 
-      // Map 0–1 progress across 6 steps (progress = i / 6 per stage)
-      const step = Math.min(Math.floor(progress * STEPS.length), STEPS.length - 1)
+      startAuto()
 
-      if (step !== undefined) {
+      const onScroll = () => {
+        const w = wrapperRef.current
+        if (!w) return
+
+        const rect     = w.getBoundingClientRect()
+        const total    = w.offsetHeight - window.innerHeight
+        const scrolled = -(rect.top - 56)
+        const progress = Math.max(0, Math.min(1, scrolled / total))
+        const step     = Math.min(Math.floor(progress * STEPS.length), STEPS.length - 1)
+
         setActiveStep(step)
+
+        if (!isScrolling.current) {
+          isScrolling.current = true
+          stopAuto()
+        }
+        if (scrollTimeout.current) clearTimeout(scrollTimeout.current)
+        scrollTimeout.current = setTimeout(() => {
+          isScrolling.current = false
+          startAuto()
+        }, 2000)
       }
 
-      // While actively scrolling: pause auto-cycle
-      if (!isScrolling.current) {
-        isScrolling.current = true
+      window.addEventListener("scroll", onScroll, { passive: true })
+      removeScroll = () => {
+        window.removeEventListener("scroll", onScroll)
         stopAuto()
+        if (scrollTimeout.current) clearTimeout(scrollTimeout.current)
       }
-
-      // Restart auto-cycle 2 s after scroll stops
-      if (scrollTimeout.current) clearTimeout(scrollTimeout.current)
-      scrollTimeout.current = setTimeout(() => {
-        isScrolling.current = false
-        startAuto()
-      }, 2000)
     }
 
-    window.addEventListener("scroll", onScroll, { passive: true })
+    const stopListening = () => {
+      removeScroll?.()
+      removeScroll = null
+    }
+
+    // IntersectionObserver: start/stop when section enters/leaves viewport
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) startListening()
+        else stopListening()
+      },
+      { threshold: 0 },
+    )
+    io.observe(wrapper)
+
     return () => {
-      window.removeEventListener("scroll", onScroll)
-      stopAuto()
-      if (scrollTimeout.current) clearTimeout(scrollTimeout.current)
+      io.disconnect()
+      stopListening()
     }
   }, [startAuto, stopAuto])
 

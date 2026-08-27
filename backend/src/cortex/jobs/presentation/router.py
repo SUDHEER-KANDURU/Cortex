@@ -68,6 +68,8 @@ async def _run_pipeline_for_job(job: Job, service: JobService) -> None:
                 job_id=job.id,
                 error=context.error,
             )
+            await service.mark_failed(job.id, context.error or "Pipeline error")
+            return
 
         content = (
             context.artifact_content

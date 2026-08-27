@@ -194,11 +194,13 @@ class GraphBuildStage(AbstractPipelineStage):
                     edges=context.edge_count,
                 )
             except Exception as e:
-                logger.warning(
+                logger.error(
                     "graph_persist_failed",
                     job_id=context.job.id,
                     error=str(e),
                 )
+                context.mark_error(f"GraphBuildStage: failed to persist graph — {e}")
+                return context
 
             logger.info(
                 "graph_build_stage_completed",
