@@ -1,6 +1,6 @@
 """Graph builder — converts parsed code structure into knowledge graph.
 Takes ParsedFile objects from the AST parser and creates
-GraphNode and GraphEdge domain entities ready for Neo4j storage."""
+GraphNode and GraphEdge domain entities for persistent storage."""
 
 import uuid
 import hashlib
@@ -51,7 +51,12 @@ class GraphBuildResult:
             "modules": len(self.nodes_by_type(NodeType.MODULE)),
             "files": len(self.nodes_by_type(NodeType.FILE)),
             "classes": len(self.nodes_by_type(NodeType.CLASS)),
+            "interfaces": len(self.nodes_by_type(NodeType.INTERFACE)),
+            "enums": len(self.nodes_by_type(NodeType.ENUM)),
             "functions": len(self.nodes_by_type(NodeType.FUNCTION)),
+            "methods": len(self.nodes_by_type(NodeType.METHOD)),
+            "endpoints": len(self.nodes_by_type(NodeType.ENDPOINT)),
+            "tests": len(self.nodes_by_type(NodeType.TEST)),
         }
 
 
@@ -66,12 +71,14 @@ class GraphBuilder:
         Repository
           └── CONTAINS → Module (directory/package)
                 └── CONTAINS → File
-                      └── CONTAINS → Class
-                            └── CONTAINS → Function (method)
-                      └── CONTAINS → Function (top-level)
-        File → IMPORTS → Module (external dependency)
+                      └── CONTAINS → Class | Interface | Enum
+                            └── CONTAINS → Method
+                      └── CONTAINS → Function | Endpoint | Test
+        File → IMPORTS → File (via module resolution)
         Class → INHERITS → Class (base class)
-        Function → CALLS → Function (detected call)
+        Class → IMPLEMENTS → Interface (ABC/Protocol)
+        Function → CALLS → Function (detected call targets)
+        TestFile → TESTS → Module (heuristic from filename)
     """
 
     def __init__(self, job_id: str, repo_url: str) -> None:
@@ -229,11 +236,11 @@ class GraphBuilder:
                         relationship=RelationshipType.IMPORTS,
                     ))
 
-        # Step 8 — Add inheritance edges between classes
+        # Step 8 — Add inheritance and implements edges between classes
         class_name_index: dict[str, GraphNode] = {
             n.label: n
             for n in result.nodes
-            if n.node_type == NodeType.CLASS
+            if n.node_type in (NodeType.CLASS, NodeType.INTERFACE, NodeType.ENUM)
         }
 
         for parsed_file in parsed_files:
@@ -244,11 +251,84 @@ class GraphBuilder:
                 for base in parsed_class.base_classes:
                     base_node = class_name_index.get(base)
                     if base_node:
+                        # If base is an interface/protocol, use IMPLEMENTS
+                        if base_node.node_type == NodeType.INTERFACE:
+                            result.edges.append(self._create_edge(
+                                source=class_node,
+                                target=base_node,
+                                relationship=RelationshipType.IMPLEMENTS,
+                            ))
+                        else:
+                            result.edges.append(self._create_edge(
+                                source=class_node,
+                                target=base_node,
+                                relationship=RelationshipType.INHERITS,
+                            ))
+
+        # Step 9 — Add CALLS edges from function call targets
+        # Build function name → node index for call resolution
+        fn_name_index: dict[str, GraphNode] = {}
+        for n in result.nodes:
+            if n.node_type in (NodeType.FUNCTION, NodeType.METHOD, NodeType.ENDPOINT, NodeType.TEST):
+                # Index by simple name and qualified name
+                fn_name_index[n.label] = n
+                qualified = n.properties.get("qualified_name", "")
+                if qualified:
+                    fn_name_index[qualified] = n
+
+        for parsed_file in parsed_files:
+            for fn in parsed_file.all_functions():
+                if not fn.calls:
+                    continue
+                source_node_id = self._make_id("fn", f"{parsed_file.path}.{fn.qualified_name()}")
+                source_node = self._node_index.get(source_node_id)
+                if not source_node:
+                    continue
+                # Resolve up to 5 calls per function to avoid edge explosion
+                resolved = 0
+                for call_target in fn.calls:
+                    if resolved >= 5:
+                        break
+                    target_node = fn_name_index.get(call_target)
+                    if target_node and target_node.id != source_node.id:
                         result.edges.append(self._create_edge(
-                            source=class_node,
-                            target=base_node,
-                            relationship=RelationshipType.INHERITS,
+                            source=source_node,
+                            target=target_node,
+                            relationship=RelationshipType.CALLS,
                         ))
+                        resolved += 1
+
+        # Step 10 — Add TESTS edges from test files to modules they test
+        # Heuristic: test file "test_jobs.py" or "jobs_test.py" likely tests
+        # the module "jobs". Connect test file node to the matching module.
+        test_file_nodes = [
+            (pf, file_nodes[pf.path])
+            for pf in parsed_files
+            if pf.is_test_file and pf.path in file_nodes
+        ]
+        for parsed_file, test_node in test_file_nodes:
+            # Extract what this test might be testing from filename
+            import os
+            basename = os.path.basename(parsed_file.path)
+            stem = basename.replace(".py", "").replace(".ts", "").replace(".js", "")
+            # Remove test prefixes/suffixes
+            tested_name = (
+                stem.replace("test_", "")
+                .replace("_test", "")
+                .replace(".test", "")
+                .replace(".spec", "")
+                .replace("spec_", "")
+            )
+            if tested_name:
+                # Look for a matching module or file
+                for module_path, module_node in module_nodes.items():
+                    if tested_name in module_path.split("/"):
+                        result.edges.append(self._create_edge(
+                            source=test_node,
+                            target=module_node,
+                            relationship=RelationshipType.TESTS,
+                        ))
+                        break
 
         result.stats = result.summary()
         # Build the O(1) lookup dict so artifact generators don't need
@@ -303,6 +383,13 @@ class GraphBuilder:
                 "lines": parsed_file.line_count,
                 "classes": len(parsed_file.classes),
                 "functions": len(parsed_file.functions),
+                "imports": len(parsed_file.imports),
+                "is_test_file": parsed_file.is_test_file,
+                "is_config_file": parsed_file.is_config_file,
+                "total_complexity": parsed_file.total_complexity(),
+                "max_complexity": parsed_file.max_complexity(),
+                "endpoints": len(parsed_file.all_endpoints()),
+                "documentation_ratio": round(parsed_file.documentation_ratio(), 2),
             },
         )
 
@@ -311,12 +398,21 @@ class GraphBuilder:
         parsed_class: ParsedClass,
         file_path: str,
     ) -> GraphNode:
-        """Create a class node."""
+        """Create a class, interface, or enum node based on detection."""
         cls_lines = max(0, (parsed_class.line_end or parsed_class.line_start) - parsed_class.line_start + 1)
+
+        # Determine node type based on AST detection
+        if parsed_class.is_enum:
+            node_type = NodeType.ENUM
+        elif parsed_class.is_interface:
+            node_type = NodeType.INTERFACE
+        else:
+            node_type = NodeType.CLASS
+
         return GraphNode(
             id=self._make_id("class", f"{file_path}.{parsed_class.name}"),
             label=parsed_class.name,
-            node_type=NodeType.CLASS,
+            node_type=node_type,
             job_id=self._job_id,
             properties={
                 "file": file_path,
@@ -325,8 +421,14 @@ class GraphBuilder:
                 "methods": parsed_class.method_count(),
                 "base_classes": ", ".join(parsed_class.base_classes),
                 "is_abstract": parsed_class.is_abstract(),
-                "has_docstring": parsed_class.docstring is not None and len(parsed_class.docstring.strip()) > 0,
+                "is_interface": parsed_class.is_interface,
+                "is_enum": parsed_class.is_enum,
+                "has_docstring": parsed_class.has_docstring(),
                 "decorators": ", ".join(parsed_class.decorators),
+                "attributes": ", ".join(parsed_class.attributes[:15]),
+                "attribute_count": len(parsed_class.attributes),
+                "total_complexity": parsed_class.total_complexity(),
+                "avg_method_complexity": round(parsed_class.avg_method_complexity(), 2),
             },
         )
 
@@ -335,13 +437,23 @@ class GraphBuilder:
         fn: ParsedFunction,
         file_path: str,
     ) -> GraphNode:
-        """Create a function or method node."""
+        """Create a function, method, endpoint, or test node."""
+        # Determine node type based on function characteristics
+        if fn.is_endpoint:
+            node_type = NodeType.ENDPOINT
+        elif fn.is_test:
+            node_type = NodeType.TEST
+        elif fn.is_method:
+            node_type = NodeType.METHOD
+        else:
+            node_type = NodeType.FUNCTION
+
         return GraphNode(
             id=self._make_id(
                 "fn", f"{file_path}.{fn.qualified_name()}"
             ),
             label=fn.name,
-            node_type=NodeType.FUNCTION,
+            node_type=node_type,
             job_id=self._job_id,
             properties={
                 "file":          file_path,
@@ -351,13 +463,19 @@ class GraphBuilder:
                 "parameters":    ", ".join(fn.parameters),
                 "param_count":   len(fn.parameters),
                 "lines":         fn.line_count(),
-                "has_docstring": fn.docstring is not None and len(fn.docstring.strip()) > 0,
+                "has_docstring": fn.has_docstring(),
                 "decorators":    ", ".join(fn.decorators),
-                # ── Complexity metrics (Python AST; 0 for other languages) ──
-                "cyclomatic":    getattr(fn, "_cyclomatic",   0),
-                "branch_count":  getattr(fn, "_branch_count", 0),
-                "nesting_depth": getattr(fn, "_nesting_depth",0),
-                "call_count":    getattr(fn, "_call_count",   0),
+                "qualified_name": fn.qualified_name(),
+                # ── Complexity metrics ────────────────────────────────────────
+                "cyclomatic":       fn.cyclomatic_complexity,
+                "branch_count":     fn.branch_count,
+                "nesting_depth":    fn.nesting_depth,
+                "call_count":       fn.call_count,
+                "return_type":      fn.return_type or "",
+                "is_test":          fn.is_test,
+                "is_endpoint":      fn.is_endpoint,
+                "route_info":       fn.route_info or "",
+                "calls":            ", ".join(fn.calls[:10]),
             },
         )
 

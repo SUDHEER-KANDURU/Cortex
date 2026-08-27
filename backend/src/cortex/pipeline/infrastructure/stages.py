@@ -239,8 +239,11 @@ class ArtifactGenerateStage(AbstractPipelineStage):
             markdown_gen = MarkdownReportGenerator()
 
             if artifact_type == "architecture_diagram":
-                content = mermaid_gen.generate(graph_result, repo_name)
-                content_type = ArtifactContentType.MERMAID
+                from cortex.pipeline.infrastructure.architecture_diagram_generator import (
+                    ArchitectureDiagramGenerator,
+                )
+                content = ArchitectureDiagramGenerator().generate(graph_result, repo_name)
+                content_type = ArtifactContentType.MARKDOWN
 
             elif artifact_type == "module_breakdown":
                 content = markdown_gen.generate_module_breakdown(graph_result, repo_name)
@@ -259,14 +262,23 @@ class ArtifactGenerateStage(AbstractPipelineStage):
                 content_type = ArtifactContentType.MARKDOWN
 
             elif artifact_type == "vibe_code_detection":
-                if context.vibe_report:
-                    content = context.vibe_report.to_markdown()
-                else:
-                    content = "# Vibe Code Detection\n\nNo vibe data available."
+                from cortex.pipeline.infrastructure.code_quality_generator import (
+                    CodeQualityGenerator,
+                )
+                content = CodeQualityGenerator().generate(
+                    graph_result, repo_name, vibe_report=context.vibe_report
+                )
                 content_type = ArtifactContentType.MARKDOWN
 
             elif artifact_type == "folder_structure":
                 content = markdown_gen.generate_module_breakdown(graph_result, repo_name)
+                content_type = ArtifactContentType.MARKDOWN
+
+            elif artifact_type == "engineering_report":
+                from cortex.pipeline.infrastructure.engineering_report_generator import (
+                    EngineeringReportGenerator,
+                )
+                content = EngineeringReportGenerator().generate(graph_result, repo_name)
                 content_type = ArtifactContentType.MARKDOWN
 
             elif artifact_type == "database_schema":
@@ -279,7 +291,7 @@ class ArtifactGenerateStage(AbstractPipelineStage):
                     graph_result,
                     repo_name,
                 )
-                content_type = ArtifactContentType.MERMAID
+                content_type = ArtifactContentType.MARKDOWN
 
             else:
                 content = mermaid_gen.generate(graph_result, repo_name)

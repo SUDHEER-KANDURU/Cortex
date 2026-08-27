@@ -637,14 +637,14 @@ class TestCyclomaticComplexity:
         code = "def add(a, b):\n    return a + b\n"
         result = self._parse(code)
         fn = result.functions[0]
-        assert fn._cyclomatic == 1, f"Expected CC=1, got {fn._cyclomatic}"
+        assert fn.cyclomatic_complexity == 1, f"Expected CC=1, got {fn.cyclomatic_complexity}"
 
     def test_one_if_cc2(self):
         """One if → CC = 2."""
         code = "def check(x):\n    if x > 0:\n        return True\n    return False\n"
         result = self._parse(code)
         fn = result.functions[0]
-        assert fn._cyclomatic == 2, f"Expected CC=2, got {fn._cyclomatic}"
+        assert fn.cyclomatic_complexity == 2, f"Expected CC=2, got {fn.cyclomatic_complexity}"
 
     def test_if_elif_else_cc3(self):
         """if + elif → 2 branches → CC = 3."""
@@ -658,14 +658,14 @@ class TestCyclomaticComplexity:
         )
         result = self._parse(code)
         fn = result.functions[0]
-        assert fn._cyclomatic == 3, f"Expected CC=3, got {fn._cyclomatic}"
+        assert fn.cyclomatic_complexity == 3, f"Expected CC=3, got {fn.cyclomatic_complexity}"
 
     def test_for_loop_adds_branch(self):
         """for loop adds 1 branch → CC >= 2."""
         code = "def total(items):\n    s = 0\n    for x in items:\n        s += x\n    return s\n"
         result = self._parse(code)
         fn = result.functions[0]
-        assert fn._cyclomatic >= 2, f"Expected CC>=2 for loop, got {fn._cyclomatic}"
+        assert fn.cyclomatic_complexity >= 2, f"Expected CC>=2 for loop, got {fn.cyclomatic_complexity}"
 
     def test_try_except_adds_branch(self):
         """except handler adds 1 branch."""
@@ -678,14 +678,14 @@ class TestCyclomaticComplexity:
         )
         result = self._parse(code)
         fn = result.functions[0]
-        assert fn._cyclomatic >= 2, f"Expected CC>=2 for try/except, got {fn._cyclomatic}"
+        assert fn.cyclomatic_complexity >= 2, f"Expected CC>=2 for try/except, got {fn.cyclomatic_complexity}"
 
     def test_boolean_and_adds_branch(self):
         """a and b adds 1 branch (short-circuit path)."""
         code = "def both(a, b):\n    return a and b\n"
         result = self._parse(code)
         fn = result.functions[0]
-        assert fn._cyclomatic >= 2, f"Expected CC>=2 for 'and', got {fn._cyclomatic}"
+        assert fn.cyclomatic_complexity >= 2, f"Expected CC>=2 for 'and', got {fn.cyclomatic_complexity}"
 
     def test_complex_function_high_cc(self):
         """A function with many branches should have CC >= 5."""
@@ -704,8 +704,8 @@ class TestCyclomaticComplexity:
         )
         result = self._parse(code)
         fn = result.functions[0]
-        assert fn._cyclomatic >= 5, f"Expected CC>=5 for complex fn, got {fn._cyclomatic}"
-        assert fn._nesting_depth >= 3, f"Expected nesting>=3, got {fn._nesting_depth}"
+        assert fn.cyclomatic_complexity >= 5, f"Expected CC>=5 for complex fn, got {fn.cyclomatic_complexity}"
+        assert fn.nesting_depth >= 3, f"Expected nesting>=3, got {fn.nesting_depth}"
 
     def test_nesting_depth_measured(self):
         """Deeply nested function should report nesting_depth > 2."""
@@ -719,7 +719,7 @@ class TestCyclomaticComplexity:
         )
         result = self._parse(code)
         fn = result.functions[0]
-        assert fn._nesting_depth >= 3, f"Expected depth>=3, got {fn._nesting_depth}"
+        assert fn.nesting_depth >= 3, f"Expected depth>=3, got {fn.nesting_depth}"
 
     def test_call_count_measured(self):
         """Function with multiple calls should have call_count > 0."""
@@ -731,7 +731,7 @@ class TestCyclomaticComplexity:
         )
         result = self._parse(code)
         fn = result.functions[0]
-        assert fn._call_count >= 3, f"Expected >= 3 calls, got {fn._call_count}"
+        assert fn.call_count >= 3, f"Expected >= 3 calls, got {fn.call_count}"
 
     def test_cc_stored_in_graph_node(self):
         """cyclomatic property must be stored on FUNCTION graph nodes."""

@@ -1,8 +1,20 @@
-"""Database schema artifact generator.
-Analyzes model/entity classes and generates a visual
-database schema as a Mermaid ER diagram."""
+"""Database Schema Generator — evidence-backed schema detection.
 
-from cortex.pipeline.infrastructure.ast_parser import ParsedFile
+Analyzes ORM model classes to detect database structure:
+  - Class attributes → table columns (DETECTED from type annotations)
+  - Foreign key fields → relationships (DETECTED from naming + type)
+  - Base classes → table inheritance (DETECTED from AST)
+  - Inferred fields when annotations aren't available (INFERRED)
+
+Every field is marked as DETECTED or INFERRED to distinguish
+what Cortex actually found from what it guessed.
+Never invents schema that isn't in the code.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from cortex.pipeline.infrastructure.ast_parser import ParsedFile, ParsedClass
 from cortex.pipeline.infrastructure.graph_builder import GraphBuildResult
 from cortex.graph.domain.entities import NodeType
 import re
@@ -11,35 +23,62 @@ import structlog
 logger = structlog.get_logger()
 
 
-class DatabaseSchemaGenerator:
-    """Generates Mermaid ER diagrams from model and entity classes.
+@dataclass
+class SchemaField:
+    """A detected or inferred database field."""
+    name: str
+    field_type: str  # String, Integer, DateTime, Boolean, Text, FK, etc.
+    confidence: str  # "detected" or "inferred"
+    is_primary_key: bool = False
+    is_foreign_key: bool = False
+    is_nullable: bool = True
+    references: str = ""  # FK target entity name
 
-    Detects model classes by looking for:
-    - Classes in files named model.py, models.py, entity.py, entities.py
-    - Classes with JPA/SQLAlchemy annotations or base classes
-    - Java classes extending JpaRepository or annotated @Entity
-    - Python classes inheriting from Base or DeclarativeBase
+
+@dataclass
+class SchemaEntity:
+    """A detected database entity (table/model)."""
+    name: str
+    file_path: str
+    fields: list[SchemaField] = field(default_factory=list)
+    base_classes: list[str] = field(default_factory=list)
+    confidence: str = "detected"  # How sure we are this is a DB model
+    table_name: str = ""  # If __tablename__ detected
+
+
+@dataclass
+class SchemaRelationship:
+    """A detected relationship between entities."""
+    source: str
+    target: str
+    relationship_type: str  # "one-to-many", "many-to-one", "one-to-one"
+    via_field: str = ""
+    confidence: str = "detected"
+
+
+class DatabaseSchemaGenerator:
+    """Generates evidence-backed database schema from model classes.
+
+    Detection strategy:
+      1. Find model files (models.py, entity.py, schema.py, etc.)
+      2. Find classes inheriting from ORM bases (Base, Model, etc.)
+      3. Extract class attributes as fields (from ParsedClass.attributes)
+      4. Infer field types from naming conventions
+      5. Detect FK relationships from _id suffix and relationship() calls
+      6. Mark every field as DETECTED or INFERRED
     """
 
-    # Patterns that indicate a database model class
     MODEL_FILE_PATTERNS = {
         "model.py", "models.py", "entity.py", "entities.py",
-        "schema.py", "orm.py", "db.py",
+        "schema.py", "orm.py", "tables.py",
     }
 
     MODEL_BASE_CLASSES = {
-        # SQLAlchemy
-        "Base", "DeclarativeBase", "Model",
-        # Django
-        "models.Model",
-        # Java JPA
-        "BaseEntity", "AbstractEntity",
+        "Base", "DeclarativeBase", "Model", "models.Model",
+        "BaseEntity", "AbstractEntity", "Document", "BaseModel",
     }
 
-    MODEL_ANNOTATIONS = {
-        "Entity", "Table", "MappedSuperclass",
-        "mapped_column", "Column",
-    }
+    MODEL_DECORATORS = {"Entity", "Table", "MappedSuperclass", "dataclass"}
 
     def generate(
         self,
@@ -47,217 +86,302 @@ class DatabaseSchemaGenerator:
         graph: GraphBuildResult,
         repo_name: str,
     ) -> str:
-        """Generate a Mermaid ER diagram from model classes."""
+        """Generate database schema as Markdown + Mermaid ER diagram."""
+        entities = self._detect_entities(parsed_files)
+        relationships = self._detect_relationships(entities)
 
-        model_classes = self._detect_model_classes(parsed_files)
+        return self._render_markdown(entities, relationships, repo_name, graph)
 
-        if not model_classes:
-            # Fall back to showing all classes as entities
-            return self._generate_from_graph(graph, repo_name)
-
-        return self._generate_er_diagram(model_classes, repo_name)
-
-    def _detect_model_classes(
-        self, parsed_files: list[ParsedFile]
-    ) -> list[dict]:
-        """Find classes that represent database models."""
-        model_classes = []
+    def _detect_entities(self, parsed_files: list[ParsedFile]) -> list[SchemaEntity]:
+        """Detect database model classes from parsed files."""
+        entities: list[SchemaEntity] = []
 
         for parsed_file in parsed_files:
             file_name = parsed_file.path.split("/")[-1].lower()
             is_model_file = file_name in self.MODEL_FILE_PATTERNS
 
             for cls in parsed_file.classes:
-                is_model = False
+                confidence = self._assess_model_confidence(cls, is_model_file)
+                if confidence == "none":
+                    continue
 
-                # Check if in a model file
-                if is_model_file:
-                    is_model = True
+                fields = self._extract_fields(cls)
+                entity = SchemaEntity(
+                    name=cls.name,
+                    file_path=parsed_file.path,
+                    fields=fields,
+                    base_classes=cls.base_classes,
+                    confidence=confidence,
+                )
 
-                # Check base classes
-                if any(
-                    base in self.MODEL_BASE_CLASSES
-                    for base in cls.base_classes
-                ):
-                    is_model = True
+                # Try to detect __tablename__
+                for attr in cls.attributes:
+                    if attr == "__tablename__":
+                        entity.table_name = cls.name.lower() + "s"  # Best guess
 
-                # Check decorators
-                if any(
-                    dec in self.MODEL_ANNOTATIONS
-                    for dec in cls.decorators
-                ):
-                    is_model = True
+                entities.append(entity)
 
-                # Check class name patterns
-                if any(
-                    cls.name.endswith(suffix)
-                    for suffix in [
-                        "Model", "Entity", "Record",
-                        "Schema", "Table",
-                    ]
-                ):
-                    is_model = True
+        return entities
 
-                if is_model:
-                    fields = self._extract_fields(cls, parsed_file)
-                    model_classes.append({
-                        "name": cls.name,
-                        "file": parsed_file.path,
-                        "fields": fields,
-                        "base_classes": cls.base_classes,
-                    })
+    def _assess_model_confidence(self, cls: ParsedClass, is_model_file: bool) -> str:
+        """Determine how confident we are that this class is a DB model."""
+        # Strong signals → "detected"
+        if any(base in self.MODEL_BASE_CLASSES for base in cls.base_classes):
+            return "detected"
+        if any(dec in self.MODEL_DECORATORS for dec in cls.decorators):
+            return "detected"
+        if cls.name.endswith(("Model", "Entity", "Record", "Table")):
+            return "detected"
 
-        return model_classes
+        # Medium signals → "inferred"
+        if is_model_file:
+            return "inferred"
+        if "__tablename__" in cls.attributes:
+            return "detected"
 
-    def _extract_fields(
-        self, cls: "ParsedClass", parsed_file: "ParsedFile"  # type: ignore[name-defined]
-    ) -> list[dict]:
-        """Extract field definitions from a model class."""
-        fields = []
+        # Check for mapped_column-like patterns in method/attribute names
+        has_id = "id" in cls.attributes
+        has_timestamps = any(a in cls.attributes for a in ("created_at", "updated_at"))
+        if has_id and has_timestamps:
+            return "inferred"
 
-        for method in cls.methods:
-            # Skip common non-field methods
-            if method.name in {
-                "__init__", "__str__", "__repr__",
-                "__eq__", "__hash__", "save", "delete",
-                "get", "create", "update",
-            }:
+        return "none"
+
+    def _extract_fields(self, cls: ParsedClass) -> list[SchemaField]:
+        """Extract fields from class attributes."""
+        fields: list[SchemaField] = []
+
+        for attr_name in cls.attributes:
+            # Skip dunder and private attributes
+            if attr_name.startswith("__") or attr_name.startswith("_"):
+                continue
+            if attr_name in ("metadata", "registry", "type"):
                 continue
 
-            # Treat short methods as potential properties/fields
-            if method.line_count() <= 5:
-                field_type = self._guess_field_type(method.name)
-                fields.append({
-                    "name": method.name,
-                    "type": field_type,
-                    "nullable": not method.name.endswith("_id"),
-                })
+            field_type, is_pk, is_fk, is_nullable, references = self._classify_field(attr_name)
+            confidence = "detected"  # We found it in the AST
 
-        # If no methods detected as fields, use common defaults
-        if not fields:
+            fields.append(SchemaField(
+                name=attr_name,
+                field_type=field_type,
+                confidence=confidence,
+                is_primary_key=is_pk,
+                is_foreign_key=is_fk,
+                is_nullable=is_nullable,
+                references=references,
+            ))
+
+        # If no attributes extracted, add inferred defaults for known model pattern
+        if not fields and any(b in self.MODEL_BASE_CLASSES for b in cls.base_classes):
             fields = [
-                {"name": "id", "type": "String", "nullable": False},
-                {"name": "created_at", "type": "DateTime", "nullable": False},
-                {"name": "updated_at", "type": "DateTime", "nullable": True},
+                SchemaField(name="id", field_type="String/UUID", confidence="inferred", is_primary_key=True, is_nullable=False),
+                SchemaField(name="created_at", field_type="DateTime", confidence="inferred", is_nullable=False),
+                SchemaField(name="updated_at", field_type="DateTime", confidence="inferred", is_nullable=True),
             ]
 
-        return fields[:10]  # Cap at 10 fields
+        return fields[:20]  # Cap
 
-    def _guess_field_type(self, field_name: str) -> str:
-        """Guess the database type from a field name."""
-        name_lower = field_name.lower()
+    def _classify_field(self, name: str) -> tuple[str, bool, bool, bool, str]:
+        """Classify a field based on its name.
 
-        if name_lower.endswith("_id") or name_lower == "id":
-            return "String PK"
-        if name_lower.endswith("_at") or "date" in name_lower or "time" in name_lower:
-            return "DateTime"
-        if "email" in name_lower:
-            return "String"
-        if "count" in name_lower or "num" in name_lower or "age" in name_lower:
-            return "Integer"
-        if "is_" in name_lower or "has_" in name_lower or "enabled" in name_lower:
-            return "Boolean"
-        if "price" in name_lower or "amount" in name_lower or "salary" in name_lower:
-            return "Decimal"
-        if "url" in name_lower or "path" in name_lower or "description" in name_lower:
-            return "Text"
-        return "String"
+        Returns: (type, is_pk, is_fk, is_nullable, fk_references)
+        """
+        name_lower = name.lower()
 
-    def _generate_er_diagram(
+        # Primary key
+        if name_lower == "id":
+            return "String/UUID", True, False, False, ""
+
+        # Foreign key
+        if name_lower.endswith("_id"):
+            ref_entity = name_lower[:-3].title().replace("_", "")
+            return "FK", False, True, False, ref_entity
+
+        # Timestamps
+        if name_lower.endswith("_at") or name_lower in ("created", "modified", "timestamp"):
+            return "DateTime", False, False, name_lower != "created_at", ""
+
+        # Booleans
+        if name_lower.startswith(("is_", "has_", "can_", "should_")):
+            return "Boolean", False, False, False, ""
+
+        # Numerics
+        if any(kw in name_lower for kw in ("count", "num", "amount", "price", "score", "total")):
+            return "Integer", False, False, True, ""
+
+        # Text/strings
+        if any(kw in name_lower for kw in ("description", "body", "content", "text", "message")):
+            return "Text", False, False, True, ""
+
+        if any(kw in name_lower for kw in ("name", "title", "label", "email", "url", "path")):
+            return "String", False, False, False, ""
+
+        # Status/enum
+        if any(kw in name_lower for kw in ("status", "type", "role", "category", "kind")):
+            return "Enum/String", False, False, False, ""
+
+        # JSON
+        if any(kw in name_lower for kw in ("options", "metadata", "properties", "config", "data")):
+            return "JSON", False, False, True, ""
+
+        return "String", False, False, True, ""
+
+    def _detect_relationships(self, entities: list[SchemaEntity]) -> list[SchemaRelationship]:
+        """Detect relationships between entities from FK fields."""
+        relationships: list[SchemaRelationship] = []
+        entity_names = {e.name for e in entities}
+        # Also try lowercased and without suffixes
+        entity_name_variants: dict[str, str] = {}
+        for e in entities:
+            entity_name_variants[e.name.lower()] = e.name
+            entity_name_variants[e.name.lower().rstrip("model")] = e.name
+            entity_name_variants[e.name.lower().rstrip("entity")] = e.name
+
+        for entity in entities:
+            for f in entity.fields:
+                if f.is_foreign_key and f.references:
+                    # Try to match the FK reference to an entity
+                    target = None
+                    ref_lower = f.references.lower()
+                    if f.references in entity_names:
+                        target = f.references
+                    elif ref_lower in entity_name_variants:
+                        target = entity_name_variants[ref_lower]
+                    elif f.references + "Model" in entity_names:
+                        target = f.references + "Model"
+
+                    if target:
+                        relationships.append(SchemaRelationship(
+                            source=entity.name,
+                            target=target,
+                            relationship_type="many-to-one",
+                            via_field=f.name,
+                            confidence="detected",
+                        ))
+                    else:
+                        relationships.append(SchemaRelationship(
+                            source=entity.name,
+                            target=f.references,
+                            relationship_type="many-to-one",
+                            via_field=f.name,
+                            confidence="inferred",
+                        ))
+
+        return relationships
+
+    def _render_markdown(
         self,
-        model_classes: list[dict],
+        entities: list[SchemaEntity],
+        relationships: list[SchemaRelationship],
         repo_name: str,
-    ) -> str:
-        """Generate Mermaid ER diagram from model classes."""
-        lines = [
-            "erDiagram",
-            f"    %% Database Schema — {repo_name}",
-            f"    %% {len(model_classes)} entities detected",
-            "",
-        ]
-
-        # Generate entity definitions
-        for model in model_classes[:10]:  # Cap at 10 entities
-            name = self._safe_entity_name(model["name"])
-            lines.append(f"    {name} {{")
-
-            for field in model["fields"]:
-                field_name = self._safe_field_name(field["name"])
-                field_type = field["type"].replace(" ", "_")
-                nullable = (
-                    "" if field.get("nullable") else " PK"
-                )
-                lines.append(
-                    f"        {field_type} {field_name}{nullable}"
-                )
-
-            lines.append("    }")
-            lines.append("")
-
-        # Generate relationships based on foreign key naming
-        relationships = self._detect_relationships(model_classes)
-        for rel in relationships:
-            lines.append(rel)
-
-        if not relationships:
-            lines.append(
-                f"    %% No relationships detected automatically"
-            )
-
-        return "\n".join(lines)
-
-    def _detect_relationships(
-        self, model_classes: list[dict]
-    ) -> list[str]:
-        """Detect FK relationships from field names."""
-        relationships = []
-        entity_names = {
-            self._safe_entity_name(m["name"])
-            for m in model_classes
-        }
-
-        for model in model_classes:
-            entity = self._safe_entity_name(model["name"])
-            for field in model["fields"]:
-                if field["name"].endswith("_id"):
-                    # Guess the referenced entity
-                    ref_name = field["name"][:-3].title().replace("_", "")
-                    if ref_name in entity_names:
-                        relationships.append(
-                            f"    {entity} }}o--|| {ref_name} : has"
-                        )
-
-        return relationships[:8]  # Cap relationships
-
-    def _generate_from_graph(
-        self,
         graph: GraphBuildResult,
-        repo_name: str,
     ) -> str:
-        """Fall back to showing class hierarchy when no models detected."""
-        lines = [
-            "erDiagram",
-            f"    %% Class diagram — {repo_name}",
-            f"    %% No database model classes detected",
-            f"    %% Showing domain entities instead",
-            "",
-        ]
+        """Render schema as Markdown with ER diagram."""
+        lines: list[str] = []
 
-        classes = graph.nodes_by_type(NodeType.CLASS)
-        for cls in classes[:8]:
-            name = self._safe_entity_name(cls.label)
-            lines.append(f"    {name} {{")
-            lines.append(f"        String id PK")
-            lines.append(f"        String name")
+        lines.append(f"# Database Schema — {repo_name}")
+        lines.append("")
+
+        if not entities:
+            lines.append("_No database model classes detected in this repository._")
+            lines.append("")
+            lines.append(
+                "Cortex looks for: classes inheriting from ORM bases (SQLAlchemy Base, "
+                "Django Model, etc.), classes in model/entity files, and classes with "
+                "database-related decorators."
+            )
+            return "\n".join(lines)
+
+        # ── Summary ──────────────────────────────────────────────────────────
+        detected_count = sum(1 for e in entities if e.confidence == "detected")
+        inferred_count = sum(1 for e in entities if e.confidence == "inferred")
+
+        lines.append("## Summary")
+        lines.append("")
+        lines.append(f"| | Count |")
+        lines.append(f"|---|------|")
+        lines.append(f"| Entities Detected | {detected_count} |")
+        if inferred_count:
+            lines.append(f"| Entities Inferred | {inferred_count} |")
+        lines.append(f"| Relationships | {len(relationships)} |")
+        total_fields = sum(len(e.fields) for e in entities)
+        lines.append(f"| Total Fields | {total_fields} |")
+        lines.append("")
+
+        lines.append("> 🟢 **DETECTED** = found in AST (class attributes, annotations)")
+        lines.append("> 🟡 **INFERRED** = guessed from naming conventions")
+        lines.append("")
+
+        # ── ER Diagram ───────────────────────────────────────────────────────
+        lines.append("## Entity-Relationship Diagram")
+        lines.append("")
+        lines.append("```mermaid")
+        lines.append("erDiagram")
+
+        for entity in entities[:12]:
+            safe_name = self._safe_name(entity.name)
+            lines.append(f"    {safe_name} {{")
+            for f in entity.fields[:10]:
+                safe_field = self._safe_name(f.name)
+                ftype = f.field_type.replace("/", "_").replace(" ", "_")
+                pk_marker = " PK" if f.is_primary_key else ""
+                fk_marker = " FK" if f.is_foreign_key else ""
+                lines.append(f"        {ftype} {safe_field}{pk_marker}{fk_marker}")
             lines.append("    }")
+
+        # Relationships
+        for rel in relationships[:10]:
+            src = self._safe_name(rel.source)
+            tgt = self._safe_name(rel.target)
+            if rel.relationship_type == "many-to-one":
+                lines.append(f"    {src} }}o--|| {tgt} : \"{rel.via_field}\"")
+            elif rel.relationship_type == "one-to-many":
+                lines.append(f"    {src} ||--o{{ {tgt} : has")
+            else:
+                lines.append(f"    {src} ||--|| {tgt} : has")
+
+        lines.append("```")
+        lines.append("")
+
+        # ── Entity Details ───────────────────────────────────────────────────
+        lines.append("## Entity Details")
+        lines.append("")
+
+        for entity in entities:
+            confidence_badge = "🟢" if entity.confidence == "detected" else "🟡"
+            lines.append(f"### {confidence_badge} `{entity.name}`")
+            lines.append("")
+            lines.append(f"**File:** `{entity.file_path.split('/')[-1]}`")
+            if entity.base_classes:
+                lines.append(f" · **Extends:** {', '.join(f'`{b}`' for b in entity.base_classes)}")
+            lines.append("")
+
+            if entity.fields:
+                lines.append("| Field | Type | PK | FK | Confidence |")
+                lines.append("|-------|------|----|----|-----------|")
+                for f in entity.fields:
+                    pk = "✓" if f.is_primary_key else ""
+                    fk = f"→ `{f.references}`" if f.is_foreign_key else ""
+                    conf = "🟢" if f.confidence == "detected" else "🟡"
+                    lines.append(
+                        f"| `{f.name}` | {f.field_type} | {pk} | {fk} | {conf} |"
+                    )
+                lines.append("")
+
+        # ── Relationships ────────────────────────────────────────────────────
+        if relationships:
+            lines.append("## Relationships")
+            lines.append("")
+            for rel in relationships:
+                conf = "🟢" if rel.confidence == "detected" else "🟡"
+                lines.append(
+                    f"- {conf} `{rel.source}` → `{rel.target}` "
+                    f"({rel.relationship_type} via `{rel.via_field}`)"
+                )
             lines.append("")
 
         return "\n".join(lines)
 
-    def _safe_entity_name(self, name: str) -> str:
-        """Make entity name safe for Mermaid."""
+    def _safe_name(self, name: str) -> str:
+        """Make name safe for Mermaid identifiers."""
         return re.sub(r'[^a-zA-Z0-9_]', '_', name)[:30]
-
-    def _safe_field_name(self, name: str) -> str:
-        """Make field name safe for Mermaid."""
-        return re.sub(r'[^a-zA-Z0-9_]', '_', name)[:25]

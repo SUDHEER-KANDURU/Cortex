@@ -880,220 +880,48 @@ class MarkdownReportGenerator:
         graph: GraphBuildResult,
         repo_name: str,
     ) -> str:
-        modules = graph.nodes_by_type(NodeType.MODULE)
-        files = graph.nodes_by_type(NodeType.FILE)
-        classes = graph.nodes_by_type(NodeType.CLASS)
-        functions = graph.nodes_by_type(NodeType.FUNCTION)
-
-        lines = [
-            f"# Module Breakdown — {repo_name}",
-            "",
-            "## Overview",
-            "",
-            f"| Metric | Count |",
-            f"|--------|-------|",
-            f"| Modules | {len(modules)} |",
-            f"| Files | {len(files)} |",
-            f"| Classes | {len(classes)} |",
-            f"| Functions | {len(functions)} |",
-            f"| Graph nodes | {graph.node_count()} |",
-            f"| Graph edges | {graph.edge_count()} |",
-            "",
-        ]
-
-        lines.append("## Module Details")
-        lines.append("")
-
-        for module in modules:
-            module_label = module.label.rstrip("/")
-            lines.append(f"### `{module.label}`")
-            lines.append("")
-
-            module_files = [
-                f for f in files
-                if str(f.properties.get("path", "")).startswith(
-                    module_label
-                )
-            ]
-            module_classes = [
-                c for c in classes
-                if str(c.properties.get("file", "")).startswith(
-                    module_label
-                )
-            ]
-
-            lines.append(
-                f"**{len(module_files)} files** · "
-                f"**{len(module_classes)} classes**"
-            )
-            lines.append("")
-
-            if module_classes:
-                lines.append("**Classes:**")
-                for cls in module_classes:
-                    methods = cls.properties.get("methods", 0)
-                    bases = cls.properties.get("base_classes", "")
-                    base_str = f" extends `{bases}`" if bases else ""
-                    lines.append(
-                        f"- `{cls.label}`{base_str} "
-                        f"— {methods} methods"
-                    )
-                lines.append("")
-
-        return "\n".join(lines)
+        """Generate evidence-backed module breakdown with dependency analysis,
+        architectural role detection, and coupling metrics."""
+        from cortex.pipeline.infrastructure.module_breakdown_generator import (
+            ModuleBreakdownGenerator,
+        )
+        return ModuleBreakdownGenerator().generate(graph, repo_name)
 
     def generate_learning_path(
         self,
         graph: GraphBuildResult,
         repo_name: str,
     ) -> str:
-        modules = graph.nodes_by_type(NodeType.MODULE)
-        classes = graph.nodes_by_type(NodeType.CLASS)
-        abstract_classes = [
-            c for c in classes
-            if str(c.properties.get("is_abstract", False)) == "True"
-        ]
-
-        lines = [
-            f"# Learning Path — {repo_name}",
-            "",
-            "A structured path to understand this codebase "
-            "from first principles.",
-            "",
-            "---",
-            "",
-            "## Phase 1 — Understand the Structure (Day 1)",
-            "",
-            "Before reading any code, understand what each module does.",
-            "",
-        ]
-
-        for i, module in enumerate(modules, 1):
-            lines.append(
-                f"{i}. **`{module.label}`** — "
-                "read the README or __init__.py first"
-            )
-
-        lines += [
-            "",
-            "## Phase 2 — Read the Domain Layer (Day 2-3)",
-            "",
-            "The domain layer contains the core business objects. "
-            "Start here — nothing depends on frameworks.",
-            "",
-        ]
-
-        domain_classes = [
-            c for c in classes
-            if "domain" in str(c.properties.get("file", ""))
-        ]
-        for cls in domain_classes:
-            file_path = cls.properties.get("file", "")
-            lines.append(f"- **`{cls.label}`** — `{file_path}`")
-
-        lines += [
-            "",
-            "## Phase 3 — Application Layer (Day 4-5)",
-            "",
-            "The application layer contains use cases and services. "
-            "This is where business logic lives.",
-            "",
-        ]
-
-        app_classes = [
-            c for c in classes
-            if "application" in str(c.properties.get("file", ""))
-            or "use_case" in str(c.properties.get("file", ""))
-        ]
-        for cls in app_classes:
-            file_path = cls.properties.get("file", "")
-            lines.append(f"- **`{cls.label}`** — `{file_path}`")
-
-        lines += [
-            "",
-            "## Phase 4 — Infrastructure (Day 6-7)",
-            "",
-            "The infrastructure layer connects to databases, "
-            "APIs, and external services.",
-            "",
-        ]
-
-        infra_classes = [
-            c for c in classes
-            if "infrastructure" in str(c.properties.get("file", ""))
-        ]
-        for cls in infra_classes:
-            file_path = cls.properties.get("file", "")
-            lines.append(f"- **`{cls.label}`** — `{file_path}`")
-
-        if abstract_classes:
-            lines += [
-                "",
-                "## Key Abstractions to Understand",
-                "",
-                "These abstract classes define the system's contracts. "
-                "Understanding them unlocks the whole codebase.",
-                "",
-            ]
-            for cls in abstract_classes:
-                lines.append(f"- **`{cls.label}`**")
-
-        return "\n".join(lines)
+        """Generate a repository-specific learning path with topological
+        dependency order, entry point detection, and difficulty progression."""
+        from cortex.pipeline.infrastructure.learning_path_generator import (
+            LearningPathGenerator,
+        )
+        return LearningPathGenerator().generate(graph, repo_name)
 
     def generate_interview_questions(
         self,
         graph: GraphBuildResult,
         repo_name: str,
     ) -> str:
-        """Interview questions derived from actual graph structure — god
-        classes, fan-out/fan-in, inheritance depth, import cycles — rather
-        than a fixed generic template. See GraphInterviewQuestionGenerator."""
-        return GraphInterviewQuestionGenerator().generate(graph, repo_name)
+        """Generate repository-specific interview questions with evidence,
+        model answers, and difficulty levels."""
+        from cortex.pipeline.infrastructure.interview_generator import (
+            InterviewQuestionsGenerator,
+        )
+        return InterviewQuestionsGenerator().generate(graph, repo_name)
 
     def generate_api_spec(
         self,
         graph: GraphBuildResult,
         repo_name: str,
     ) -> str:
-        functions = graph.nodes_by_type(NodeType.FUNCTION)
-        router_fns = [
-            f for f in functions
-            if "router" in str(f.properties.get("file", ""))
-            or "controller" in str(
-                f.properties.get("file", "")
-            ).lower()
-        ]
-
-        lines = [
-            f"# API Specification — {repo_name}",
-            "",
-            "Auto-generated from router and controller files.",
-            "",
-        ]
-
-        if not router_fns:
-            lines.append(
-                "_No router files detected in this repository._"
-            )
-            return "\n".join(lines)
-
-        lines += [
-            "## Endpoints",
-            "",
-            "| Endpoint | Parameters | File |",
-            "|----------|------------|------|",
-        ]
-
-        for fn in router_fns:
-            params = fn.properties.get("parameters", "—")
-            file_path = str(
-                fn.properties.get("file", "")
-            ).split("/")[-1]
-            lines.append(
-                f"| `{fn.label}` | `{params}` | `{file_path}` |"
-            )
-
-        return "\n".join(lines)
+        """Generate evidence-backed API surface analysis with endpoint
+        detection, call chain tracing, and quality assessment."""
+        from cortex.pipeline.infrastructure.api_features_generator import (
+            APIFeaturesGenerator,
+        )
+        return APIFeaturesGenerator().generate(graph, repo_name)
 
     def generate_database_schema(
         self,
