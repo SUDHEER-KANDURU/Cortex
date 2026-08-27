@@ -16,6 +16,7 @@ from cortex.memory.presentation.router import router as memory_router
 from cortex.diagrams.router import router as diagrams_router
 from cortex.search.router import router as search_router
 from cortex.overview.router import router as overview_router
+from cortex.auth.presentation.router import router as auth_router
 from shared.correlation import CorrelationMiddleware
 from shared.logging import configure_logging
 
@@ -130,6 +131,7 @@ def create_app() -> FastAPI:
     app.include_router(diagrams_router, prefix="/api/v1")
     app.include_router(search_router, prefix="/api/v1")
     app.include_router(overview_router, prefix="/api/v1")
+    app.include_router(auth_router, prefix="/api/v1")
 
     return app
 

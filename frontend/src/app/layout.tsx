@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { AuthProvider } from '@/lib/auth/auth-context';
 import './globals.css';
 
 export const viewport: Viewport = {
@@ -46,7 +47,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         {/* All page content sits above the blobs */}
         <div className="flux-content">
-          {children}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
         </div>
       </body>
     </html>

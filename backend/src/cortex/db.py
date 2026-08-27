@@ -15,8 +15,14 @@ it. Repositories still own their async_sessionmaker — they just share
 the underlying pool.
 """
 
+from contextlib import asynccontextmanager
 from functools import lru_cache
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from typing import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+
+from cortex.config import get_settings
 
 
 @lru_cache(maxsize=4)
@@ -36,3 +42,13 @@ def get_engine(database_url: str) -> AsyncEngine:
         echo=False,
         connect_args=connect_args,
     )
+
+
+@asynccontextmanager
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    """Provide a transactional async session using the shared engine."""
+    settings = get_settings()
+    engine = get_engine(settings.database_url)
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)  # type: ignore[call-overload]
+    async with async_session() as session:
+        yield session

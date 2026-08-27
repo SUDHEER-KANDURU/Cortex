@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     # Set INTERNAL_SECRET=<random-string> in .env.
     # If left empty those endpoints return 503 (disabled).
     internal_secret: str = ""
+    # Authentication
+    jwt_secret: str = "change-me-in-production"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60
+    refresh_token_expire_days: int = 7
+    verification_token_expire_hours: int = 24
+    password_reset_token_expire_hours: int = 1
+
     cors_origins: list[str] = ["http://localhost:3000"]
     log_level: str = "INFO"
     host: str = "0.0.0.0"

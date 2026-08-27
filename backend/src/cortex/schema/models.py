@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import (
-    String, Text, DateTime, Enum as SAEnum, JSON,
+    Boolean, String, Text, DateTime, Enum as SAEnum, JSON,
     ForeignKey, Index,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -194,3 +194,48 @@ class RepositoryFactModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now, index=True)
 
     __table_args__ = (Index("ix_repo_facts_repo_category", "repo_url", "category"),)
+
+
+# ── Authentication Models ────────────────────────────────────────────────────
+
+
+class UserModel(Base):
+    """Registered user account."""
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True, index=True)
+    hashed_password: Mapped[str] = mapped_column(String(200), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now, onupdate=_now)
+
+
+class EmailVerificationTokenModel(Base):
+    """Time-limited, single-use token for email verification."""
+    __tablename__ = "email_verification_tokens"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    token: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now)
+
+
+class PasswordResetTokenModel(Base):
+    """Time-limited, single-use token for password reset."""
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    token: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now)
