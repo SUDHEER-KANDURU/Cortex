@@ -281,6 +281,14 @@ class DatabaseSchemaGenerator:
 
         lines.append(f"# Database Schema — {repo_name}")
         lines.append("")
+        lines.append(
+            "> **What is a database schema?** The schema defines how data is stored "
+            "and organized — like a filing system with labeled folders. Each \"entity\" "
+            "(table) stores one type of thing (users, orders, products). \"Fields\" are "
+            "the columns in each table (name, email, creation date). \"Relationships\" "
+            "show how tables connect to each other (e.g., an order belongs to a user)."
+        )
+        lines.append("")
 
         if not entities:
             lines.append("_No database model classes detected in this repository._")
@@ -296,19 +304,22 @@ class DatabaseSchemaGenerator:
         detected_count = sum(1 for e in entities if e.confidence == "detected")
         inferred_count = sum(1 for e in entities if e.confidence == "inferred")
 
-        lines.append("## Summary")
+        lines.append("## What We Found")
         lines.append("")
-        lines.append(f"| | Count |")
-        lines.append(f"|---|------|")
-        lines.append(f"| Entities Detected | {detected_count} |")
+        lines.append(f"Cortex detected **{detected_count + inferred_count} data entities** (database tables) in this project:")
+        lines.append("")
+        lines.append(f"| | Count | Meaning |")
+        lines.append(f"|---|------|---------|")
+        lines.append(f"| Entities Detected | {detected_count} | Confirmed database tables found in code |")
         if inferred_count:
-            lines.append(f"| Entities Inferred | {inferred_count} |")
-        lines.append(f"| Relationships | {len(relationships)} |")
+            lines.append(f"| Entities Inferred | {inferred_count} | Likely tables based on naming patterns |")
+        lines.append(f"| Relationships | {len(relationships)} | Connections between tables (e.g., \"order belongs to user\") |")
         total_fields = sum(len(e.fields) for e in entities)
-        lines.append(f"| Total Fields | {total_fields} |")
+        lines.append(f"| Total Fields | {total_fields} | Individual data columns across all tables |")
         lines.append("")
 
-        lines.append("> 🟢 **DETECTED** = found in AST (class attributes, annotations)")
+        lines.append("> 🟢 **DETECTED** = Cortex found this directly in the code (high confidence)")
+        lines.append("> 🟡 **INFERRED** = Cortex guessed this from naming patterns (verify manually)")
         lines.append("> 🟡 **INFERRED** = guessed from naming conventions")
         lines.append("")
 

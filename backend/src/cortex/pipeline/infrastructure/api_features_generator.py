@@ -296,6 +296,14 @@ class APIFeaturesGenerator:
 
         lines.append(f"# API Features — {result.repo_name}")
         lines.append("")
+        lines.append(
+            "> **What is an API?** An API (Application Programming Interface) is how "
+            "this software communicates with the outside world. Think of endpoints as "
+            "\"doors\" into the application — each one accepts a specific type of request "
+            "and returns a specific type of response. Understanding the API tells you "
+            "what this system can DO."
+        )
+        lines.append("")
 
         if result.total_endpoints == 0:
             lines.append("_No API endpoints detected in this repository._")
@@ -308,49 +316,69 @@ class APIFeaturesGenerator:
             return "\n".join(lines)
 
         # ── Summary ──────────────────────────────────────────────────────────
-        lines.append("## Summary")
+        lines.append("## At a Glance")
         lines.append("")
-        lines.append("| Metric | Value |")
-        lines.append("|--------|-------|")
-        lines.append(f"| Total Endpoints | {result.total_endpoints} |")
+        lines.append(
+            f"This application exposes **{result.total_endpoints} endpoints** — "
+            f"that's {result.total_endpoints} different operations the outside world can ask it to perform."
+        )
+        lines.append("")
+        lines.append("| What | Count | Meaning |")
+        lines.append("|------|-------|---------|")
         if result.get_count:
-            lines.append(f"| GET | {result.get_count} |")
+            lines.append(f"| GET requests | {result.get_count} | Read/fetch data (like viewing a page) |")
         if result.post_count:
-            lines.append(f"| POST | {result.post_count} |")
+            lines.append(f"| POST requests | {result.post_count} | Create new data (like submitting a form) |")
         if result.put_count:
-            lines.append(f"| PUT | {result.put_count} |")
+            lines.append(f"| PUT requests | {result.put_count} | Replace/update existing data |")
         if result.patch_count:
-            lines.append(f"| PATCH | {result.patch_count} |")
+            lines.append(f"| PATCH requests | {result.patch_count} | Partially update existing data |")
         if result.delete_count:
-            lines.append(f"| DELETE | {result.delete_count} |")
-        lines.append(f"| Documented | {result.documented_ratio:.0%} |")
-        lines.append(f"| Async | {result.async_ratio:.0%} |")
-        lines.append(f"| Auth Protected | {result.auth_ratio:.0%} |")
-        lines.append(f"| Avg Complexity | {result.avg_complexity} |")
+            lines.append(f"| DELETE requests | {result.delete_count} | Remove data |")
+        lines.append("")
+
+        # Quality indicators with explanations
+        lines.append("### Quality Indicators")
+        lines.append("")
+        doc_emoji = "✅" if result.documented_ratio >= 0.7 else ("⚠️" if result.documented_ratio >= 0.4 else "❌")
+        auth_emoji = "✅" if result.auth_ratio >= 0.7 else ("⚠️" if result.auth_ratio >= 0.3 else "❌")
+        lines.append(f"- {doc_emoji} **Documentation:** {result.documented_ratio:.0%} of endpoints have descriptions explaining what they do")
+        lines.append(f"- {auth_emoji} **Security:** {result.auth_ratio:.0%} of endpoints require authentication (identity verification)")
+        lines.append(f"- **Average Complexity:** {result.avg_complexity} (lower is simpler; above 10 means hard to maintain)")
+        if result.async_ratio > 0:
+            lines.append(f"- **Async:** {result.async_ratio:.0%} use modern async patterns (better performance under load)")
         lines.append("")
 
         # ── Issues ───────────────────────────────────────────────────────────
         if result.issues:
-            lines.append("## Issues Detected")
+            lines.append("## ⚠ Issues Found")
+            lines.append("")
+            lines.append("These are potential problems Cortex detected in the API design:")
             lines.append("")
             for issue in result.issues:
-                lines.append(f"- ⚠ {issue}")
+                lines.append(f"- {issue}")
             lines.append("")
 
         # ── Endpoints by Router/File ─────────────────────────────────────────
-        lines.append("## Endpoints")
+        lines.append("## All Endpoints")
+        lines.append("")
+        lines.append(
+            "> Each row below is one \"door\" into the application. The **Method** tells you "
+            "what kind of action it performs. The **Path** is the URL. The **Handler** is "
+            "the code function that processes the request."
+        )
         lines.append("")
 
         for file_path, endpoints in sorted(result.endpoints_by_file.items()):
             file_name = file_path.split("/")[-1] if "/" in file_path else file_path
             lines.append(f"### `{file_name}`")
             lines.append("")
-            lines.append("| Method | Path | Handler | Complexity | Auth |")
-            lines.append("|--------|------|---------|-----------|------|")
+            lines.append("| Action | URL Path | Handler Function | Complexity | Protected? |")
+            lines.append("|--------|----------|-----------------|-----------|-----------|")
 
             for ep in sorted(endpoints, key=lambda e: e.path):
-                auth_badge = "✓" if ep.has_auth_decorator else "—"
-                cc_badge = f"**{ep.complexity}**" if ep.complexity >= 10 else str(ep.complexity)
+                auth_badge = "🔒 Yes" if ep.has_auth_decorator else "🔓 No"
+                cc_badge = f"⚠ {ep.complexity}" if ep.complexity >= 10 else str(ep.complexity)
                 lines.append(
                     f"| `{ep.method}` | `{ep.path}` | "
                     f"`{ep.handler_name}` | {cc_badge} | {auth_badge} |"
@@ -358,28 +386,37 @@ class APIFeaturesGenerator:
 
             lines.append("")
 
-            # Show call chains for endpoints that have them
+            # Show call chains with explanation
             chains_shown = 0
             for ep in endpoints:
                 if ep.call_chain and chains_shown < 4:
                     chain_str = " → ".join(f"`{c}`" for c in ep.call_chain[:4])
                     lines.append(
-                        f"**`{ep.method} {ep.path}`** flow: "
+                        f"**Request flow for `{ep.method} {ep.path}`:**"
+                    )
+                    lines.append(
+                        f"When someone calls this endpoint, the request travels through: "
                         f"`{ep.handler_name}` → {chain_str}"
                     )
                     lines.append("")
                     chains_shown += 1
 
         # ── API Design Assessment ────────────────────────────────────────────
-        lines.append("## API Design Assessment")
+        lines.append("## Overall Assessment")
+        lines.append("")
+        lines.append(
+            "> **What does this mean?** Below is Cortex's assessment of how well "
+            "this API is designed. A well-designed API is easier to use, more secure, "
+            "and less likely to break when changes are made."
+        )
         lines.append("")
 
         if result.documented_ratio >= 0.8:
-            lines.append("✓ **Documentation:** Well-documented API surface")
+            lines.append("✅ **Documentation:** Excellent — most endpoints explain what they do, making it easy for developers to use this API correctly.")
         elif result.documented_ratio >= 0.5:
-            lines.append("⚠ **Documentation:** Partially documented — improve coverage")
+            lines.append("⚠️ **Documentation:** Partial — some endpoints have descriptions but many don't. New developers may struggle to understand what each endpoint does.")
         else:
-            lines.append("✗ **Documentation:** Most endpoints lack documentation")
+            lines.append("❌ **Documentation:** Poor — most endpoints lack any description. This makes the API hard to use without reading the source code.")
         lines.append("")
 
         if result.async_ratio >= 0.8:

@@ -71,13 +71,22 @@ class ArchitectureDiagramGenerator:
         lines: list[str] = []
         lines.append(f"# Architecture — {repo_name}")
         lines.append("")
+        lines.append(
+            "> **What is software architecture?** Architecture is the \"blueprint\" of a "
+            "system — how its major parts are organized and how they communicate. "
+            "Just like a building has floors, rooms, and hallways, software has layers, "
+            "modules, and data flows. Good architecture makes software easier to understand, "
+            "extend, and fix. This diagram shows you the big picture."
+        )
+        lines.append("")
 
         # ── Level 1: System Overview ─────────────────────────────────────────
         lines.append("## System Architecture")
         lines.append("")
         lines.append(
-            "High-level view showing modules and their dependencies. "
-            "Arrow direction = depends on."
+            "This diagram shows the major modules of the system and how they depend on each other. "
+            "Each box is a module (a self-contained part of the system). Arrows show which "
+            "modules need other modules to work — an arrow from A to B means \"A uses B.\""
         )
         lines.append("")
 

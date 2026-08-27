@@ -440,22 +440,28 @@ class LearningPathGenerator:
         lines.append(f"# Learning Path — {result.repo_name}")
         lines.append("")
         lines.append(
-            "A structured path to understand this codebase, "
-            "ordered by dependency and difficulty."
+            "> **What is this?** This is your personalized roadmap to understanding "
+            "this codebase. Instead of randomly opening files, follow this guided path "
+            "from simple to complex. Each level builds on the previous one — like "
+            "learning a language, you need vocabulary before grammar before literature."
+        )
+        lines.append("")
+        lines.append(
+            "The path is ordered by **dependency** (learn things that other things "
+            "depend on first) and **difficulty** (start simple, build up to complex)."
         )
         lines.append("")
 
         # Summary
-        lines.append("## Overview")
+        lines.append("## Your Journey")
         lines.append("")
-        lines.append(f"| | |")
-        lines.append(f"|---|---|")
-        lines.append(f"| Total Levels | {result.total_steps} |")
-        lines.append(f"| Estimated Time | ~{result.estimated_hours} hours |")
+        lines.append(f"📚 **{result.total_steps} levels** to complete")
+        lines.append(f"⏱️ **~{result.estimated_hours} hours** estimated reading time")
         if result.entry_points:
-            lines.append(f"| Entry Points | {', '.join(f'`{ep.split('/')[-1]}`' for ep in result.entry_points[:4])} |")
+            lines.append(f"🚪 **Start here:** {', '.join(f'`{ep.split('/')[-1]}`' for ep in result.entry_points[:4])}")
         lines.append("")
-
+        lines.append("**Difficulty legend:** 🟢 Easy — 🟡 Moderate — 🔴 Advanced")
+        lines.append("")
         lines.append("---")
         lines.append("")
 

@@ -535,14 +535,21 @@ class InterviewQuestionsGenerator:
         lines.append(f"# Interview Questions — {result.repo_name}")
         lines.append("")
         lines.append(
-            f"**{result.total_questions} questions** derived from actual repository "
-            f"structure, dependencies, and code patterns."
+            "> **What are these?** These are interview questions that test whether "
+            "someone truly understands THIS specific codebase — not generic programming "
+            "trivia. Each question is generated from actual patterns, problems, and "
+            "design decisions Cortex found in the code. They're perfect for:"
         )
+        lines.append(">")
+        lines.append("> - **Hiring:** Test if a candidate can reason about real code")
+        lines.append("> - **Onboarding:** Help new team members explore the system deeply")
+        lines.append("> - **Self-study:** Challenge yourself to understand WHY things are built this way")
         lines.append("")
         lines.append(
-            "> Every question below references real code in this repository. "
-            "> Generic questions have been excluded."
+            f"**{result.total_questions} questions** generated from actual code patterns."
         )
+        lines.append("")
+        lines.append("**Difficulty:** 🟢 Junior — 🟡 Mid — 🟠 Senior — 🔴 Staff")
         lines.append("")
 
         # Group by category

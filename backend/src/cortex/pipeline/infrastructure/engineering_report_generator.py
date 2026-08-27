@@ -359,39 +359,52 @@ class EngineeringReportGenerator:
 
         lines.append(f"# Engineering Report — {r.repo_name}")
         lines.append("")
+        lines.append(
+            "> **What is this report?** This is a comprehensive health check of the "
+            "codebase — like a medical checkup for software. It examines the code's "
+            "structure, complexity, documentation quality, testing coverage, and "
+            "identifies risks that could cause bugs or slow down development. "
+            "Every finding is backed by evidence from the actual code."
+        )
+        lines.append("")
 
         # ── Executive Summary ────────────────────────────────────────────────
         lines.append("## Executive Summary")
         lines.append("")
         lines.append(
             f"**{r.repo_name}** is a {'/'.join(r.languages[:2]) if r.languages else 'multi-language'} "
-            f"project with {r.total_files} source files ({r.total_lines:,} lines) "
-            f"organized into {r.total_modules} modules."
+            f"project with {r.total_files} source files ({r.total_lines:,} lines of code) "
+            f"organized into {r.total_modules} distinct modules."
         )
         lines.append("")
 
         if r.detected_patterns:
-            lines.append(f"**Design patterns detected:** {', '.join(r.detected_patterns)}")
+            lines.append(f"**Design patterns found:** {', '.join(r.detected_patterns)}")
+            lines.append("(These are proven architectural solutions the developers chose to use)")
             lines.append("")
         if r.detected_layers:
-            lines.append(f"**Architecture:** {' → '.join(r.detected_layers)} layering")
+            lines.append(f"**Architecture style:** {' → '.join(r.detected_layers)} layering")
+            lines.append("(Code is organized into layers where each layer has a specific job)")
             lines.append("")
 
-        # Key metrics box
-        lines.append("| Metric | Value | Assessment |")
-        lines.append("|--------|-------|-----------|")
+        # Key metrics box with plain explanations
+        lines.append("### Health Metrics")
+        lines.append("")
+        lines.append("| What we measured | Score | What it means |")
+        lines.append("|-----------------|-------|--------------|")
+        lines.append("|-----------------|-------|--------------|")
         # Complexity assessment
-        cx_assess = "✓ Good" if r.avg_complexity < 5 else ("⚠ Moderate" if r.avg_complexity < 10 else "✗ High")
-        lines.append(f"| Avg Complexity | {r.avg_complexity} | {cx_assess} |")
+        cx_assess = "✅ Simple and clean" if r.avg_complexity < 5 else ("⚠️ Some areas are complex" if r.avg_complexity < 10 else "❌ Too complex in many places")
+        lines.append(f"| Code Complexity | {r.avg_complexity} avg | {cx_assess} |")
         # Documentation
-        doc_assess = "✓ Good" if r.documentation_ratio >= 0.7 else ("⚠ Partial" if r.documentation_ratio >= 0.4 else "✗ Poor")
-        lines.append(f"| Documentation | {r.documentation_ratio:.0%} | {doc_assess} |")
+        doc_assess = "✅ Well documented" if r.documentation_ratio >= 0.7 else ("⚠️ Needs more docs" if r.documentation_ratio >= 0.4 else "❌ Mostly undocumented")
+        lines.append(f"| Documentation | {r.documentation_ratio:.0%} covered | {doc_assess} |")
         # Testing
-        test_assess = "✓ Good" if r.test_ratio >= 0.5 else ("⚠ Partial" if r.test_ratio >= 0.2 else "✗ Low")
-        lines.append(f"| Test Ratio | {r.test_ratio:.2f} | {test_assess} |")
+        test_assess = "✅ Good test coverage" if r.test_ratio >= 0.5 else ("⚠️ Some tests exist" if r.test_ratio >= 0.2 else "❌ Minimal testing")
+        lines.append(f"| Testing | {r.test_ratio:.0%} ratio | {test_assess} |")
         # Coupling
-        coupling_assess = "✓ Low" if not r.circular_deps else f"⚠ {len(r.circular_deps)} circular"
-        lines.append(f"| Coupling | {len(r.most_coupled_modules)} hotspots | {coupling_assess} |")
+        coupling_assess = "✅ Clean dependencies" if not r.circular_deps else f"⚠️ {len(r.circular_deps)} circular dependency pair(s)"
+        lines.append(f"| Dependencies | {len(r.most_coupled_modules)} hotspots | {coupling_assess} |")
         lines.append("")
 
         # ── Repository Structure ─────────────────────────────────────────────

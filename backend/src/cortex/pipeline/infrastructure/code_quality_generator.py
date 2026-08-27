@@ -506,22 +506,49 @@ class CodeQualityGenerator:
 
         lines.append(f"# Code Quality Report — {result.repo_name}")
         lines.append("")
+        lines.append(
+            "> **What is code quality?** Code quality measures how easy the code is to "
+            "understand, change, and maintain. High-quality code has fewer bugs, is easier "
+            "for new team members to learn, and costs less to modify over time. "
+            "This report grades the code like a school report card — A is excellent, F needs work."
+        )
+        lines.append("")
 
         # ── Overall Score ────────────────────────────────────────────────────
-        lines.append(f"## Overall: {result.overall_grade} ({result.overall_score}/100)")
+        grade_meaning = {
+            "A": "Excellent — clean, well-organized code",
+            "B": "Good — mostly clean with minor issues",
+            "C": "Acceptable — some areas need attention",
+            "D": "Below average — significant issues found",
+            "F": "Poor — major problems that affect reliability",
+        }
+        lines.append(f"## Overall Grade: {result.overall_grade} ({result.overall_score}/100)")
         lines.append("")
-        lines.append(f"**{result.total_findings} issues detected** across {result.files_analyzed} files.")
+        lines.append(f"*{grade_meaning.get(result.overall_grade, '')}*")
+        lines.append("")
+        lines.append(f"Cortex found **{result.total_findings} issues** across {result.files_analyzed} files.")
         lines.append("")
 
-        # Category scores
-        lines.append("| Category | Score | Grade | Issues |")
-        lines.append("|----------|-------|-------|--------|")
+        # Category scores with explanations
+        lines.append("### Scores by Category")
+        lines.append("")
+        lines.append("| Category | Score | Grade | What it measures |")
+        lines.append("|----------|-------|-------|-----------------|")
+        _cat_explanations = {
+            "Complexity": "How tangled and hard-to-follow the logic is",
+            "Size": "Whether functions/classes are too large to understand",
+            "Documentation": "Whether the code explains itself with comments",
+            "Coupling": "How tangled the dependencies between modules are",
+            "Architecture": "Whether the code is organized in a sensible structure",
+            "Testing": "Whether automated tests exist to catch bugs",
+        }
         for cat in result.categories:
-            lines.append(f"| {cat.name} | {cat.score}/100 | {cat.grade} | {cat.finding_count} |")
+            explanation = _cat_explanations.get(cat.name, "")
+            lines.append(f"| {cat.name} | {cat.score}/100 | {cat.grade} | {explanation} |")
         lines.append("")
 
         if not result.findings:
-            lines.append("✅ No code quality issues detected. Clean codebase!")
+            lines.append("✅ **No issues found!** This codebase is clean and well-maintained.")
             return "\n".join(lines)
 
         # ── Findings by severity ─────────────────────────────────────────────

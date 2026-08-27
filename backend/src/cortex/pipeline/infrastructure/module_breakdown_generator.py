@@ -467,29 +467,47 @@ class ModuleBreakdownGenerator:
 
         lines.append(f"# Module Breakdown — {analysis.repo_name}")
         lines.append("")
+        lines.append(
+            "> **What is a module?** A module is a self-contained section of the codebase "
+            "that handles one area of responsibility (like \"user accounts\" or \"payments\"). "
+            "Well-organized modules make software easier to understand, test, and change. "
+            "This breakdown shows you how the project is organized and where potential "
+            "problems exist."
+        )
+        lines.append("")
 
         # ── Executive Summary ────────────────────────────────────────────────
-        lines.append("## Executive Summary")
+        lines.append("## At a Glance")
         lines.append("")
-        lines.append(f"| Metric | Value |")
-        lines.append(f"|--------|-------|")
-        lines.append(f"| Modules | {analysis.total_modules} |")
-        lines.append(f"| Source Files | {analysis.total_files} |")
-        lines.append(f"| Classes / Interfaces | {analysis.total_classes} |")
-        lines.append(f"| Functions / Methods | {analysis.total_functions} |")
+        lines.append(f"This project is organized into **{analysis.total_modules} modules** "
+                     f"containing {analysis.total_files} files.")
+        lines.append("")
+        lines.append(f"| What | Count | Why it matters |")
+        lines.append(f"|------|-------|---------------|")
+        lines.append(f"| Modules | {analysis.total_modules} | Separate areas of responsibility |")
+        lines.append(f"| Source Files | {analysis.total_files} | Individual code files |")
+        lines.append(f"| Classes / Interfaces | {analysis.total_classes} | Blueprints for objects and contracts |")
+        lines.append(f"| Functions / Methods | {analysis.total_functions} | Individual units of behavior |")
         if analysis.most_coupled_module:
-            lines.append(f"| Most Coupled | `{analysis.most_coupled_module}` |")
+            lines.append(f"| Most Connected | `{analysis.most_coupled_module}` | Has the most dependencies (risky to change) |")
         if analysis.most_stable_module:
-            lines.append(f"| Most Stable | `{analysis.most_stable_module}` |")
+            lines.append(f"| Most Stable | `{analysis.most_stable_module}` | Many things depend on it, rarely changes |")
         if analysis.most_unstable_module:
-            lines.append(f"| Most Unstable | `{analysis.most_unstable_module}` |")
+            lines.append(f"| Most Volatile | `{analysis.most_unstable_module}` | Depends on many others, likely to change often |")
         lines.append("")
 
         # ── Circular Dependencies Warning ────────────────────────────────────
         if analysis.circular_dependencies:
             lines.append("## ⚠ Circular Dependencies Detected")
             lines.append("")
-            lines.append("The following module pairs have bidirectional dependencies:")
+            lines.append(
+                "**What does this mean?** These modules depend on each other in a loop — "
+                "Module A needs Module B, but Module B also needs Module A. This is like "
+                "two people who can't start work until the other person finishes first. "
+                "It makes the code harder to test, change, and understand."
+            )
+            lines.append("")
+            lines.append("**Affected pairs:**")
             lines.append("")
             for src, tgt in analysis.circular_dependencies[:5]:
                 lines.append(f"- `{src}` ↔ `{tgt}`")
