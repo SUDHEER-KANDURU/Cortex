@@ -586,7 +586,10 @@ class InterviewQuestionsGenerator:
                     lines.append("<summary>Evidence & Answer Guide</summary>")
                     lines.append("")
                     if q.source_files:
-                        lines.append(f"**Source:** {', '.join(f'`{f.split(\"/\")[-1]}`' for f in q.source_files[:4])}")
+                        source_names = ', '.join(
+                            f'`{f.split("/")[-1]}`' for f in q.source_files[:4]
+                        )
+                        lines.append(f"**Source:** {source_names}")
                         lines.append("")
                     if q.source_symbols:
                         lines.append(f"**Symbols:** {', '.join(f'`{s}`' for s in q.source_symbols[:5])}")

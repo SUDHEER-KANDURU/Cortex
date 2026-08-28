@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
 )
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from cortex.db import get_engine
 from cortex.memory.domain.entities import RepositorySummary, RepositoryFact
 from cortex.memory.domain.interfaces import AbstractMemoryRepository
@@ -140,6 +140,14 @@ class SQLiteMemoryRepository(AbstractMemoryRepository):
             return
         async with self._session_factory() as db:
             try:
+                # Clear existing facts for this job to prevent duplicates on retry
+                job_id = facts[0].job_id
+                repo_url = facts[0].repo_url
+                await db.execute(
+                    delete(RepositoryFactModel)
+                    .where(RepositoryFactModel.job_id == job_id)
+                )
+
                 for fact in facts:
                     db.add(
                         RepositoryFactModel(
@@ -156,7 +164,7 @@ class SQLiteMemoryRepository(AbstractMemoryRepository):
                 await db.commit()
                 logger.info(
                     "repository_facts_added",
-                    repo_url=facts[0].repo_url,
+                    repo_url=repo_url,
                     count=len(facts),
                 )
             except Exception as e:
@@ -171,6 +179,7 @@ class SQLiteMemoryRepository(AbstractMemoryRepository):
                 select(RepositoryFactModel)
                 .where(RepositoryFactModel.repo_url == repo_url)
                 .order_by(RepositoryFactModel.created_at.desc())
+                .limit(50)  # Cap at 50 most recent facts per repo
             )
             return [_fact_model_to_entity(m) for m in result.scalars().all()]
 

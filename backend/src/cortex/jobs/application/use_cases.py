@@ -32,6 +32,7 @@ class JobService(AbstractJobService):
         repo_url: str,
         artifact_type: ArtifactType,
         options: dict[str, str] | None = None,
+        user_id: str | None = None,
     ) -> Job:
         """Validate, create, persist, and queue a new job."""
         if "github.com" not in repo_url:
@@ -46,6 +47,7 @@ class JobService(AbstractJobService):
             repo_url=repo_url,
             artifact_type=artifact_type,
             options=options,
+            user_id=user_id,
             status=JobStatus.PENDING,
             created_at=_now(),
             updated_at=_now(),
@@ -62,28 +64,38 @@ class JobService(AbstractJobService):
 
         return saved
 
-    async def get(self, job_id: str) -> Job:
-        """Return a job by ID. Raises NotFoundError if missing."""
+    async def get(self, job_id: str, owner_id: str | None = None) -> Job:
+        """Return a job by ID. Raises NotFoundError if missing.
+
+        When owner_id is provided, a job owned by a different user is treated
+        as not found — this prevents one account from reading another's job
+        (and avoids leaking that the job id exists at all)."""
         job = await self._repo.get_by_id(job_id)
         if not job:
             raise NotFoundError(f"Job not found: {job_id}")
+        if owner_id is not None and job.user_id is not None and job.user_id != owner_id:
+            raise NotFoundError(f"Job not found: {job_id}")
         return job
 
-    async def list_all(self) -> list[Job]:
-        """Return all jobs, newest first."""
-        return await self._repo.get_all()
+    async def list_all(self, user_id: str | None = None) -> list[Job]:
+        """Return all jobs, newest first, optionally scoped to a user."""
+        return await self._repo.get_all(user_id=user_id)
 
-    async def list_by_status(self, status: JobStatus) -> list[Job]:
-        """Return jobs filtered by status."""
-        return await self._repo.get_by_status(status)
+    async def list_by_status(
+        self, status: JobStatus, user_id: str | None = None
+    ) -> list[Job]:
+        """Return jobs filtered by status, optionally scoped to a user."""
+        return await self._repo.get_by_status(status, user_id=user_id)
 
-    async def list_by_repo(self, repo_url: str) -> list[Job]:
-        """Return all jobs for a specific repository."""
-        return await self._repo.get_by_repo_url(repo_url)
+    async def list_by_repo(
+        self, repo_url: str, user_id: str | None = None
+    ) -> list[Job]:
+        """Return all jobs for a specific repository, optionally scoped to a user."""
+        return await self._repo.get_by_repo_url(repo_url, user_id=user_id)
 
-    async def cancel(self, job_id: str) -> Job:
+    async def cancel(self, job_id: str, owner_id: str | None = None) -> Job:
         """Cancel a pending or running job."""
-        job = await self.get(job_id)
+        job = await self.get(job_id, owner_id=owner_id)
 
         if not job.can_cancel():
             raise ValidationError(
@@ -99,9 +111,9 @@ class JobService(AbstractJobService):
         logger.info("job_cancelled", job_id=job_id)
         return updated
 
-    async def retry(self, job_id: str) -> Job:
+    async def retry(self, job_id: str, owner_id: str | None = None) -> Job:
         """Retry a failed job by creating a new one with same params."""
-        original = await self.get(job_id)
+        original = await self.get(job_id, owner_id=owner_id)
 
         if not original.can_retry():
             raise ValidationError(
@@ -113,6 +125,7 @@ class JobService(AbstractJobService):
             repo_url=original.repo_url,
             artifact_type=original.artifact_type,
             options=original.options,
+            user_id=original.user_id,
         )
 
     async def mark_running(self, job_id: str) -> Job:
@@ -176,13 +189,14 @@ class JobService(AbstractJobService):
         logger.error("job_failed", job_id=job_id, error=error)
         return updated
 
-    async def delete(self, job_id: str) -> None:
+    async def delete(self, job_id: str, owner_id: str | None = None) -> None:
         """Hard delete a job and all its artifacts from the database."""
-        # Verify it exists first so we raise a clean NotFoundError
-        await self.get(job_id)
+        # Verify it exists AND belongs to the caller first so we raise a
+        # clean NotFoundError and never delete another user's job.
+        await self.get(job_id, owner_id=owner_id)
         await self._repo.delete(job_id)
         logger.info("job_deleted", job_id=job_id)
 
-    async def get_stats(self) -> dict[JobStatus, int]:
+    async def get_stats(self, user_id: str | None = None) -> dict[JobStatus, int]:
         """Return job counts by status for the health dashboard."""
-        return await self._repo.count_by_status()
+        return await self._repo.count_by_status(user_id=user_id)

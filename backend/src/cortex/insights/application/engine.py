@@ -428,9 +428,12 @@ class InsightsEngine:
                     severity=IssueSeverity.MEDIUM,
                     title="Moderate cyclomatic complexity",
                     description=(
-                        f"This function has {cyclomatic} decision points, which is above the "
-                        f"recommended limit of 5. It can still be understood, but adding more "
-                        f"logic here will quickly push it into hard-to-maintain territory."
+                        f"This function has {cyclomatic} independent decision points (if/else, "
+                        f"loops, and boolean operators), which is above the recommended limit of 5. "
+                        f"Each decision point doubles the number of paths a reader — and your test "
+                        f"suite — must account for, so the function is still followable today but is "
+                        f"one or two edits away from becoming genuinely hard to reason about. "
+                        f"Catching it now is far cheaper than untangling it later."
                     ),
                     recommendation=(
                         "Review whether each condition is truly necessary at this level. "
@@ -516,10 +519,12 @@ class InsightsEngine:
                     severity=IssueSeverity.MEDIUM,
                     title="Large function — approaching complexity limit",
                     description=(
-                        f"At {lines} lines with {eff_params} parameters, this function is "
-                        f"large enough that a new reader will need to scroll to understand it. "
-                        f"It hasn't crossed the god-function threshold yet, but adding more "
-                        f"logic here will make future changes risky."
+                        f"At {lines} lines with {eff_params} parameters, this function is large "
+                        f"enough that a new reader has to scroll to hold all of it in their head "
+                        f"at once, which is where subtle bugs slip in. It hasn't crossed the "
+                        f"god-function threshold yet, but it is clearly doing more than one small "
+                        f"job, and every line added from here makes the next change riskier and "
+                        f"the function harder to test in isolation."
                     ),
                     recommendation=(
                         "Look for steps that have a clear start and end — loops, validation "
@@ -615,15 +620,19 @@ class InsightsEngine:
                     severity=IssueSeverity.MEDIUM,
                     title="Large class — starting to accumulate responsibilities",
                     description=(
-                        f"This class has {methods} public methods. While not yet at god-class "
-                        f"level, a class with this many methods is often doing more than one "
-                        f"thing. Every new method added now increases the risk of unintended "
-                        f"interactions between responsibilities."
+                        f"This class exposes {methods} public methods. While not yet at god-class "
+                        f"level, a class with this many methods is usually starting to do more than "
+                        f"one thing, which means unrelated features now share the same state and "
+                        f"can interfere with each other. Every method added from here increases the "
+                        f"chance that a change made for one reason quietly breaks another, and it "
+                        f"makes the class progressively harder to test and reuse."
                     ),
                     recommendation=(
-                        "Review the method list and group them by what concept they operate on. "
-                        "If two groups emerge that never call each other's methods, "
-                        "they likely belong in separate classes."
+                        "Review the method list and group the methods by which data or concept "
+                        "they actually operate on. If two groups emerge that never call each "
+                        "other's methods or touch the same fields, they are almost certainly two "
+                        "separate responsibilities — extract the smaller group into its own class "
+                        "and have this class delegate to it."
                     ),
                     file_path=filepath, line_start=line_no, line_end=line_no + cls_lines,
                     affected_symbol=name, evidence=evidence,
@@ -771,14 +780,19 @@ class InsightsEngine:
                     severity=IssueSeverity.MEDIUM,
                     title="Elevated efferent coupling",
                     description=(
-                        f"This file imports from {ce} other internal modules, which is above "
-                        f"the recommended limit. The more modules a file depends on directly, "
-                        f"the harder it becomes to change any one of them without ripple effects."
+                        f"This file imports from {ce} other internal modules, which is above the "
+                        f"recommended limit. The more modules a file depends on directly, the more "
+                        f"reasons it has to change, and the harder it is to understand in isolation "
+                        f"because you must load all {ce} of those modules into your head first. "
+                        f"It also makes the file slow to test, since every dependency has to be "
+                        f"set up or mocked before a single assertion can run."
                     ),
                     recommendation=(
-                        "Review each import and ask whether it's truly needed at this level. "
-                        "If several imports serve a single purpose, wrap them in a helper module "
-                        "so this file only sees one dependency instead of many."
+                        "Review each import and ask whether it is truly needed at this level. "
+                        "If several imports serve a single purpose, wrap them behind one helper "
+                        "module so this file sees one dependency instead of many. Prefer receiving "
+                        "collaborators as arguments (dependency injection) over importing them "
+                        "directly — that keeps the coupling explicit and easy to swap in tests."
                     ),
                     file_path=filepath, affected_symbol=label,
                     evidence={"efferent_coupling": ce},
@@ -896,14 +910,17 @@ class InsightsEngine:
                     severity=IssueSeverity.LOW,
                     title="Large file — approaching split threshold",
                     description=(
-                        f"At {lines} lines this file is not yet critical, but it is large "
-                        f"enough that the next feature added here should trigger a review "
-                        f"of whether the file should be split."
+                        f"At {lines} lines this file is not yet critical, but it is already large "
+                        f"enough to slow down navigation and to hide unrelated pieces of logic "
+                        f"behind one filename. Files that keep growing tend to quietly collect "
+                        f"multiple responsibilities, which makes them harder to review and more "
+                        f"likely to cause merge conflicts as more people touch them."
                     ),
                     recommendation=(
-                        "No action needed now, but keep an eye on growth. "
-                        "If you find yourself adding another class or a second major "
-                        "utility group here, that's the signal to split."
+                        "No urgent action is needed, but treat the next addition as a decision "
+                        "point: before adding another class or a second major group of helpers "
+                        "here, split those into their own file instead. Keeping one clear "
+                        "responsibility per file now avoids a painful reorganisation later."
                     ),
                     file_path=filepath, affected_symbol=label,
                     evidence={"lines": lines},

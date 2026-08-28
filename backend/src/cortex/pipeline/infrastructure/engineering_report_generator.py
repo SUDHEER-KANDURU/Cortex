@@ -60,6 +60,8 @@ class EngineeringReportResult:
     undocumented_public: int = 0
     # Recommendations
     recommendations: list[tuple[str, str, str]] = field(default_factory=list)  # (priority, title, detail)
+    # Structured findings (FACT → RELATIONSHIP → MEANING → RECOMMENDATION)
+    structured_findings: list = field(default_factory=list)
 
 
 class EngineeringReportGenerator:
@@ -164,6 +166,9 @@ class EngineeringReportGenerator:
 
         # Generate recommendations
         result.recommendations = self._generate_recommendations(result)
+
+        # Generate structured findings (FACT → RELATIONSHIP → MEANING → RECOMMENDATION)
+        result.structured_findings = self._generate_structured_findings(result, graph)
 
         return result
 
@@ -353,6 +358,167 @@ class EngineeringReportGenerator:
 
         return recs
 
+    def _generate_structured_findings(
+        self, result: EngineeringReportResult, graph: GraphBuildResult
+    ) -> list:
+        """Generate FACT → RELATIONSHIP → MEANING → RECOMMENDATION findings."""
+        from cortex.pipeline.infrastructure.intelligence_formatter import (
+            EngineeringFinding, FindingCategory, FindingSeverity,
+        )
+
+        findings: list[EngineeringFinding] = []
+
+        # God classes
+        for name, methods, file in result.god_classes[:3]:
+            findings.append(EngineeringFinding(
+                fact=f"`{name}` has {methods} public methods in `{file.split('/')[-1]}`.",
+                relationship=(
+                    f"This class is likely imported by multiple other modules, "
+                    f"making it a critical dependency hub."
+                ),
+                meaning=(
+                    f"A class with {methods} methods almost certainly handles multiple "
+                    f"responsibilities. Changes to any one responsibility risk breaking "
+                    f"all the others. Testing requires understanding all {methods} behaviors."
+                ),
+                recommendation=(
+                    f"Identify the distinct responsibilities (list every verb: validate, "
+                    f"persist, notify, transform). Extract each into a focused class. "
+                    f"Use composition to maintain the existing API surface."
+                ),
+                category=FindingCategory.COMPLEXITY,
+                severity=FindingSeverity.HIGH,
+                affected_symbol=name,
+                source_file=file,
+                evidence={"methods": methods},
+            ))
+
+        # Complex functions
+        for name, cc, file in result.complex_functions[:3]:
+            findings.append(EngineeringFinding(
+                fact=f"`{name}` has cyclomatic complexity {cc} in `{file.split('/')[-1]}`.",
+                relationship=(
+                    f"Every caller of this function depends on all {cc} execution paths "
+                    f"behaving correctly."
+                ),
+                meaning=(
+                    f"Complexity {cc} means at least {cc} distinct paths through this code. "
+                    f"Each path is a potential bug. Testing all branches requires at least "
+                    f"{cc} test cases. Code review is unreliable above complexity 10."
+                ),
+                recommendation=(
+                    f"Extract each major branch into a named method (strategy pattern or "
+                    f"guard clauses). Aim for complexity ≤ 5 per function. "
+                    f"The names of the extracted methods become self-documenting."
+                ),
+                category=FindingCategory.COMPLEXITY,
+                severity=FindingSeverity.HIGH if cc >= 15 else FindingSeverity.MEDIUM,
+                affected_symbol=name,
+                source_file=file,
+                evidence={"cyclomatic_complexity": cc},
+            ))
+
+        # Circular dependencies
+        for src, tgt in result.circular_deps[:2]:
+            findings.append(EngineeringFinding(
+                fact=f"Modules `{src}` and `{tgt}` import each other (circular dependency).",
+                relationship=(
+                    f"Neither module can be loaded, tested, or understood without the other. "
+                    f"All dependents of either module inherit this coupling."
+                ),
+                meaning=(
+                    f"Circular dependencies prevent: (1) independent testing, (2) independent "
+                    f"deployment, (3) clear mental models. They also cause import-order bugs "
+                    f"in Python and webpack compilation issues in TypeScript."
+                ),
+                recommendation=(
+                    f"Introduce an interface/protocol in the lower-level module. "
+                    f"Have the higher-level module depend on the abstraction, not the "
+                    f"implementation. Use dependency injection to wire them at runtime."
+                ),
+                category=FindingCategory.ARCHITECTURE,
+                severity=FindingSeverity.HIGH,
+                affected_symbol=f"{src} ↔ {tgt}",
+                evidence={"modules": [src, tgt]},
+            ))
+
+        # Documentation gap
+        if result.documentation_ratio < 0.4 and result.undocumented_public > 5:
+            findings.append(EngineeringFinding(
+                fact=(
+                    f"Only {result.documentation_ratio:.0%} of public symbols have docstrings "
+                    f"({result.undocumented_public} undocumented)."
+                ),
+                relationship=(
+                    f"Every undocumented public symbol forces consumers to read the "
+                    f"implementation to understand the contract."
+                ),
+                meaning=(
+                    f"Undocumented code takes 2-5x longer to understand. New team members "
+                    f"will make incorrect assumptions about behavior. The knowledge exists "
+                    f"only in the original author's head."
+                ),
+                recommendation=(
+                    f"Start with public interfaces and high-fan-in classes. "
+                    f"Document: (1) what it does, (2) what it expects, (3) what it returns, "
+                    f"(4) what can go wrong. Use type hints as lightweight documentation."
+                ),
+                category=FindingCategory.DOCUMENTATION,
+                severity=FindingSeverity.MEDIUM,
+                evidence={"ratio": result.documentation_ratio, "undocumented": result.undocumented_public},
+            ))
+
+        # Large files
+        for path, line_count in result.large_files[:2]:
+            findings.append(EngineeringFinding(
+                fact=f"`{path.split('/')[-1]}` is {line_count} lines long.",
+                relationship=(
+                    f"Developers working on any feature in this file must navigate "
+                    f"all {line_count} lines. Merge conflicts are more likely."
+                ),
+                meaning=(
+                    f"Large files indicate multiple concerns in one place. "
+                    f"Code review quality drops for files over 300 lines — reviewers "
+                    f"lose context. Git blame becomes noisy."
+                ),
+                recommendation=(
+                    f"Identify natural boundaries (different classes, different concerns). "
+                    f"Extract into separate files named after their single responsibility. "
+                    f"Re-export from an `__init__.py` or `index.ts` if needed for backwards compat."
+                ),
+                category=FindingCategory.ARCHITECTURE,
+                severity=FindingSeverity.LOW,
+                affected_symbol=path.split("/")[-1],
+                source_file=path,
+                evidence={"lines": line_count},
+            ))
+
+        # Testing gap
+        if result.test_ratio < 0.2 and result.total_files > 10:
+            findings.append(EngineeringFinding(
+                fact=f"Test-to-source ratio is {result.test_ratio:.2f} ({result.total_tests} test functions).",
+                relationship=(
+                    f"The most complex code (complexity hotspots, god classes) likely has "
+                    f"the least test coverage — the code that needs it most."
+                ),
+                meaning=(
+                    f"Low test coverage means bugs are found by users, not by CI. "
+                    f"Refactoring becomes risky because regressions go undetected. "
+                    f"Deployment confidence is low."
+                ),
+                recommendation=(
+                    f"Don't aim for 100% coverage. Instead, add tests for: "
+                    f"(1) complexity hotspots, (2) public API contracts, "
+                    f"(3) recently-fixed bugs. Use the complexity hotspots list above "
+                    f"as your testing priority queue."
+                ),
+                category=FindingCategory.TESTING,
+                severity=FindingSeverity.MEDIUM,
+                evidence={"test_ratio": result.test_ratio, "test_functions": result.total_tests},
+            ))
+
+        return findings
+
     def _render_markdown(self, r: EngineeringReportResult) -> str:
         """Render the full engineering report."""
         lines: list[str] = []
@@ -475,6 +641,24 @@ class EngineeringReportGenerator:
             for path, line_count in r.large_files:
                 lines.append(f"- `{path.split('/')[-1]}` — {line_count} lines")
             lines.append("")
+
+        # ── Structured Engineering Findings ─────────────────────────────────
+        if r.structured_findings:
+            from cortex.pipeline.infrastructure.intelligence_formatter import (
+                render_finding_markdown, render_findings_summary,
+            )
+            lines.append("## Engineering Findings")
+            lines.append("")
+            lines.append(
+                "Each finding follows the structure: **Fact** (what is true) → "
+                "**Relationship** (how it connects) → **Meaning** (why it matters) → "
+                "**Recommendation** (what to do)."
+            )
+            lines.append("")
+            lines.append(render_findings_summary(r.structured_findings))
+            for i, finding in enumerate(r.structured_findings):
+                lines.append(render_finding_markdown(finding, i))
+                lines.append("")
 
         # ── Recommendations ──────────────────────────────────────────────────
         if r.recommendations:

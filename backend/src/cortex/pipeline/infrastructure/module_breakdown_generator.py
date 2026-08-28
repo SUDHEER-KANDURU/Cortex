@@ -154,8 +154,16 @@ class ModuleBreakdownGenerator:
         # Sort by importance (fan_in descending — most depended-on first)
         result.modules.sort(key=lambda m: m.fan_in, reverse=True)
 
-        # Detect circular dependencies
-        result.circular_dependencies = self._detect_circular_deps(module_deps)
+        # Detect circular dependencies. Pass a module-id → readable-path map so
+        # the result holds human-readable module paths (e.g. "src/cortex/chat")
+        # rather than internal node IDs like "f402bc3b_module_27a7d71c3594".
+        module_label_by_id = {
+            m.id: str(m.properties.get("path", m.label)).rstrip("/") or m.label
+            for m in modules
+        }
+        result.circular_dependencies = self._detect_circular_deps(
+            module_deps, module_label_by_id
+        )
 
         # Identify extremes
         if result.modules:
@@ -445,9 +453,17 @@ class ModuleBreakdownGenerator:
         return risks
 
     def _detect_circular_deps(
-        self, module_deps: dict[str, set[str]]
+        self,
+        module_deps: dict[str, set[str]],
+        module_label_by_id: dict[str, str] | None = None,
     ) -> list[tuple[str, str]]:
-        """Detect pairs of modules with circular dependencies."""
+        """Detect pairs of modules with circular dependencies.
+
+        `module_deps` is keyed by internal module node IDs. When
+        `module_label_by_id` is supplied, each pair is translated to the
+        module's readable path/name so the rendered report is human-friendly;
+        otherwise the raw IDs are returned (kept for backward compatibility).
+        """
         circular: list[tuple[str, str]] = []
         seen: set[tuple[str, str]] = set()
 
@@ -457,7 +473,13 @@ class ModuleBreakdownGenerator:
                     pair = tuple(sorted([src, tgt]))
                     if pair not in seen:
                         seen.add(pair)
-                        circular.append((src, tgt))
+                        if module_label_by_id is not None:
+                            circular.append((
+                                module_label_by_id.get(src, src),
+                                module_label_by_id.get(tgt, tgt),
+                            ))
+                        else:
+                            circular.append((src, tgt))
 
         return circular
 
@@ -507,10 +529,10 @@ class ModuleBreakdownGenerator:
                 "It makes the code harder to test, change, and understand."
             )
             lines.append("")
-            lines.append("**Affected pairs:**")
+            lines.append("**Affected pairs** (each depends on the other):")
             lines.append("")
             for src, tgt in analysis.circular_dependencies[:5]:
-                lines.append(f"- `{src}` ↔ `{tgt}`")
+                lines.append(f"- `{src}` &harr; `{tgt}`")
             lines.append("")
             lines.append(
                 "> Circular dependencies make modules harder to test in isolation "

@@ -20,19 +20,24 @@ class AbstractJobRepository(ABC):
         ...
 
     @abstractmethod
-    async def get_all(self) -> list[Job]:
-        """Return every job, newest first."""
+    async def get_all(self, user_id: str | None = None) -> list[Job]:
+        """Return jobs newest first. When user_id is given, only that user's
+        jobs are returned; when None, every job is returned (internal use)."""
         ...
 
     @abstractmethod
-    async def get_by_status(self, status: JobStatus) -> list[Job]:
-        """Return all jobs with a given status.
+    async def get_by_status(
+        self, status: JobStatus, user_id: str | None = None
+    ) -> list[Job]:
+        """Return all jobs with a given status, optionally scoped to a user.
         Used by the worker to find pending jobs to process."""
         ...
 
     @abstractmethod
-    async def get_by_repo_url(self, repo_url: str) -> list[Job]:
-        """Return all jobs for a given repo URL.
+    async def get_by_repo_url(
+        self, repo_url: str, user_id: str | None = None
+    ) -> list[Job]:
+        """Return all jobs for a given repo URL, optionally scoped to a user.
         Used to show history for a specific repository."""
         ...
 
@@ -61,8 +66,10 @@ class AbstractJobRepository(ABC):
         ...
 
     @abstractmethod
-    async def count_by_status(self) -> dict[JobStatus, int]:
-        """Return a count of jobs grouped by status.
+    async def count_by_status(
+        self, user_id: str | None = None
+    ) -> dict[JobStatus, int]:
+        """Return a count of jobs grouped by status, optionally scoped to a user.
         Used for the health dashboard and analytics."""
         ...
 
@@ -78,6 +85,7 @@ class AbstractJobService(ABC):
         repo_url: str,
         artifact_type: ArtifactType,
         options: dict[str, str] | None = None,
+        user_id: str | None = None,
     ) -> Job:
         """Validate the request, create a Job entity, persist it,
         and dispatch it to the Celery worker queue."""
@@ -89,13 +97,15 @@ class AbstractJobService(ABC):
         ...
 
     @abstractmethod
-    async def list_all(self) -> list[Job]:
-        """Return all jobs."""
+    async def list_all(self, user_id: str | None = None) -> list[Job]:
+        """Return all jobs, optionally scoped to a single user."""
         ...
 
     @abstractmethod
-    async def list_by_status(self, status: JobStatus) -> list[Job]:
-        """Return jobs filtered by status."""
+    async def list_by_status(
+        self, status: JobStatus, user_id: str | None = None
+    ) -> list[Job]:
+        """Return jobs filtered by status, optionally scoped to a user."""
         ...
 
     @abstractmethod

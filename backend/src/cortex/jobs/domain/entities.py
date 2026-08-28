@@ -46,6 +46,7 @@ class Job:
     status: JobStatus = JobStatus.PENDING
     error_message: str | None = None
     options: dict[str, str] | None = None
+    user_id: str | None = None  # Owner of the job — scopes list/get to a single account.
     created_at: datetime = field(default_factory=_now)
     updated_at: datetime = field(default_factory=_now)
 

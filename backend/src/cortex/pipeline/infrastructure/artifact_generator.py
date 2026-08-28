@@ -767,6 +767,12 @@ class GraphInterviewQuestionGenerator:
             "",
             question,
             "",
+            "**What this tests:**",
+            "",
+            "- Can the candidate reason about real code from evidence?",
+            "- Do they understand the engineering trade-offs involved?",
+            "- Can they propose concrete improvements with justification?",
+            "",
             "> **Tip:** Use the exact names above in your answer — they come directly "
             "from this repository's parsed structure.",
             "",

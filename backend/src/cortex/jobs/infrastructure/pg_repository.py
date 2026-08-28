@@ -23,6 +23,7 @@ def _model_to_entity(model: JobModel) -> Job:
         status=JobStatus(model.status),
         error_message=model.error_message,
         options=model.options,
+        user_id=model.user_id,
         created_at=model.created_at,
         updated_at=model.updated_at,
     )
@@ -36,6 +37,7 @@ def _entity_to_model(job: Job) -> JobModel:
         status=job.status.value,
         error_message=job.error_message,
         options=job.options,
+        user_id=job.user_id,
         created_at=job.created_at,
         updated_at=job.updated_at,
     )
@@ -76,29 +78,40 @@ class PostgresJobRepository(AbstractJobRepository):
             model = result.scalar_one_or_none()
             return _model_to_entity(model) if model else None
 
-    async def get_all(self) -> list[Job]:
+    async def get_all(self, user_id: str | None = None) -> list[Job]:
         async with self._session_factory() as session:
-            result = await session.execute(
-                select(JobModel).order_by(JobModel.created_at.desc())
-            )
+            stmt = select(JobModel).order_by(JobModel.created_at.desc())
+            if user_id is not None:
+                stmt = stmt.where(JobModel.user_id == user_id)
+            result = await session.execute(stmt)
             return [_model_to_entity(m) for m in result.scalars().all()]
 
-    async def get_by_status(self, status: JobStatus) -> list[Job]:
+    async def get_by_status(
+        self, status: JobStatus, user_id: str | None = None
+    ) -> list[Job]:
         async with self._session_factory() as session:
-            result = await session.execute(
+            stmt = (
                 select(JobModel)
                 .where(JobModel.status == status.value)
                 .order_by(JobModel.created_at.desc())
             )
+            if user_id is not None:
+                stmt = stmt.where(JobModel.user_id == user_id)
+            result = await session.execute(stmt)
             return [_model_to_entity(m) for m in result.scalars().all()]
 
-    async def get_by_repo_url(self, repo_url: str) -> list[Job]:
+    async def get_by_repo_url(
+        self, repo_url: str, user_id: str | None = None
+    ) -> list[Job]:
         async with self._session_factory() as session:
-            result = await session.execute(
+            stmt = (
                 select(JobModel)
                 .where(JobModel.repo_url == repo_url)
                 .order_by(JobModel.created_at.desc())
             )
+            if user_id is not None:
+                stmt = stmt.where(JobModel.user_id == user_id)
+            result = await session.execute(stmt)
             return [_model_to_entity(m) for m in result.scalars().all()]
 
     async def get_by_artifact_type(self, artifact_type: ArtifactType) -> list[Job]:
@@ -161,13 +174,19 @@ class PostgresJobRepository(AbstractJobRepository):
                 await session.rollback()
                 raise InfrastructureError(f"Failed to delete job {job_id}: {e}")
 
-    async def count_by_status(self) -> dict[JobStatus, int]:
-        """Fix 3 — proper GROUP BY COUNT query instead of full table scan."""
+    async def count_by_status(
+        self, user_id: str | None = None
+    ) -> dict[JobStatus, int]:
+        """Fix 3 — proper GROUP BY COUNT query instead of full table scan.
+        Scoped to a single user when user_id is provided."""
         async with self._session_factory() as session:
-            result = await session.execute(
+            stmt = (
                 select(JobModel.status, func.count(JobModel.id))
                 .group_by(JobModel.status)
             )
+            if user_id is not None:
+                stmt = stmt.where(JobModel.user_id == user_id)
+            result = await session.execute(stmt)
             counts: dict[JobStatus, int] = {s: 0 for s in JobStatus}
             for status_val, count in result.all():
                 counts[JobStatus(status_val)] = count

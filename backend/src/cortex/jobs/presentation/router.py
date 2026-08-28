@@ -1,7 +1,7 @@
 """Jobs API router — uses JobService via FastAPI dependency injection."""
 import structlog
 
-from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks, Header
+from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks, Header, Request
 from cortex.artifacts.domain.entities import ArtifactContentType
 from cortex.artifacts.application.use_cases import ArtifactService
 from cortex.artifacts.infrastructure.dependencies import artifact_repository
@@ -14,8 +14,13 @@ from cortex.jobs.presentation.models import (
     JobListResponse,
     JobCancelResponse,
 )
+from cortex.auth.domain.entities import User
+from cortex.auth.presentation.dependencies import get_current_user
 from cortex.config import get_settings
 from shared.exceptions import NotFoundError, ValidationError
+from shared.identity import resolve_identity
+from shared.rate_limit_response import rate_limit_response
+from shared.rate_limiters import get_jobs_limiter, get_jobs_concurrency_limiter
 
 logger = structlog.get_logger()
 
@@ -124,12 +129,15 @@ async def _post_pipeline_intelligence(job: Job) -> None:
     )
 
 
-async def _run_pipeline_for_job(job: Job, service: JobService) -> None:
+async def _run_pipeline_for_job(job: Job, service: JobService, identity_key: str) -> None:
     """Run the full analysis pipeline for a job.
 
     Called via FastAPI BackgroundTasks so it runs after the response is
     sent, within the same process lifetime as the HTTP request.
+
+    Releases the concurrency slot when complete (success or failure).
     """
+    concurrency = get_jobs_concurrency_limiter()
     try:
         from cortex.pipeline.application.orchestrator import build_default_pipeline
 
@@ -190,6 +198,9 @@ async def _run_pipeline_for_job(job: Job, service: JobService) -> None:
                 original_error=str(e),
                 mark_failed_error=str(mark_err),
             )
+    finally:
+        # Always release the concurrency slot regardless of outcome
+        await concurrency.release(identity_key)
 
 
 @router.post(
@@ -202,19 +213,68 @@ async def _run_pipeline_for_job(job: Job, service: JobService) -> None:
 )
 async def create_job(
     request: JobCreateRequest,
+    http_request: Request,
     background_tasks: BackgroundTasks,
     service: JobService = Depends(get_job_service),
+    user: User = Depends(get_current_user),
 ) -> JobResponse:
+    # ── Rate limit: job submission frequency ──────────────────────────────
+    identity = resolve_identity(http_request)
+    jobs_limiter = get_jobs_limiter()
+    rate_result = await jobs_limiter.check(identity)
+    if not rate_result.allowed:
+        return rate_limit_response(rate_result)  # type: ignore[return-value]
+
+    # ── Concurrent job limit: atomic acquire ──────────────────────────────
+    concurrency = get_jobs_concurrency_limiter()
+    acquired, current = await concurrency.acquire(identity)
+    if not acquired:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(  # type: ignore[return-value]
+            status_code=429,
+            content={
+                "error": "concurrent_job_limit",
+                "message": f"You already have {current} analyses running. "
+                           f"Please wait for one to finish.",
+                "retry_after": 30,
+            },
+            headers={"Retry-After": "30"},
+        )
+
+    # ── Duplicate detection: same repo_url with active (pending/running) job ─
+    # Scoped to this user so one account's in-flight job never short-circuits
+    # another account's submission.
+    repo_url = str(request.repo_url).rstrip("/")
+    try:
+        existing_jobs = await service.list_by_repo(repo_url, user_id=user.id)
+        active_job = next(
+            (j for j in existing_jobs if j.status in (JobStatus.PENDING, JobStatus.RUNNING)),
+            None,
+        )
+        if active_job:
+            # Release the concurrency slot — we're not starting a new job
+            await concurrency.release(identity)
+            # Return the existing active job instead of creating a duplicate
+            return JobResponse.from_job(active_job)
+    except Exception:
+        pass  # If listing fails, proceed with creation
+
+    # ── Create and start job ──────────────────────────────────────────────
     try:
         job = await service.submit(
-            repo_url=str(request.repo_url),
+            repo_url=repo_url,
             artifact_type=request.artifact_type,
             options=request.options,
+            user_id=user.id,
         )
     except ValidationError as e:
+        await concurrency.release(identity)
         raise HTTPException(status_code=422, detail=str(e))
+    except Exception:
+        await concurrency.release(identity)
+        raise
 
-    background_tasks.add_task(_run_pipeline_for_job, job, service)
+    background_tasks.add_task(_run_pipeline_for_job, job, service, identity)
     return JobResponse.from_job(job)
 
 
@@ -231,11 +291,12 @@ async def list_jobs(
     status: JobStatus | None = Query(default=None),
     artifact_type: ArtifactType | None = Query(default=None),
     service: JobService = Depends(get_job_service),
+    user: User = Depends(get_current_user),
 ) -> JobListResponse:
     if status:
-        jobs = await service.list_by_status(status)
+        jobs = await service.list_by_status(status, user_id=user.id)
     else:
-        jobs = await service.list_all()
+        jobs = await service.list_all(user_id=user.id)
 
     if artifact_type:
         jobs = [j for j in jobs if j.artifact_type == artifact_type]
@@ -255,9 +316,10 @@ async def list_jobs(
 async def get_job(
     job_id: str,
     service: JobService = Depends(get_job_service),
+    user: User = Depends(get_current_user),
 ) -> JobResponse:
     try:
-        job = await service.get(job_id)
+        job = await service.get(job_id, owner_id=user.id)
         return JobResponse.from_job(job)
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -275,9 +337,10 @@ async def get_job(
 async def delete_job(
     job_id: str,
     service: JobService = Depends(get_job_service),
+    user: User = Depends(get_current_user),
 ) -> None:
     try:
-        await service.delete(job_id)
+        await service.delete(job_id, owner_id=user.id)
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -294,9 +357,10 @@ async def delete_job(
 async def cancel_job(
     job_id: str,
     service: JobService = Depends(get_job_service),
+    user: User = Depends(get_current_user),
 ) -> JobCancelResponse:
     try:
-        job = await service.cancel(job_id)
+        job = await service.cancel(job_id, owner_id=user.id)
         return JobCancelResponse(id=job.id, status=job.status)
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -317,17 +381,46 @@ async def cancel_job(
 )
 async def retry_job(
     job_id: str,
+    http_request: Request,
     background_tasks: BackgroundTasks,
     service: JobService = Depends(get_job_service),
+    user: User = Depends(get_current_user),
 ) -> JobResponse:
+    # ── Rate limit + concurrency (same as create_job) ─────────────────────
+    identity = resolve_identity(http_request)
+    jobs_limiter = get_jobs_limiter()
+    rate_result = await jobs_limiter.check(identity)
+    if not rate_result.allowed:
+        return rate_limit_response(rate_result)  # type: ignore[return-value]
+
+    concurrency = get_jobs_concurrency_limiter()
+    acquired, current = await concurrency.acquire(identity)
+    if not acquired:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(  # type: ignore[return-value]
+            status_code=429,
+            content={
+                "error": "concurrent_job_limit",
+                "message": f"You already have {current} analyses running. "
+                           f"Please wait for one to finish.",
+                "retry_after": 30,
+            },
+            headers={"Retry-After": "30"},
+        )
+
     try:
-        job = await service.retry(job_id)
+        job = await service.retry(job_id, owner_id=user.id)
     except NotFoundError:
+        await concurrency.release(identity)
         raise HTTPException(status_code=404, detail="Job not found")
     except ValidationError as e:
+        await concurrency.release(identity)
         raise HTTPException(status_code=409, detail=str(e))
+    except Exception:
+        await concurrency.release(identity)
+        raise
 
-    background_tasks.add_task(_run_pipeline_for_job, job, service)
+    background_tasks.add_task(_run_pipeline_for_job, job, service, identity)
     return JobResponse.from_job(job)
 
 
@@ -378,8 +471,9 @@ async def fail_job(
 )
 async def get_stats(
     service: JobService = Depends(get_job_service),
+    user: User = Depends(get_current_user),
 ) -> dict:
-    stats = await service.get_stats()
+    stats = await service.get_stats(user_id=user.id)
     return {status.value: count for status, count in stats.items()}
 
 
@@ -392,8 +486,9 @@ async def get_stats(
 async def get_jobs_by_repo(
     repo_url: str,
     service: JobService = Depends(get_job_service),
+    user: User = Depends(get_current_user),
 ) -> JobListResponse:
-    jobs = await service.list_by_repo(repo_url)
+    jobs = await service.list_by_repo(repo_url, user_id=user.id)
     return JobListResponse.from_jobs(jobs)
 
 
@@ -407,9 +502,10 @@ async def get_jobs_by_repo(
 async def analyze_job(
     job_id: str,
     service: JobService = Depends(get_job_service),
+    user: User = Depends(get_current_user),
 ) -> JobResponse:
     try:
-        job = await service.get(job_id)
+        job = await service.get(job_id, owner_id=user.id)
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Job not found")
 

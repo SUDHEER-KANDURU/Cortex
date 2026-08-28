@@ -97,6 +97,37 @@ class RepositoryMemorySummarizer:
                 )
             )
 
+        # Structure facts — key metrics for quick reference
+        stats = report.stats
+        facts.append(
+            RepositoryFact(
+                id=self._fact_id(),
+                repo_url=report.repo_url,
+                job_id=report.job_id,
+                category="structure",
+                text=(
+                    f"Repository contains {stats.get('files', 0)} source files, "
+                    f"{stats.get('classes', 0)} classes, "
+                    f"{stats.get('functions', 0)} functions, "
+                    f"dominant language: {stats.get('dominant_language', 'unknown')}."
+                ),
+            )
+        )
+
+        # Architecture fact — detected patterns
+        if hasattr(report, 'coverage') and report.coverage:
+            langs = report.coverage.languages_detected
+            if langs:
+                facts.append(
+                    RepositoryFact(
+                        id=self._fact_id(),
+                        repo_url=report.repo_url,
+                        job_id=report.job_id,
+                        category="languages",
+                        text=f"Languages detected: {', '.join(langs)}.",
+                    )
+                )
+
         # High/critical issues become individually searchable facts —
         # these are what someone is most likely to search for later
         # ("does this repo have a god class?", "any circular deps?")
@@ -115,6 +146,23 @@ class RepositoryMemorySummarizer:
                     source_file=issue.file_path or None,
                 )
             )
+
+        # Key metrics fact — for delta comparisons
+        facts.append(
+            RepositoryFact(
+                id=self._fact_id(),
+                repo_url=report.repo_url,
+                job_id=report.job_id,
+                category="metrics",
+                text=(
+                    f"Health score: {report.overall_score}/100 ({report.overall_grade}). "
+                    f"Issues: {stats.get('total_issues', 0)} total "
+                    f"({stats.get('critical_issues', 0)} critical, "
+                    f"{stats.get('high_issues', 0)} high, "
+                    f"{stats.get('medium_issues', 0)} medium)."
+                ),
+            )
+        )
 
         return facts
 
