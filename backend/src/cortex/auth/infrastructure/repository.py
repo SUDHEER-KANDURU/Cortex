@@ -31,6 +31,11 @@ class SqlAlchemyUserRepository(UserRepository):
                 hashed_password=user.hashed_password,
                 is_active=user.is_active,
                 is_verified=user.is_verified,
+                organization=user.organization,
+                role=user.role,
+                phone=user.phone,
+                date_of_birth=user.date_of_birth,
+                gender=user.gender,
             )
             session.add(model)
             await session.commit()
@@ -64,11 +69,26 @@ class SqlAlchemyUserRepository(UserRepository):
                     hashed_password=user.hashed_password,
                     is_active=user.is_active,
                     is_verified=user.is_verified,
+                    organization=user.organization,
+                    role=user.role,
+                    phone=user.phone,
+                    date_of_birth=user.date_of_birth,
+                    gender=user.gender,
                     updated_at=datetime.now(timezone.utc),
                 )
             )
             await session.commit()
             return user
+
+    async def delete(self, user_id: str) -> None:
+        async with get_async_session() as session:
+            result = await session.execute(
+                select(UserModel).where(UserModel.id == user_id)
+            )
+            model = result.scalar_one_or_none()
+            if model:
+                await session.delete(model)
+                await session.commit()
 
     @staticmethod
     def _to_entity(model: UserModel) -> User:
@@ -79,6 +99,11 @@ class SqlAlchemyUserRepository(UserRepository):
             hashed_password=model.hashed_password,
             is_active=model.is_active,
             is_verified=model.is_verified,
+            organization=model.organization,
+            role=model.role,
+            phone=model.phone,
+            date_of_birth=model.date_of_birth,
+            gender=model.gender,
             created_at=model.created_at,
             updated_at=model.updated_at,
         )

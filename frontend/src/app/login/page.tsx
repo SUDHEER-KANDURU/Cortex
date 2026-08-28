@@ -14,6 +14,7 @@ import { PasswordInput } from '@/components/auth/PasswordInput';
 import { FloatingInput } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
+import { PageLoader } from '@/components/shared/BrandedLoader';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -45,8 +46,9 @@ export default function LoginPage() {
     try {
       await login(email, password);
       router.push('/dashboard');
-    } catch (err: any) {
-      setError(err?.message || 'Login failed. Please try again.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Login failed. Please try again.';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -60,7 +62,7 @@ export default function LoginPage() {
     );
   }
 
-  if (isAuthenticated) return null;
+  if (isAuthenticated) return <PageLoader />;
 
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to your Cortex account">

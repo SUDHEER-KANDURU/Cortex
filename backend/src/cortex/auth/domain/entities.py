@@ -18,6 +18,11 @@ class User:
     hashed_password: str
     is_active: bool = True
     is_verified: bool = False
+    organization: str | None = None
+    role: str | None = None
+    phone: str | None = None
+    date_of_birth: str | None = None
+    gender: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 

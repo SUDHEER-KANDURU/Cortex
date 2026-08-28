@@ -3,6 +3,7 @@
 from functools import lru_cache
 
 from cortex.auth.application.auth_service import AuthService
+from cortex.auth.infrastructure.email_service import EmailService
 from cortex.auth.infrastructure.repository import (
     SqlAlchemyPasswordResetTokenRepository,
     SqlAlchemyUserRepository,
@@ -27,9 +28,11 @@ def _get_reset_repo() -> SqlAlchemyPasswordResetTokenRepository:
 
 
 def get_auth_service() -> AuthService:
+    settings = get_settings()
     return AuthService(
         user_repo=_get_user_repo(),
         verification_repo=_get_verification_repo(),
         reset_repo=_get_reset_repo(),
-        settings=get_settings(),
+        settings=settings,
+        email_service=EmailService(settings=settings),
     )

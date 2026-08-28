@@ -10,6 +10,11 @@ export interface RegisterPayload {
   name: string;
   email: string;
   password: string;
+  organization?: string;
+  role?: string;
+  phone?: string;
+  date_of_birth?: string;
+  gender?: string;
 }
 
 export interface RegisterResponse {
@@ -17,7 +22,7 @@ export interface RegisterResponse {
   name: string;
   email: string;
   is_verified: boolean;
-  verification_token: string;
+  message: string;
 }
 
 export interface LoginPayload {
@@ -37,6 +42,20 @@ export interface UserResponse {
   email: string;
   is_verified: boolean;
   is_active: boolean;
+  organization?: string | null;
+  role?: string | null;
+  phone?: string | null;
+  date_of_birth?: string | null;
+  gender?: string | null;
+}
+
+export interface UpdateProfilePayload {
+  name?: string;
+  organization?: string;
+  role?: string;
+  phone?: string;
+  date_of_birth?: string;
+  gender?: string;
 }
 
 export interface MessageResponse {
@@ -56,8 +75,8 @@ export async function login(payload: LoginPayload): Promise<TokenResponse> {
   return data;
 }
 
-export async function verifyEmail(token: string): Promise<UserResponse> {
-  const { data } = await apiClient.post<UserResponse>('/auth/verify-email', { token });
+export async function verifyEmail(code: string): Promise<UserResponse> {
+  const { data } = await apiClient.post<UserResponse>('/auth/verify-email', { code });
   return data;
 }
 
@@ -71,8 +90,8 @@ export async function forgotPassword(email: string): Promise<MessageResponse> {
   return data;
 }
 
-export async function resetPassword(token: string, password: string): Promise<MessageResponse> {
-  const { data } = await apiClient.post<MessageResponse>('/auth/reset-password', { token, password });
+export async function resetPassword(code: string, password: string): Promise<MessageResponse> {
+  const { data } = await apiClient.post<MessageResponse>('/auth/reset-password', { code, password });
   return data;
 }
 
@@ -83,5 +102,28 @@ export async function refreshTokens(refreshToken: string): Promise<TokenResponse
 
 export async function getMe(): Promise<UserResponse> {
   const { data } = await apiClient.get<UserResponse>('/auth/me');
+  return data;
+}
+
+export async function updateProfile(payload: UpdateProfilePayload): Promise<UserResponse> {
+  const { data } = await apiClient.put<UserResponse>('/auth/me', payload);
+  return data;
+}
+
+export async function requestPasswordChange(): Promise<MessageResponse> {
+  const { data } = await apiClient.post<MessageResponse>('/auth/change-password/request', {});
+  return data;
+}
+
+export async function confirmPasswordChange(code: string, newPassword: string): Promise<MessageResponse> {
+  const { data } = await apiClient.post<MessageResponse>('/auth/change-password/confirm', {
+    code,
+    new_password: newPassword,
+  });
+  return data;
+}
+
+export async function deleteAccount(): Promise<MessageResponse> {
+  const { data } = await apiClient.delete<MessageResponse>('/auth/me');
   return data;
 }

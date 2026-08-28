@@ -67,8 +67,9 @@ function ResetPasswordContent() {
       setState('success');
       // Cleanup
       sessionStorage.removeItem('cortex_reset_token');
-    } catch (err: any) {
-      setError(err?.message || 'Failed to reset password. The link may have expired.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to reset password. The link may have expired.';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }

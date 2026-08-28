@@ -9,10 +9,13 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, User, AlertCircle, Check } from 'lucide-react';
+import { Mail, User, AlertCircle, Building2, Briefcase, Phone, Calendar, Users } from 'lucide-react';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { PasswordInput } from '@/components/auth/PasswordInput';
 import { PasswordStrength } from '@/components/auth/PasswordStrength';
+import { LegalModal } from '@/components/auth/LegalModal';
+import { TermsContent } from '@/components/auth/TermsContent';
+import { PrivacyContent } from '@/components/auth/PrivacyContent';
 import { FloatingInput } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
@@ -23,12 +26,19 @@ export default function SignupPage() {
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [organization, setOrganization] = useState('');
+  const [role, setRole] = useState('');
+  const [phone, setPhone] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [gender, setGender] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -61,17 +71,26 @@ export default function SignupPage() {
 
     setIsSubmitting(true);
     try {
-      const result = await register(name.trim(), email.trim(), password);
-      // Store email and token for verification page
+      const result = await register({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        organization: organization.trim() || undefined,
+        role: role.trim() || undefined,
+        phone: phone.trim() || undefined,
+        date_of_birth: dateOfBirth || undefined,
+        gender: gender || undefined,
+      });
+      // Store email for verification page
       sessionStorage.setItem('cortex_verify_email', result.email);
-      sessionStorage.setItem('cortex_verify_token', result.verification_token);
       router.push('/verify-email');
-    } catch (err: any) {
-      setError(err?.message || 'Registration failed. Please try again.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Registration failed. Please try again.';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
-  }, [name, email, password, validate, register, router]);
+  }, [name, email, password, organization, role, phone, dateOfBirth, gender, validate, register, router]);
 
   if (authLoading) {
     return (
@@ -134,6 +153,107 @@ export default function SignupPage() {
           autoComplete="email"
         />
 
+        {/* Organization */}
+        <FloatingInput
+          id="signup-organization"
+          name="organization"
+          type="text"
+          label="Organization (optional)"
+          icon={<Building2 size={16} />}
+          value={organization}
+          onChange={(e) => setOrganization(e.target.value)}
+          autoComplete="organization"
+        />
+
+        {/* Role / Title */}
+        <FloatingInput
+          id="signup-role"
+          name="role"
+          type="text"
+          label="Job title / Role (optional)"
+          icon={<Briefcase size={16} />}
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+          autoComplete="organization-title"
+        />
+
+        {/* Phone */}
+        <FloatingInput
+          id="signup-phone"
+          name="phone"
+          type="tel"
+          label="Phone number (optional)"
+          icon={<Phone size={16} />}
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          autoComplete="tel"
+        />
+
+        {/* Date of Birth */}
+        <div className="relative w-full">
+          <label
+            htmlFor="signup-dob"
+            className="absolute left-10 top-2 text-[10px] font-medium pointer-events-none z-10"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Date of birth (optional)
+          </label>
+          <span
+            className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <Calendar size={16} />
+          </span>
+          <input
+            id="signup-dob"
+            name="date_of_birth"
+            type="date"
+            value={dateOfBirth}
+            onChange={(e) => setDateOfBirth(e.target.value)}
+            className="w-full h-14 rounded-[var(--radius-md)] border pl-10 pr-4 pt-5 pb-1 text-sm focus:outline-none focus:border-[var(--primary)] transition-colors duration-150"
+            style={{
+              background: 'var(--surface)',
+              color: 'var(--text)',
+              borderColor: 'var(--border)',
+            }}
+          />
+        </div>
+
+        {/* Gender */}
+        <div className="relative w-full">
+          <label
+            htmlFor="signup-gender"
+            className="absolute left-10 top-2 text-[10px] font-medium pointer-events-none z-10"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Gender (optional)
+          </label>
+          <span
+            className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <Users size={16} />
+          </span>
+          <select
+            id="signup-gender"
+            name="gender"
+            value={gender}
+            onChange={(e) => setGender(e.target.value)}
+            className="w-full h-14 rounded-[var(--radius-md)] border pl-10 pr-4 pt-5 pb-1 text-sm focus:outline-none focus:border-[var(--primary)] transition-colors duration-150 appearance-none cursor-pointer"
+            style={{
+              background: 'var(--surface)',
+              color: gender ? 'var(--text)' : 'var(--text-muted)',
+              borderColor: 'var(--border)',
+            }}
+          >
+            <option value="">Select gender</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="non-binary">Non-binary</option>
+            <option value="prefer-not-to-say">Prefer not to say</option>
+          </select>
+        </div>
+
         {/* Password */}
         <div>
           <PasswordInput
@@ -169,9 +289,23 @@ export default function SignupPage() {
           />
           <span className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
             I agree to the{' '}
-            <span className="font-medium" style={{ color: 'var(--text)' }}>Terms of Service</span>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); setShowTerms(true); }}
+              className="font-medium underline transition-colors duration-150 hover:opacity-80 cursor-pointer"
+              style={{ color: 'var(--text)' }}
+            >
+              Terms of Service
+            </button>
             {' '}and{' '}
-            <span className="font-medium" style={{ color: 'var(--text)' }}>Privacy Policy</span>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); setShowPrivacy(true); }}
+              className="font-medium underline transition-colors duration-150 hover:opacity-80 cursor-pointer"
+              style={{ color: 'var(--text)' }}
+            >
+              Privacy Policy
+            </button>
           </span>
         </label>
         {fieldErrors.terms && (
@@ -203,6 +337,14 @@ export default function SignupPage() {
           Sign in
         </Link>
       </p>
+
+      {/* Legal Modals */}
+      <LegalModal open={showTerms} onClose={() => setShowTerms(false)} title="Terms of Service">
+        <TermsContent />
+      </LegalModal>
+      <LegalModal open={showPrivacy} onClose={() => setShowPrivacy(false)} title="Privacy Policy">
+        <PrivacyContent />
+      </LegalModal>
     </AuthLayout>
   );
 }

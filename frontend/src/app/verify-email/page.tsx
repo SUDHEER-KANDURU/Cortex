@@ -1,15 +1,15 @@
 'use client';
 
 /**
- * Email Verification Page — Shows verification state after signup.
- * Handles: pending, resend with countdown, success, failure/expired states.
+ * Email Verification Page — 6-digit OTP code entry.
+ * User receives the code via email and enters it here.
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, CheckCircle2, XCircle, RefreshCw, ArrowRight } from 'lucide-react';
+import { Mail, CheckCircle2, RefreshCw, ArrowRight } from 'lucide-react';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { Button } from '@/components/ui/button';
 import * as authApi from '@/lib/api/auth';
@@ -20,21 +20,20 @@ export default function VerifyEmailPage() {
   const router = useRouter();
   const [state, setState] = useState<VerifyState>('pending');
   const [email, setEmail] = useState('');
-  const [token, setToken] = useState('');
+  const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
   const [errorMessage, setErrorMessage] = useState('');
   const [countdown, setCountdown] = useState(0);
   const [isResending, setIsResending] = useState(false);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load email and token from sessionStorage (set during signup)
+  // Load email from sessionStorage
   useEffect(() => {
     const storedEmail = sessionStorage.getItem('cortex_verify_email');
-    const storedToken = sessionStorage.getItem('cortex_verify_token');
     if (storedEmail) setEmail(storedEmail);
-    if (storedToken) setToken(storedToken);
   }, []);
 
-  // Countdown timer
+  // Countdown timer for resend
   useEffect(() => {
     if (countdown > 0) {
       countdownRef.current = setInterval(() => {
@@ -59,23 +58,63 @@ export default function VerifyEmailPage() {
       )
     : '';
 
-  // Verify the token
-  const handleVerify = useCallback(async () => {
-    if (!token) {
-      setState('error');
-      setErrorMessage('No verification token found. Please sign up again.');
+  // Handle OTP digit input
+  const handleOtpChange = useCallback((index: number, value: string) => {
+    // Only allow digits
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const newOtp = [...otp];
+    newOtp[index] = digit;
+    setOtp(newOtp);
+    setErrorMessage('');
+
+    // Auto-focus next input
+    if (digit && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+
+    // Auto-submit when all 6 digits entered
+    if (digit && index === 5) {
+      const code = newOtp.join('');
+      if (code.length === 6) {
+        handleVerify(code);
+      }
+    }
+  }, [otp]);
+
+  // Handle paste (paste full OTP)
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (pasted.length === 6) {
+      const digits = pasted.split('');
+      setOtp(digits);
+      inputRefs.current[5]?.focus();
+      handleVerify(pasted);
+    }
+  }, []);
+
+  // Handle backspace
+  const handleKeyDown = useCallback((index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  }, [otp]);
+
+  // Verify the OTP code
+  const handleVerify = useCallback(async (code?: string) => {
+    const otpCode = code || otp.join('');
+    if (otpCode.length !== 6) {
+      setErrorMessage('Please enter all 6 digits.');
       return;
     }
 
     setState('verifying');
     try {
-      await authApi.verifyEmail(token);
+      await authApi.verifyEmail(otpCode);
       setState('success');
-      // Clean up sessionStorage
       sessionStorage.removeItem('cortex_verify_email');
-      sessionStorage.removeItem('cortex_verify_token');
-    } catch (err: any) {
-      const msg = err?.message || 'Verification failed.';
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Verification failed.';
       if (msg.toLowerCase().includes('expired')) {
         setState('expired');
       } else {
@@ -83,7 +122,7 @@ export default function VerifyEmailPage() {
       }
       setErrorMessage(msg);
     }
-  }, [token]);
+  }, [otp]);
 
   // Resend verification email
   const handleResend = useCallback(async () => {
@@ -91,16 +130,15 @@ export default function VerifyEmailPage() {
 
     setIsResending(true);
     try {
-      const response = await authApi.resendVerification(email);
-      if (response.token) {
-        setToken(response.token);
-        sessionStorage.setItem('cortex_verify_token', response.token);
-      }
+      await authApi.resendVerification(email);
       setCountdown(60);
       setState('pending');
+      setOtp(['', '', '', '', '', '']);
       setErrorMessage('');
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Failed to resend verification email.');
+      inputRefs.current[0]?.focus();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to resend code.';
+      setErrorMessage(message);
     } finally {
       setIsResending(false);
     }
@@ -109,13 +147,13 @@ export default function VerifyEmailPage() {
   return (
     <AuthLayout
       title={state === 'success' ? 'Email verified' : 'Verify your email'}
-      subtitle={state === 'success' ? undefined : 'We need to confirm your email address'}
+      subtitle={state === 'success' ? undefined : 'Enter the 6-digit code sent to your email'}
     >
       <AnimatePresence mode="wait">
-        {/* ── Pending State ── */}
-        {(state === 'pending' || state === 'verifying') && (
+        {/* ── Pending / Error State — OTP Input ── */}
+        {(state === 'pending' || state === 'verifying' || state === 'error' || state === 'expired') && (
           <motion.div
-            key="pending"
+            key="otp-input"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
@@ -138,31 +176,60 @@ export default function VerifyEmailPage() {
             {/* Message */}
             <div className="space-y-2">
               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                We sent a verification link to
+                We sent a verification code to
               </p>
               <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
                 {maskedEmail || 'your email address'}
               </p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                Click the button below to verify your email, or check your inbox for the link.
-              </p>
             </div>
+
+            {/* OTP Input */}
+            <div className="flex justify-center gap-2" onPaste={handlePaste}>
+              {otp.map((digit, i) => (
+                <input
+                  key={i}
+                  ref={el => { inputRefs.current[i] = el; }}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleOtpChange(i, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(i, e)}
+                  disabled={state === 'verifying'}
+                  className="w-11 h-13 text-center text-lg font-bold rounded-[var(--radius-md)] border focus:outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary-dim)] transition-all duration-150"
+                  style={{
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                    borderColor: errorMessage ? 'var(--danger)' : 'var(--border)',
+                    fontFamily: 'var(--font-mono)',
+                  }}
+                  aria-label={`Digit ${i + 1}`}
+                />
+              ))}
+            </div>
+
+            {/* Error message */}
+            {errorMessage && (
+              <p className="text-xs" style={{ color: 'var(--danger)' }} role="alert">
+                {errorMessage}
+              </p>
+            )}
 
             {/* Verify Button */}
             <Button
-              onClick={handleVerify}
+              onClick={() => handleVerify()}
               loading={state === 'verifying'}
-              disabled={state === 'verifying' || !token}
+              disabled={state === 'verifying' || otp.join('').length !== 6}
               className="w-full h-12"
               size="lg"
             >
-              Verify my email
+              Verify
             </Button>
 
             {/* Resend */}
             <div className="pt-2">
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                Didn&apos;t receive the email?
+                Didn&apos;t receive the code?
               </p>
               <button
                 type="button"
@@ -174,7 +241,7 @@ export default function VerifyEmailPage() {
                 <RefreshCw size={12} className={isResending ? 'animate-spin' : ''} />
                 {countdown > 0
                   ? `Resend in ${countdown}s`
-                  : 'Resend verification email'}
+                  : 'Resend code'}
               </button>
             </div>
 
@@ -230,75 +297,9 @@ export default function VerifyEmailPage() {
               className="w-full h-12"
               size="lg"
             >
-              <span>Continue to Cortex</span>
+              <span>Continue to Sign in</span>
               <ArrowRight size={16} />
             </Button>
-          </motion.div>
-        )}
-
-        {/* ── Error / Expired State ── */}
-        {(state === 'error' || state === 'expired') && (
-          <motion.div
-            key="error"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25 }}
-            className="text-center space-y-5"
-          >
-            <div className="flex justify-center">
-              <div
-                className="w-16 h-16 rounded-full flex items-center justify-center"
-                style={{
-                  background: 'var(--danger-dim)',
-                  border: '0.5px solid var(--danger)',
-                }}
-              >
-                <XCircle size={28} style={{ color: 'var(--danger)' }} />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
-                {state === 'expired' ? 'Verification link expired' : 'Verification failed'}
-              </p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                {errorMessage || 'Something went wrong. Please try again.'}
-              </p>
-            </div>
-
-            {/* Resend option */}
-            {email && (
-              <Button
-                onClick={handleResend}
-                loading={isResending}
-                disabled={countdown > 0 || isResending}
-                variant="ghost"
-                className="w-full h-12"
-                size="lg"
-              >
-                <RefreshCw size={16} />
-                {countdown > 0 ? `Resend in ${countdown}s` : 'Request new verification'}
-              </Button>
-            )}
-
-            <div className="flex items-center justify-center gap-4 pt-2">
-              <Link
-                href="/signup"
-                className="text-xs font-medium transition-colors duration-150"
-                style={{ color: 'var(--text-muted)' }}
-              >
-                Sign up again
-              </Link>
-              <span className="text-xs" style={{ color: 'var(--border-dark)' }}>•</span>
-              <Link
-                href="/login"
-                className="text-xs font-medium transition-colors duration-150"
-                style={{ color: 'var(--text-muted)' }}
-              >
-                Back to login
-              </Link>
-            </div>
           </motion.div>
         )}
       </AnimatePresence>

@@ -21,6 +21,10 @@ class UserRepository(ABC):
     async def update(self, user: User) -> User:
         ...
 
+    @abstractmethod
+    async def delete(self, user_id: str) -> None:
+        ...
+
 
 class VerificationTokenRepository(ABC):
     @abstractmethod
