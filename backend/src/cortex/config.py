@@ -33,13 +33,60 @@ class Settings(BaseSettings):
     verification_token_expire_hours: int = 24
     password_reset_token_expire_hours: int = 1
 
+    # Email (SMTP)
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = "noreply@cortex.dev"
+    smtp_from_name: str = "Cortex"
+    smtp_use_tls: bool = True
+    # Frontend URL for building verification/reset links in emails
+    frontend_url: str = "http://localhost:3000"
+
     cors_origins: list[str] = ["http://localhost:3000"]
     log_level: str = "INFO"
     host: str = "0.0.0.0"
     port: int = 8000
     reload: bool = True
 
+    # ── Rate Limiting ────────────────────────────────────────────────────────
+    # All limits are configurable via environment variables.
+    # Rate limiting state is process-local and is not shared across multiple workers.
 
-@lru_cache
+    # Global API: requests per minute per identity
+    rate_limit_global_requests: int = 100
+    rate_limit_global_window_seconds: int = 60
+
+    # Job submission: requests per window per identity
+    rate_limit_jobs_requests: int = 5
+    rate_limit_jobs_window_seconds: int = 600  # 10 minutes
+
+    # Concurrent running jobs per identity
+    rate_limit_jobs_concurrent: int = 3
+
+    # Chat messages per minute per identity
+    rate_limit_chat_requests: int = 20
+    rate_limit_chat_window_seconds: int = 60
+
+    # Login attempts per window per IP
+    rate_limit_login_requests: int = 5
+    rate_limit_login_window_seconds: int = 900  # 15 minutes
+
+    # Password reset per window per IP
+    rate_limit_password_reset_requests: int = 3
+    rate_limit_password_reset_window_seconds: int = 3600  # 1 hour
+
+    # Email verification resend per window per IP
+    rate_limit_verify_resend_requests: int = 3
+    rate_limit_verify_resend_window_seconds: int = 900  # 15 minutes
+
+
+_settings_instance: Settings | None = None
+
+
 def get_settings() -> Settings:
-    return Settings()
+    global _settings_instance
+    if _settings_instance is None:
+        _settings_instance = Settings()
+    return _settings_instance

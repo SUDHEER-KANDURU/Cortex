@@ -17,8 +17,11 @@ from cortex.diagrams.router import router as diagrams_router
 from cortex.search.router import router as search_router
 from cortex.overview.router import router as overview_router
 from cortex.auth.presentation.router import router as auth_router
+from cortex.reasoning.presentation.router import router as reasoning_router
+from cortex.navigate.router import router as navigate_router
 from shared.correlation import CorrelationMiddleware
 from shared.logging import configure_logging
+from shared.rate_limit_middleware import RateLimitMiddleware
 
 _startup_logger = structlog.get_logger()
 
@@ -54,6 +57,31 @@ def _warn_missing_secrets(settings) -> None:  # type: ignore[type-arg]
         )
 
 
+def _ensure_user_id_columns(connection) -> None:  # type: ignore[no-untyped-def]
+    """Add the `user_id` column to `jobs` and `chat_sessions` on databases
+    created before multi-user isolation existed.
+
+    Runs synchronously inside `conn.run_sync`. Uses the SQLAlchemy inspector
+    to check existing columns so it is safe to run on every startup and on a
+    fresh DB alike. Only handles the additive column case (SQLite supports
+    `ALTER TABLE ... ADD COLUMN`). Postgres accepts the same DDL.
+    """
+    from sqlalchemy import inspect as sa_inspect, text
+
+    inspector = sa_inspect(connection)
+    existing_tables = set(inspector.get_table_names())
+
+    for table in ("jobs", "chat_sessions"):
+        if table not in existing_tables:
+            continue  # create_all already made it with user_id
+        columns = {col["name"] for col in inspector.get_columns(table)}
+        if "user_id" not in columns:
+            connection.execute(
+                text(f"ALTER TABLE {table} ADD COLUMN user_id VARCHAR(36)")
+            )
+            _startup_logger.info("migration_added_user_id_column", table=table)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Create all database tables on startup, then reset orphaned jobs."""
@@ -68,6 +96,10 @@ async def lifespan(app: FastAPI):
     engine = get_engine(settings.database_url)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Lightweight migration: create_all() never ALTERs existing tables,
+        # so add the user_id ownership columns to pre-multi-user databases.
+        # Idempotent — skips columns that already exist.
+        await conn.run_sync(_ensure_user_id_columns)
         # Reset jobs stuck in running/pending from a previous process —
         # their background tasks died and will never complete.
         await conn.execute(
@@ -113,6 +145,7 @@ def create_app() -> FastAPI:
     )
 
     app.add_middleware(CorrelationMiddleware)
+    app.add_middleware(RateLimitMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -132,6 +165,8 @@ def create_app() -> FastAPI:
     app.include_router(search_router, prefix="/api/v1")
     app.include_router(overview_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
+    app.include_router(reasoning_router, prefix="/api/v1")
+    app.include_router(navigate_router, prefix="/api/v1")
 
     return app
 
