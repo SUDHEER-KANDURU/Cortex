@@ -34,6 +34,7 @@ def _session_model_to_entity(model: ChatSessionModel) -> ChatSession:
     return ChatSession(
         id=model.id,
         job_id=model.job_id,
+        user_id=model.user_id,
         messages=[_message_model_to_entity(m) for m in model.messages],
         created_at=model.created_at,
     )
@@ -57,6 +58,7 @@ class PostgresChatRepository(AbstractChatRepository):
                 model = ChatSessionModel(
                     id=session.id,
                     job_id=session.job_id,
+                    user_id=session.user_id,
                     created_at=session.created_at,
                 )
                 db.add(model)
@@ -110,6 +112,9 @@ class PostgresChatRepository(AbstractChatRepository):
                 .order_by(ChatSessionModel.created_at.desc())
             )
             return [
-                ChatSession(id=m.id, job_id=m.job_id, messages=[], created_at=m.created_at)
+                ChatSession(
+                    id=m.id, job_id=m.job_id, user_id=m.user_id,
+                    messages=[], created_at=m.created_at,
+                )
                 for m in result.scalars().all()
             ]

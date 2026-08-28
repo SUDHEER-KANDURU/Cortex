@@ -28,6 +28,7 @@ class ChatMessage:
 class ChatSession:
     id: str
     job_id: str
+    user_id: str | None = None  # Owner — scopes history to a single account.
     messages: list[ChatMessage] = field(default_factory=list)
     created_at: datetime = field(default_factory=_now)
 

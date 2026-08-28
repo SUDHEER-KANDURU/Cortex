@@ -1,14 +1,34 @@
 """Chat API router — streaming SSE endpoint."""
 
 import json
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from cortex.auth.domain.entities import User
+from cortex.auth.presentation.dependencies import get_current_user
 from cortex.chat.application.chat_service import ChatService
+from cortex.jobs.application.use_cases import JobService
+from cortex.jobs.infrastructure.dependencies import job_repository
+from shared.exceptions import NotFoundError
+from shared.identity import resolve_identity
+from shared.rate_limit_response import rate_limit_response
+from shared.rate_limiters import get_chat_limiter
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 _service = ChatService()
+
+
+async def _verify_job_ownership(job_id: str, user: User) -> None:
+    """Raise 404 if the job doesn't exist or isn't owned by this user.
+
+    Chat is always scoped to a job the caller owns; this is the single
+    gate that keeps one account from chatting against another's analysis."""
+    job_service = JobService(job_repository)
+    try:
+        await job_service.get(job_id, owner_id=user.id)
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Job not found")
 
 
 class ChatRequest(BaseModel):
@@ -28,8 +48,22 @@ class SessionResponse(BaseModel):
     summary="Create a new chat session",
     description="Creates a chat session tied to a specific job/repo analysis.",
 )
-async def create_session(job_id: str) -> SessionResponse:
-    session = await _service.create_session(job_id)
+async def create_session(
+    job_id: str,
+    http_request: Request,
+    user: User = Depends(get_current_user),
+) -> SessionResponse:
+    # Chat session creation shares the chat rate limiter
+    identity = resolve_identity(http_request)
+    limiter = get_chat_limiter()
+    result = await limiter.check(identity)
+    if not result.allowed:
+        return rate_limit_response(result)  # type: ignore[return-value]
+
+    # The job must exist and belong to this user.
+    await _verify_job_ownership(job_id, user)
+
+    session = await _service.create_session(job_id, user_id=user.id)
     return SessionResponse(
         session_id=session.id,
         job_id=session.job_id,
@@ -45,11 +79,25 @@ async def create_session(job_id: str) -> SessionResponse:
         "data: {text}\\n\\n. Connect with EventSource in the browser."
     ),
 )
-async def stream_chat(request: ChatRequest) -> StreamingResponse:
+async def stream_chat(
+    request: ChatRequest,
+    http_request: Request,
+    user: User = Depends(get_current_user),
+) -> StreamingResponse:
     """Stream chat response using SSE."""
 
+    # ── Rate limit: chat messages ─────────────────────────────────────────
+    identity = resolve_identity(http_request)
+    limiter = get_chat_limiter()
+    result = await limiter.check(identity)
+    if not result.allowed:
+        return rate_limit_response(result)  # type: ignore[return-value]
+
+    # The job must exist and belong to this user before we chat against it.
+    await _verify_job_ownership(request.job_id, user)
+
     session = await _service.get_or_create_session(
-        request.job_id, request.session_id
+        request.job_id, request.session_id, user_id=user.id
     )
 
     if not session:
@@ -95,8 +143,11 @@ async def stream_chat(request: ChatRequest) -> StreamingResponse:
     "/session/{session_id}/history",
     summary="Get chat history for a session",
 )
-async def get_history(session_id: str) -> dict:
-    session = await _service.get_session(session_id)
+async def get_history(
+    session_id: str,
+    user: User = Depends(get_current_user),
+) -> dict:
+    session = await _service.get_session(session_id, owner_id=user.id)
     if not session:
         raise HTTPException(
             status_code=404, detail="Session not found"
