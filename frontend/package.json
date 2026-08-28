@@ -37,8 +37,10 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-intersection-observer": "^10.0.3",
+    "react-markdown": "^10.1.0",
     "react-mermaid2": "^0.1.4",
     "reactflow": "^11.11.4",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^2.3.0",
     "three": "^0.175.0"
   },

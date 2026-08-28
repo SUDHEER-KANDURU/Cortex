@@ -37,6 +37,12 @@ class JobModel(Base):
         SAEnum(ArtifactType, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
     )
+    # Owner of this job. Nullable so existing rows (pre-multi-user) don't
+    # break the migration — they simply won't belong to any account and are
+    # never returned by user-scoped queries. New jobs always set this.
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True,
+    )
     repo_url: Mapped[str] = mapped_column(String(500), nullable=False, index=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     options: Mapped[dict | None] = mapped_column(JSON, nullable=True)
@@ -50,6 +56,7 @@ class JobModel(Base):
     __table_args__ = (
         Index("ix_jobs_status_created", "status", "created_at"),
         Index("ix_jobs_repo_url_status", "repo_url", "status"),
+        Index("ix_jobs_user_created", "user_id", "created_at"),
     )
 
 
@@ -125,6 +132,11 @@ class ChatSessionModel(Base):
     job_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True,
     )
+    # Owner of this chat session. Nullable for pre-multi-user rows; new
+    # sessions always set it so history is scoped per account.
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now)
 
     messages: Mapped[list["ChatMessageModel"]] = relationship(
@@ -134,7 +146,10 @@ class ChatSessionModel(Base):
         order_by=lambda: ChatMessageModel.created_at.asc(),
     )
 
-    __table_args__ = (Index("ix_chat_sessions_job", "job_id"),)
+    __table_args__ = (
+        Index("ix_chat_sessions_job", "job_id"),
+        Index("ix_chat_sessions_user", "user_id"),
+    )
 
 
 class ChatMessageModel(Base):
@@ -207,6 +222,11 @@ class UserModel(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String(200), nullable=False)
+    organization: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    role: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    date_of_birth: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    gender: Mapped[str | None] = mapped_column(String(20), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now)

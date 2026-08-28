@@ -113,30 +113,9 @@ jobs:
       run:
         working-directory: backend
 
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: cortex_test
-          POSTGRES_USER: cortex
-          POSTGRES_PASSWORD: cortex_test_secret
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7.2-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    # No external services needed — Cortex uses SQLite (aiosqlite) for all
+    # persistence in both development and CI. Redis is optional (rate limiting
+    # state is process-local). Neo4j is not used (graph is SQLite-backed).
 
     steps:
       - name: Checkout code
@@ -154,7 +133,13 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Run backend tests
-        run: pytest -q
+        run: pytest -q --tb=short
         env:
-          DATABASE_URL: postgresql://cortex:cortex_test_secret@localhost:5432/cortex_test
-          REDIS_URL: redis://localhost:6379/0
+          DATABASE_URL: "sqlite+aiosqlite:///./test_cortex.db"
+          GITHUB_TOKEN: ""
+          NIM_API_KEY: ""
+          INTERNAL_SECRET: "ci-test-secret"
+
+      - name: Clean up test database
+        if: always()
+        run: rm -f test_cortex.db

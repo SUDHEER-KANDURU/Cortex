@@ -1,67 +1,20 @@
 # =============================================================================
-# Cortex — Docker Compose (full stack)
-# Services: api, worker, frontend, redis, postgres, neo4j
-# All services share the cortex_network bridge network.
+# Cortex — Docker Compose (production-aligned)
+#
+# Cortex uses SQLite for all persistence (graph, auth, memory, jobs).
+# No external database services are required.
+#
+# Services:
+#   api      — FastAPI backend (serves API + runs background pipeline jobs)
+#   frontend — Next.js frontend
+#
+# Optional (uncomment if needed):
+#   redis    — For distributed rate limiting across multiple workers
 # =============================================================================
 
 version: "3.9"
 
 services:
-  # ── PostgreSQL ──────────────────────────────────────────────────────────────
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-cortex}
-      POSTGRES_USER: ${POSTGRES_USER:-cortex}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cortex_secret}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - cortex_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cortex} -d ${POSTGRES_DB:-cortex}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-
-  # ── Redis ───────────────────────────────────────────────────────────────────
-  redis:
-    image: redis:7.2-alpine
-    restart: unless-stopped
-    command: redis-server --appendonly yes
-    ports:
-      - "6379:6379"
-    networks:
-      - cortex_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ── Neo4j ───────────────────────────────────────────────────────────────────
-  neo4j:
-    image: neo4j:5.20-community
-    restart: unless-stopped
-    environment:
-      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-neo4j_secret}
-      NEO4J_PLUGINS: '["apoc"]'
-    ports:
-      - "7474:7474"
-      - "7687:7687"
-    volumes:
-      - neo4j_data:/data
-    networks:
-      - cortex_network
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
-      start_period: 30s
-
   # ── FastAPI Backend ─────────────────────────────────────────────────────────
   api:
     build:
@@ -69,57 +22,28 @@ services:
       dockerfile: infrastructure/docker/api.Dockerfile
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-cortex}:${POSTGRES_PASSWORD:-cortex_secret}@postgres:5432/${POSTGRES_DB:-cortex}
-      REDIS_URL: redis://redis:6379/0
-      NEO4J_URI: bolt://neo4j:7687
-      NEO4J_USER: ${NEO4J_USER:-neo4j}
-      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-neo4j_secret}
-      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DATABASE_URL: "sqlite+aiosqlite:///./data/cortex.db"
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      NIM_API_KEY: ${NIM_API_KEY:-}
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-change-me}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      CORS_ORIGINS: '["http://localhost:3000"]'
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      HOST: "0.0.0.0"
+      PORT: "8000"
+      RELOAD: "false"
     ports:
       - "8000:8000"
+    volumes:
+      - cortex_data:/app/data
     networks:
       - cortex_network
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      neo4j:
-        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8000/health || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')\""]
       interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 30s
-
-  # ── Background Worker ───────────────────────────────────────────────────────
-  worker:
-    build:
-      context: ..
-      dockerfile: infrastructure/docker/worker.Dockerfile
-    restart: unless-stopped
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-cortex}:${POSTGRES_PASSWORD:-cortex_secret}@postgres:5432/${POSTGRES_DB:-cortex}
-      REDIS_URL: redis://redis:6379/0
-      NEO4J_URI: bolt://neo4j:7687
-      NEO4J_USER: ${NEO4J_USER:-neo4j}
-      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-neo4j_secret}
-    networks:
-      - cortex_network
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      neo4j:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "celery -A app.worker inspect ping || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      start_period: 10s
 
   # ── Next.js Frontend ────────────────────────────────────────────────────────
   frontend:
@@ -128,7 +52,7 @@ services:
       dockerfile: infrastructure/docker/frontend.Dockerfile
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_API_URL: http://api:8000
     ports:
       - "3000:3000"
     networks:
@@ -141,13 +65,27 @@ services:
       interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 30s
+      start_period: 15s
+
+  # ── Redis (optional — for distributed rate limiting) ────────────────────────
+  # Uncomment if running multiple API workers and need shared rate limit state.
+  # redis:
+  #   image: redis:7.2-alpine
+  #   restart: unless-stopped
+  #   command: redis-server --appendonly yes
+  #   ports:
+  #     - "6379:6379"
+  #   networks:
+  #     - cortex_network
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
 
 # ── Named Volumes ──────────────────────────────────────────────────────────────
 volumes:
-  postgres_data:
-    driver: local
-  neo4j_data:
+  cortex_data:
     driver: local
 
 # ── Networks ───────────────────────────────────────────────────────────────────
