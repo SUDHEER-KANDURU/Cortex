@@ -190,7 +190,7 @@ export function PortfolioHero() {
                 }}
                 className="mt-5 max-w-[400px] leading-[1.65] text-[15px]"
                 style={{ color: "var(--text-secondary)" }}>
-                Paste any GitHub URL. Cortex parses your repository at the AST level, constructs a Neo4j knowledge graph, and generates architecture diagrams, learning paths, and interview prep — fully offline, zero API keys.
+                Paste any GitHub URL. Cortex parses your repository at the AST level, constructs a Neo4j knowledge graph, and generates architecture diagrams, learning paths, and interview prep — powered by structural analysis and AI.
               </motion.p>
 
               {/* CTAs */}

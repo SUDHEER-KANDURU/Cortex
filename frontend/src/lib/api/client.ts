@@ -56,12 +56,28 @@ apiClient.interceptors.response.use(
     if (cfg.__wasSlow) { _slowCount = Math.max(0, _slowCount - 1); notifySlowListeners(); }
     return response;
   },
-  (error: AxiosError<{ detail?: string }>) => {
+  (error: AxiosError<{ detail?: string; message?: string; error?: string; retry_after?: number }>) => {
     const cfg = (error.config ?? {}) as SlowRequestConfig;
     if (cfg.__slowTimer) clearTimeout(cfg.__slowTimer);
     if (cfg.__wasSlow) { _slowCount = Math.max(0, _slowCount - 1); notifySlowListeners(); }
 
     const status = error.response?.status ?? 0;
+
+    // ── Handle 429 Rate Limit responses with user-friendly messages ──────
+    if (status === 429) {
+      const data = error.response?.data;
+      const rateLimitMessage = data?.message ?? 'Too many requests. Please try again shortly.';
+      const normalized = new Error(rateLimitMessage) as Error & {
+        status: number;
+        retryAfter: number;
+        isRateLimited: boolean;
+      };
+      normalized.status = 429;
+      normalized.retryAfter = data?.retry_after ?? 10;
+      normalized.isRateLimited = true;
+      return Promise.reject(normalized);
+    }
+
     const detail = error.response?.data?.detail;
     const message =
       detail ?? error.message ?? 'An unexpected error occurred. Is the Cortex backend running?';

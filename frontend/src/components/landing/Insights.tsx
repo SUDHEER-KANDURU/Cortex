@@ -93,36 +93,26 @@ function GraphVisual() {
   )
 }
 
-function OfflineVisual() {
-  const checks = [
-    { label: "AST parser",       done: true  },
-    { label: "Graph builder",    done: true  },
-    { label: "Metrics engine",   done: true  },
-    { label: "OpenAI API",       done: false },
-    { label: "External services",done: false },
+function ChatVisual() {
+  const messages = [
+    { label: "User",    text: "How does auth work?", align: "right" as const },
+    { label: "Cortex",  text: "Token-based via /auth router", align: "left" as const },
+    { label: "User",    text: "Show dependencies",   align: "right" as const },
+    { label: "Cortex",  text: "3 modules depend on auth", align: "left" as const },
   ]
   return (
-    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", gap: 6 }}>
-      {checks.map(c => (
-        <div key={c.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", gap: 6, padding: "0 4px" }}>
+      {messages.map((m, i) => (
+        <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: m.align === "right" ? "flex-end" : "flex-start" }}>
+          <span style={{ fontSize: 8, color: "var(--text-muted)", opacity: 0.5, marginBottom: 2, fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)" }}>{m.label}</span>
           <span style={{
-            width: 14, height: 14, borderRadius: "50%", flexShrink: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 8, fontWeight: 800,
-            background: c.done ? "var(--primary-dim)" : "var(--danger-dim)",
-            color: c.done ? "var(--primary)" : "var(--danger)",
-            border: `1px solid ${c.done ? "var(--border-hover)" : "var(--danger-dim)"}`,
-          }}>
-            {c.done ? "✓" : "✕"}
-          </span>
-          <span style={{
-            fontSize: 11,
-            color: c.done ? "var(--text-secondary)" : "var(--text-muted)",
-            opacity: c.done ? 0.85 : 0.4,
+            fontSize: 10, padding: "4px 8px", borderRadius: 6,
+            background: m.align === "right" ? "var(--primary-dim)" : "rgba(255,255,255,0.06)",
+            color: m.align === "right" ? "var(--primary)" : "var(--text-secondary)",
             fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
-            textDecoration: c.done ? "none" : "line-through",
+            border: `1px solid ${m.align === "right" ? "var(--border-hover)" : "rgba(255,255,255,0.08)"}`,
           }}>
-            {c.label}
+            {m.text}
           </span>
         </div>
       ))}
@@ -149,10 +139,10 @@ const insights = [
   },
   {
     id: 3,
-    title: "Offline-First Engineering Tools — The Case for Zero API Keys",
-    excerpt: "Why developer tooling should run on your machine, not in the cloud — and how Cortex delivers production-quality analysis without a single external API call.",
-    date: "Nov 2025", readTime: "4 min read", tag: "Philosophy",
-    visual: <OfflineVisual />,
+    title: "AI Chat Meets Code Graphs — Reasoning Over Structure",
+    excerpt: "How Cortex combines NVIDIA NIM with a Neo4j knowledge graph to answer questions about your codebase with structural accuracy, not just token prediction.",
+    date: "Nov 2025", readTime: "4 min read", tag: "AI & Graphs",
+    visual: <ChatVisual />,
   },
 ]
 
@@ -168,8 +158,6 @@ export function PortfolioInsights() {
       style={{
         borderTop: "1px solid var(--cx-card-border)",
         background: "var(--cx-section-bg)",
-        backdropFilter: "blur(20px) saturate(200%)",
-        WebkitBackdropFilter: "blur(20px) saturate(200%)",
       }}
     >
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">

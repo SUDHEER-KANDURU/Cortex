@@ -37,7 +37,7 @@ export function PortfolioFooter() {
               Cortex
             </Link>
             <p className="cx-text-muted mt-4 text-sm leading-relaxed" style={{ maxWidth: "280px", lineHeight: 1.7 }}>
-              Engineering Reasoning Engine — understand any codebase, generate architecture diagrams, learning paths, and interview prep. Fully offline.
+              Engineering Reasoning Engine — understand any codebase, generate architecture diagrams, learning paths, and interview prep. Powered by AST analysis and AI.
             </p>
 
             <div className="flex items-center gap-3 mt-6">
@@ -89,27 +89,6 @@ export function PortfolioFooter() {
             </ul>
           </div>
 
-          {/* Star CTA */}
-          <div data-reveal="up" style={{ transitionDelay: "160ms" }}>
-            <h4 className="cx-text" style={{ fontSize: "12px", fontWeight: 700, marginBottom: "18px", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "var(--font-mono)" }}>
-              Stay Updated
-            </h4>
-            <p className="cx-text-muted" style={{ fontSize: "14px", marginBottom: "18px", lineHeight: 1.6 }}>
-              Star the repo to follow Cortex development.
-            </p>
-            <Link href="https://github.com/SUDHEER-KANDURU/cortex" target="_blank" rel="noopener noreferrer"
-              className="cta-shimmer inline-flex items-center justify-center w-full px-4 py-3 text-sm font-semibold rounded-xl transition-all duration-300"
-              style={{
-                background: "var(--primary)",
-                color: "#FFFFFF",
-                boxShadow: "var(--shadow-sm)",
-                textDecoration: "none",
-              }}
-              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.filter = "brightness(1.1)" }}
-              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.filter = "" }}>
-              ★&nbsp; Star on GitHub
-            </Link>
-          </div>
         </div>
 
         {/* Bottom bar */}

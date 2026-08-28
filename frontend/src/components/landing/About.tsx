@@ -142,11 +142,11 @@ function ParsingAnimation({ active }: { active: boolean }) {
 const skills = [
   "AST Parsing", "Neo4j Graph DB", "FastAPI", "Python 3.12",
   "Celery Workers", "PostgreSQL", "Redis", "React Flow",
-  "Next.js 14", "Architecture Analysis", "Knowledge Graphs", "LLM-Free",
+  "Next.js 14", "Architecture Analysis", "Knowledge Graphs", "AI Chat",
 ]
 const stats = [
   { value: 241, suffix: "+", label: "Graph Nodes",       sub: "per avg repo"       },
-  { value: 0,   suffix: "",  label: "API Keys Required",  sub: "runs fully offline" },
+  { value: 13,  suffix: "+", label: "Feature Modules",   sub: "clean architecture" },
   { value: 6,   suffix: "",  label: "Artifact Types",     sub: "generated per scan" },
 ]
 
@@ -167,8 +167,6 @@ export function PortfolioAbout() {
       style={{
         borderTop: "1px solid var(--cx-card-border)",
         background: "var(--cx-section-bg)",
-        backdropFilter: "saturate(200%) blur(24px)",
-        WebkitBackdropFilter: "saturate(200%) blur(24px)",
       }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 mb-10 md:mb-14">
@@ -195,8 +193,8 @@ export function PortfolioAbout() {
               and generates artifacts that explain the system — not just describe it.
             </p>
             <p className="cx-text-muted mt-4 leading-relaxed">
-              Built at SRMIST Chennai. Runs entirely on your machine. No API keys, no cloud billing,
-              no data leaving your environment.
+              Built at SRMIST Chennai. Powered by AST parsing, graph databases, and AI reasoning
+              to deliver deep structural understanding of any codebase.
             </p>
 
             {/* Stats — staggered counter entrance */}

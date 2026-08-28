@@ -23,6 +23,8 @@ import type {
 } from '@/types';
 import { exportInsightsMarkdown } from '@/lib/api/insights.api';
 import { staggerFastContainer, staggerFastChild } from '@/lib/utils/motion';
+import NavigateButton from '@/components/shared/NavigateButton';
+import { emitNavigate } from '@/lib/navigate-events';
 
 // Severity — solid pill colors for the badge, muted for border
 const SEV: Record<IssueSeverity | 'default', string> = {
@@ -403,29 +405,42 @@ const IssueCard = React.memo(function IssueCard({ issue }: { issue: CodeIssue })
           </div>
         )}
 
-        {/* Row 6: how to fix toggle */}
-        {(issue.recommendation || issue.suggestion) && (
-          <button
-            type="button"
-            onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 11, fontWeight: 600,
-              color: 'var(--text-muted)',
-              background: 'transparent', border: 'none', cursor: 'pointer',
-              padding: 0, transition: 'color 0.15s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
-          >
-            <span style={{
-              display: 'inline-block', fontSize: 8,
-              transform: open ? 'rotate(90deg)' : 'none',
-              transition: 'transform 0.2s',
-            }}>▶</span>
-            {open ? 'Hide' : 'How to fix'}
-          </button>
-        )}
+        {/* Row 6: how to fix toggle + navigate */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {(issue.recommendation || issue.suggestion) && (
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                fontSize: 11, fontWeight: 600,
+                color: 'var(--text-muted)',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                padding: 0, transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
+            >
+              <span style={{
+                display: 'inline-block', fontSize: 8,
+                transform: open ? 'rotate(90deg)' : 'none',
+                transition: 'transform 0.2s',
+              }}>▶</span>
+              {open ? 'Hide' : 'How to fix'}
+            </button>
+          )}
+          {issue.affected_symbol && (
+            <NavigateButton
+              onClick={() => emitNavigate({
+                nodeId: '',  // will be resolved by symbol lookup
+                label: issue.affected_symbol,
+                nodeType: 'Function',
+              })}
+              size="sm"
+              label="Navigate"
+            />
+          )}
+        </div>
       </div>
 
       {/* Expanded: fix text */}

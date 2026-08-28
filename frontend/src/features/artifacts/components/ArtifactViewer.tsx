@@ -6,6 +6,7 @@
 import React from 'react';
 import type { Artifact } from '@/types';
 import MermaidDiagram from './MermaidDiagram';
+import MarkdownViewer from './MarkdownViewer';
 
 export interface ArtifactViewerProps {
   artifact: Artifact;
@@ -57,11 +58,7 @@ export default React.memo(function ArtifactViewer({ artifact }: ArtifactViewerPr
     }
 
     if (contentType === 'text/markdown') {
-      return (
-        <pre style={{ ...preBase, color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)' }}>
-          {content}
-        </pre>
-      );
+      return <MarkdownViewer content={content} />;
     }
 
     if (contentType === 'application/json') {

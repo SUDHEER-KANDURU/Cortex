@@ -10,9 +10,12 @@ import { SPRING, staggerFastContainer, staggerFastChild } from "@/lib/utils/moti
 const awards = [
   { title: "AST-Level Parsing",       year: "Core",      metric: "100%",  metricLabel: "structural",   organization: "Full abstract syntax tree analysis — not just text grep. Every symbol, import, and call extracted.",                     link: "#about" },
   { title: "Neo4j Knowledge Graph",   year: "Core",      metric: "241+",  metricLabel: "nodes / repo", organization: "241 nodes and 387 relationships mapped per average repository into a queryable graph.",                                link: "#about" },
-  { title: "Zero API Keys Required",  year: "Principle", metric: "$0",    metricLabel: "cloud cost",   organization: "Runs entirely on-device — no OpenAI, no Gemini, no cloud costs. Pure local reasoning.",                                link: "#about" },
+  { title: "AI-Powered Chat & Reasoning", year: "Feature", metric: "NIM",  metricLabel: "AI engine",    organization: "Conversational AI interface powered by NVIDIA NIM with intelligent rule-based fallback.",                              link: "/dashboard" },
   { title: "6 Artifact Types",        year: "Output",    metric: "6",     metricLabel: "per scan",     organization: "Architecture diagrams, learning paths, API specs, interview prep, vibe code reports & onboarding guides.",             link: "/dashboard" },
+  { title: "Full-Text Search & Navigation", year: "Feature", metric: "FTS5", metricLabel: "instant",  organization: "Search across all artifacts and code structures. Navigate from architecture to individual functions.",                   link: "/dashboard" },
+  { title: "Blast Radius Analysis",   year: "Feature",   metric: "graph", metricLabel: "traversal",   organization: "Visualize the impact of changes across dependent modules — know what breaks before you ship.",                          link: "/dashboard" },
   { title: "Celery Async Pipeline",   year: "Infra",     metric: "async", metricLabel: "non-blocking", organization: "Background workers handle large repos without blocking the UI. Real-time job status polling.",                          link: "#about" },
+  { title: "Incremental Analysis",    year: "Core",      metric: "Δ only", metricLabel: "re-scan",     organization: "Only re-analyzes changed files on subsequent scans — faster iterations on large repositories.",                          link: "/dashboard" },
   { title: "Docker-First Deployment", year: "DevOps",    metric: "1 cmd", metricLabel: "full stack",   organization: "Single docker-compose up spins database, workers, API, and frontend. Zero config friction.",                           link: "https://github.com/SUDHEER-KANDURU/cortex" },
 ]
 
@@ -21,7 +24,7 @@ export function PortfolioAwards() {
 
   return (
     <section id="awards" className="py-16 md:py-20"
-      style={{ borderTop: "1px solid var(--cx-card-border)", background: "var(--cx-section-bg)", backdropFilter: "blur(20px) saturate(200%)", WebkitBackdropFilter: "blur(20px) saturate(200%)" }}>
+      style={{ borderTop: "1px solid var(--cx-card-border)", background: "var(--cx-section-bg)" }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
 
         <SectionReveal className="mb-10 md:mb-12">

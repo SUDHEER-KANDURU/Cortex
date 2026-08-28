@@ -62,7 +62,7 @@ export default function JobDetailPage() {
     return (
       <div className="min-h-screen" style={{ background: 'transparent' }}>
         <Navbar />
-        <div className="px-8 py-6">
+        <div className="px-4 sm:px-8 py-6">
           <p style={{ fontSize: 13, color: 'var(--danger)' }}>Invalid job ID in URL.</p>
           <Link href="/dashboard" style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none' }}>
             <ArrowLeft style={{ width: 14, height: 14 }} /> Back to Dashboard
@@ -79,7 +79,7 @@ export default function JobDetailPage() {
       <Navbar />
 
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 px-8 pb-4 pt-6" style={{ fontSize: 13, color: 'var(--text-muted)' }} aria-label="Breadcrumb">
+      <nav className="flex items-center gap-2 flex-wrap px-4 sm:px-8 pb-4 pt-6" style={{ fontSize: 13, color: 'var(--text-muted)' }} aria-label="Breadcrumb">
         <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', textDecoration: 'none', transition: 'color 0.2s' }}
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}>
@@ -101,14 +101,14 @@ export default function JobDetailPage() {
 
       {/* Loading */}
       {jobLoading && !job && (
-        <div className="px-8 flex justify-center py-12">
+        <div className="px-4 sm:px-8 flex justify-center py-12">
           <InlineLoader stage="loading" message="Loading Job…" />
         </div>
       )}
 
       {/* Error */}
       {jobError && (
-        <div className="px-8">
+        <div className="px-4 sm:px-8">
           <p style={{ fontSize: 13, color: 'var(--danger)' }}>{jobError}</p>
           <Link href="/dashboard" style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none' }}>
             <ArrowLeft style={{ width: 14, height: 14 }} /> Back to Dashboard
@@ -117,7 +117,7 @@ export default function JobDetailPage() {
       )}
 
       {job && (
-        <div className="px-8 pb-12">
+        <div className="px-4 sm:px-8 pb-12">
 
           {/* Metadata card */}
           <div style={{
@@ -143,7 +143,7 @@ export default function JobDetailPage() {
               <StatusBadge status={job.status} />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px 32px' }} className="sm:grid-cols-4">
+            <div style={{ display: 'grid', gap: '12px 32px' }} className="grid-cols-2 sm:grid-cols-4">
               {[
                 { label: 'Type',    value: ARTIFACT_TYPE_LABELS[job.artifact_type] },
                 { label: 'Created', value: formatDate(job.created_at) },
@@ -170,7 +170,7 @@ export default function JobDetailPage() {
           {/* Tabs */}
           {job.status === 'completed' && (
             <Tabs defaultValue="artifacts">
-              <TabsList style={{
+              <TabsList className="scrollbar-hide max-w-full overflow-x-auto" style={{
                 marginBottom: 24,
                 background: 'var(--card)',
                 border: '1px solid var(--border)',

@@ -269,7 +269,7 @@ function VibeCodeVisual({ onStart }: { onStart?: (startFn: () => void) => void }
         <div style={{ marginTop: "8px", display: "flex", alignItems: "center", gap: "6px", fontSize: "9px", color: "#71717a",
           opacity: revealed ? 1 : 0, transition: "opacity 0.5s ease 0.4s" }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#34d399", display: "inline-block" }} />
-          LLM-free — static analysis only
+          pattern detection — static analysis
         </div>
       </div>
     </div>
@@ -280,6 +280,128 @@ interface Work {
   id: number; title: string; category: string; description: string
   Visual: React.FC<{ onStart?: (startFn: (() => (() => void) | void)) => void; active?: boolean }>
   tags: string[]; accent: string
+}
+
+function AIChatWorkVisual({ onStart }: { onStart?: (startFn: () => void) => void }) {
+  const [revealed, setRevealed] = useState(false)
+  const [msgIdx, setMsgIdx] = useState(0)
+  const messages = [
+    { role: "user",    text: "How does the auth module work?" },
+    { role: "cortex",  text: "Token-based JWT via /api/v1/auth" },
+    { role: "user",    text: "What depends on it?" },
+    { role: "cortex",  text: "3 modules: jobs, chat, memory" },
+  ]
+
+  useEffect(() => {
+    if (!onStart) return
+    onStart(() => {
+      setRevealed(true)
+      let i = 0
+      const t = setInterval(() => {
+        if (document.visibilityState === 'hidden') return
+        i = (i + 1) % messages.length
+        setMsgIdx(i)
+      }, 1600)
+      return () => clearInterval(t)
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return (
+    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", background: "rgba(15,20,28,0.88)", backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)" }}>
+      <div style={{ width: "100%", maxWidth: 300, fontFamily: "var(--font-mono,'JetBrains Mono',monospace)" }}>
+        {messages.map((msg, i) => (
+          <div key={i} style={{
+            display: "flex", flexDirection: "column",
+            alignItems: msg.role === "user" ? "flex-end" : "flex-start",
+            marginBottom: "6px",
+            opacity: revealed ? 1 : 0,
+            transform: revealed ? "none" : "translateY(6px)",
+            transition: `opacity 0.4s ease ${i * 100}ms, transform 0.4s ease ${i * 100}ms`,
+          }}>
+            <span style={{ fontSize: "8px", color: "#71717a", marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              {msg.role}
+            </span>
+            <span style={{
+              fontSize: "9px", padding: "5px 10px", borderRadius: "8px",
+              background: msg.role === "user" ? "rgba(255,255,255,0.10)" : "rgba(16,185,129,0.12)",
+              border: `1px solid ${msg.role === "user" ? "rgba(255,255,255,0.12)" : "rgba(16,185,129,0.30)"}`,
+              color: msg.role === "user" ? "#e4e4e7" : "#34d399",
+              boxShadow: msgIdx === i ? `0 0 0 1px ${msg.role === "user" ? "rgba(255,255,255,0.20)" : "rgba(16,185,129,0.40)"}` : "none",
+              transition: "box-shadow 0.3s ease",
+            }}>
+              {msg.text}
+            </span>
+          </div>
+        ))}
+        <div style={{
+          marginTop: "6px", fontSize: "9px", color: "#71717a",
+          opacity: revealed ? 1 : 0, transition: "opacity 0.5s ease 0.5s",
+          display: "flex", alignItems: "center", gap: "6px",
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
+          graph-grounded reasoning
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SearchNavVisual({ onStart }: { onStart?: (startFn: () => void) => void }) {
+  const [revealed, setRevealed] = useState(false)
+  const results = [
+    { file: "auth/router.py",     match: "login endpoint", icon: "→" },
+    { file: "jobs/use_cases.py",  match: "submit_job()",   icon: "→" },
+    { file: "graph/entities.py",  match: "Node relationship", icon: "→" },
+  ]
+
+  useEffect(() => {
+    if (!onStart) return
+    onStart(() => {
+      setRevealed(true)
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return (
+    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", background: "rgba(15,20,28,0.88)", backdropFilter: "blur(8px) saturate(180%)", WebkitBackdropFilter: "blur(8px) saturate(180%)" }}>
+      <div style={{ width: "100%", maxWidth: 300, fontFamily: "var(--font-mono,'JetBrains Mono',monospace)" }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: "8px",
+          padding: "6px 10px", borderRadius: "8px", marginBottom: "10px",
+          border: "1px solid rgba(255,255,255,0.15)",
+          background: "rgba(255,255,255,0.05)",
+          opacity: revealed ? 1 : 0, transition: "opacity 0.3s ease",
+        }}>
+          <span style={{ fontSize: "10px", color: "#71717a" }}>⌕</span>
+          <span style={{ fontSize: "10px", color: "#a1a1aa" }}>search artifacts...</span>
+        </div>
+        {results.map((r, i) => (
+          <div key={i} style={{
+            display: "flex", alignItems: "center", gap: "8px",
+            padding: "6px 10px", marginBottom: "4px", borderRadius: "6px",
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.06)",
+            opacity: revealed ? 1 : 0,
+            transform: revealed ? "none" : "translateX(-6px)",
+            transition: `opacity 0.4s ease ${(i + 1) * 120}ms, transform 0.4s ease ${(i + 1) * 120}ms`,
+          }}>
+            <span style={{ fontSize: "9px", color: "#6366f1", fontWeight: 700 }}>{r.icon}</span>
+            <span style={{ fontSize: "9px", color: "#e4e4e7", flex: 1 }}>{r.file}</span>
+            <span style={{ fontSize: "8px", color: "#71717a" }}>{r.match}</span>
+          </div>
+        ))}
+        <div style={{
+          marginTop: "8px", fontSize: "9px", color: "#71717a",
+          opacity: revealed ? 1 : 0, transition: "opacity 0.5s ease 0.5s",
+          display: "flex", alignItems: "center", gap: "6px",
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#6366f1", display: "inline-block" }} />
+          FTS5 + code navigation
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function WorkCard({ work, index }: { work: Work; index: number }) {
@@ -402,7 +524,13 @@ const works: Work[] = [
     Visual: InterviewPrepVisual, tags: ["Graph Queries", "Python", "Celery"], accent: "#d97706" },
   { id: 4, title: "Vibe Code Detector", category: "Code Quality",
     description: "Flags AI-generated anti-patterns — missing error handling, duplicate logic, inconsistent naming — and explains exactly how to fix each one.",
-    Visual: VibeCodeVisual, tags: ["Static Analysis", "LLM-free", "Neo4j"], accent: "#ef4444" },
+    Visual: VibeCodeVisual, tags: ["Static Analysis", "Pattern Detection", "Neo4j"], accent: "#ef4444" },
+  { id: 5, title: "AI Chat & Reasoning", category: "Interactive Intelligence",
+    description: "Ask questions about your codebase in natural language. Cortex uses graph traversal and NVIDIA NIM to provide structurally-grounded answers.",
+    Visual: AIChatWorkVisual, tags: ["NVIDIA NIM", "Graph Reasoning", "Context Memory"], accent: "#10b981" },
+  { id: 6, title: "Full-Text Search & Navigation", category: "Developer Productivity",
+    description: "Instantly search across all artifacts, code structures, and analysis results. Navigate from high-level architecture down to individual functions.",
+    Visual: SearchNavVisual, tags: ["FTS5", "Code Navigation", "Blast Radius"], accent: "#6366f1" },
 ]
 
 export function PortfolioSelectedWorks() {
@@ -411,8 +539,6 @@ export function PortfolioSelectedWorks() {
       style={{
         borderTop: "1px solid var(--cx-card-border)",
         background: "var(--cx-section-bg)",
-        backdropFilter: "saturate(200%) blur(24px)",
-        WebkitBackdropFilter: "saturate(200%) blur(24px)",
       }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
         <div className="flex items-center justify-between mb-12 md:mb-16">

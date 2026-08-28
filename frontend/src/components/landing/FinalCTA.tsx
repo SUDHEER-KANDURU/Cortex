@@ -9,12 +9,10 @@
  *  - Headline uses staggered line reveal
  *  - Pipeline badges stagger in with scale spring
  *  - Primary CTA: spring lift on hover, compress on tap
- *  - GitHub CTA: ghost spring hover
  */
 
 import { motion, useReducedMotion } from "framer-motion"
-import Link from "next/link"
-import { ArrowUpRight, Github } from "lucide-react"
+import { ArrowUpRight } from "lucide-react"
 import { DashboardLink } from "@/components/shared/DashboardLink"
 import { SectionReveal } from "@/components/shared/PageTransition"
 import { SPRING, DURATION, EASE, staggerFastContainer, staggerFastChild } from "@/lib/utils/motion"
@@ -32,8 +30,6 @@ const PRIMARY_TAP = {
   y:          1,
   transition: { duration: DURATION.micro },
 }
-const GHOST_HOVER  = { y: -2, transition: SPRING.snappy }
-const GHOST_TAP    = { scale: 0.97, transition: { duration: DURATION.micro } }
 
 const HEADLINE_LINE = (i: number) => ({
   hidden:  { opacity: 0, y: 20, filter: "blur(6px)" },
@@ -53,8 +49,6 @@ export function PortfolioFinalCTA() {
       style={{
         borderTop:          "1px solid var(--cx-card-border)",
         background:         "var(--cx-section-bg)",
-        backdropFilter:     "blur(20px) saturate(200%)",
-        WebkitBackdropFilter: "blur(20px) saturate(200%)",
       }}
     >
       {/* Ambient orbs — CSS only, no JS */}
@@ -72,7 +66,7 @@ export function PortfolioFinalCTA() {
             >
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--cx-text)", display: "inline-block", animation: "pulse-dot 2s ease-in-out infinite" }} />
               <span className="cx-text-mono" style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)" }}>
-                Free &amp; Offline
+                Free &amp; Open Source
               </span>
             </div>
           </SectionReveal>
@@ -105,7 +99,7 @@ export function PortfolioFinalCTA() {
 
           <SectionReveal delay={0.25} direction="up">
             <p className="cx-text-muted mt-6 text-base leading-[1.7] max-w-[480px] mx-auto">
-              Paste a GitHub URL and get architecture diagrams, learning paths, and interview prep in seconds. No signup. No API keys. No cloud.
+              Paste a GitHub URL and get architecture diagrams, learning paths, and interview prep in seconds. AI-powered analysis with full-text search and interactive graph exploration.
             </p>
           </SectionReveal>
 
@@ -157,22 +151,7 @@ export function PortfolioFinalCTA() {
                 </DashboardLink>
               </motion.div>
 
-              {/* GitHub ghost CTA */}
-              <motion.div
-                whileHover={prefersReduced ? {} : GHOST_HOVER}
-                whileTap={prefersReduced ? {} : GHOST_TAP}
-              >
-                <Link
-                  href="https://github.com/SUDHEER-KANDURU/cortex"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="cx-row cx-link inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-medium rounded-full"
-                  style={{ backdropFilter: "blur(12px) saturate(200%)", WebkitBackdropFilter: "blur(12px) saturate(200%)" }}
-                >
-                  <Github className="w-4 h-4" />
-                  Star on GitHub
-                </Link>
-              </motion.div>
+              {/* CTAs */}
             </div>
           </SectionReveal>
 

@@ -589,11 +589,19 @@
   overflow: hidden;
 }
 
-/* Individual blobs */
+/* Individual blobs
+   NOTE: these carry a very large blur (80–110px) and span up to 70vw. Animating
+   their transform on an infinite loop forces the browser to re-rasterize four
+   huge blurred layers every frame, which — combined with the stacked
+   backdrop-filters on every section/panel above them — is the primary cause of
+   scroll jank. The blobs are now static by default (the drift was barely
+   perceptible) and only animate for users who have not requested reduced motion
+   AND on hover-capable pointers, keeping the cost off the common scroll path. */
 .flux-blob {
   position: absolute;
   border-radius: 50%;
-  will-change: transform;
+  /* No will-change / animation by default — a static blurred layer can be
+     cached once and never repainted during scroll. */
   transform: translateZ(0);
 }
 
@@ -609,8 +617,6 @@
     transparent 72%
   );
   filter: blur(80px);
-  animation: flux-drift-1 32s ease-in-out infinite;
-  animation-delay: 0s;
 }
 
 /* Blob 2 — peach/coral (overlapping the yellow, gives the warm orange glow) */
@@ -625,8 +631,6 @@
     transparent 72%
   );
   filter: blur(90px);
-  animation: flux-drift-2 38s ease-in-out infinite;
-  animation-delay: -8s;
 }
 
 /* Blob 3 — warm sand / terracotta (bottom-left) */
@@ -641,8 +645,6 @@
     transparent 70%
   );
   filter: blur(100px);
-  animation: flux-drift-3 42s ease-in-out infinite;
-  animation-delay: -16s;
 }
 
 /* Blob 4 — soft warm cream / champagne (top-left, very subtle) */
@@ -657,8 +659,17 @@
     transparent 72%
   );
   filter: blur(110px);
-  animation: flux-drift-4 36s ease-in-out infinite;
-  animation-delay: -24s;
+}
+
+/* Opt-in drift — only when the user has NOT requested reduced motion.
+   Kept subtle and slow. Because it re-rasterizes large blurred layers, it is
+   deliberately gated so the default experience stays repaint-free while
+   scrolling. */
+@media (prefers-reduced-motion: no-preference) {
+  .flux-blob-1 { will-change: transform; animation: flux-drift-1 32s ease-in-out infinite; }
+  .flux-blob-2 { will-change: transform; animation: flux-drift-2 38s ease-in-out infinite -8s; }
+  .flux-blob-3 { will-change: transform; animation: flux-drift-3 42s ease-in-out infinite -16s; }
+  .flux-blob-4 { will-change: transform; animation: flux-drift-4 36s ease-in-out infinite -24s; }
 }
 
 /* ── Content sits above blobs ── */
@@ -922,11 +933,18 @@
     animation: shimmer 3s ease infinite;
   }
 
-  /* Section backgrounds — transparent frosted glass over warm blobs */
+  /* Section backgrounds — frosted glass over warm blobs.
+     The full-width backdrop-filter here was the single most expensive item on
+     the page: every section re-sampled and re-blurred the (previously animated)
+     background on every scroll frame, and these blurs stacked on top of one
+     another. The inner content cards already carry their own glass, so the
+     section only needs a light translucent tint to keep the frosted look.
+     content-visibility lets the browser skip layout/paint for sections that are
+     off-screen. */
   .portfolio-page section {
     background: rgba(255, 255, 255, 0.10);
-    backdrop-filter: blur(20px) saturate(160%);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    content-visibility: auto;
+    contain-intrinsic-size: auto 800px;
   }
 
   @keyframes pulse-skeleton {
@@ -1000,12 +1018,16 @@
 }
 .dash-scroll::-webkit-scrollbar-thumb:hover { background: rgba(80, 60, 20, 0.18); }
 
-/* Dashboard glass panels — transparent liquid glass over warm blobs */
+/* Dashboard glass panels — liquid glass over warm blobs.
+   These panels scroll their own content, so a large backdrop-filter forces the
+   browser to re-blur the background on every scroll frame. A higher base
+   opacity + smaller blur keeps the frosted look while cutting the per-frame
+   cost dramatically. */
 main.dash-content,
 aside[aria-label="Repository sidebar"] {
-  background: rgba(255, 255, 255, 0.22) !important;
-  backdrop-filter: blur(40px) saturate(180%) brightness(1.03) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(180%) brightness(1.03) !important;
+  background: rgba(255, 255, 255, 0.62) !important;
+  backdrop-filter: blur(18px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
   border: 0.5px solid rgba(255, 255, 255, 0.38) !important;
   box-shadow:
     0 8px 40px rgba(80, 60, 20, 0.07),
@@ -1126,6 +1148,18 @@ textarea:focus {
 }
 .artifact-fade-in { animation: artifact-fade-in 0.5s cubic-bezier(0.16,1,0.3,1) both; }
 
+/* ── Chat animations ── */
+@keyframes cortex-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+@keyframes cortex-pulse-anim {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+.cortex-pulse { animation: cortex-pulse-anim 1.2s ease-in-out infinite; }
+.cortex-cursor { animation: cortex-blink 0.8s step-end infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   .hero-word, .morph-blob, .section-enter, .panel-slide-in, .artifact-fade-in,
   .icon-hover-rotate, .graph-edge-enter, .btn-primary:hover:not(:disabled),
@@ -1137,4 +1171,63 @@ textarea:focus {
     transition: opacity 0.01s !important; transform: none !important;
     filter: none !important; opacity: 1 !important;
   }
+}
+
+/* ── Autofill Override — prevent browser yellow/blue autofill background ──── */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 100px rgba(255, 255, 255, 0.95) inset !important;
+  -webkit-text-fill-color: var(--text, #1A1814) !important;
+  caret-color: var(--text, #1A1814) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE — Mobile & Tablet polish
+   Desktop values above are untouched. These media queries only tighten
+   typography, spacing, and layout at tablet (≤1024px) and mobile (≤640px)
+   widths so nothing overflows, clips, or overlaps on small screens.
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Tablet and below ── */
+@media (max-width: 1024px) {
+  .section-padding { padding: 64px 0; }
+  .content-max { padding: 0 20px; }
+  .bento-grid { grid-template-columns: repeat(2, 1fr); }
+  .bento-wide { grid-column: span 2; }
+  .bento-tall { grid-row: auto; }
+}
+
+/* ── Mobile ── */
+@media (max-width: 640px) {
+  /* Fluid heading scale — keeps the display hierarchy while fitting phones.
+     Uses clamp() so sizes ramp smoothly instead of snapping at the breakpoint. */
+  h1 { font-size: clamp(2.25rem, 9vw, 3rem);   line-height: 1.08; letter-spacing: -0.03em; }
+  h2 { font-size: clamp(1.75rem, 6.5vw, 2.25rem); line-height: 1.14; letter-spacing: -0.028em; }
+  h3 { font-size: clamp(1.4rem, 5vw, 1.7rem);  line-height: 1.2; }
+  h4 { font-size: 1.15rem; }
+
+  body { font-size: 15px; line-height: 1.6; }
+
+  .section-padding { padding: 48px 0; }
+  .content-max { padding: 0 16px; }
+
+  /* Bento stacks to a single column on phones */
+  .bento-grid { grid-template-columns: 1fr; gap: 12px; }
+  .bento-wide { grid-column: auto; }
+  .bento-cell { padding: 24px; }
+
+  /* Terminal body a touch smaller so long lines don't force horizontal scroll */
+  .terminal-body { padding: 18px; font-size: 12px; }
+
+  /* Floating nav pills get less side padding so they don't hug the edges */
+  .cortex-nav { padding: 12px 12px; }
+}
+
+/* ── Comfortable touch targets on coarse pointers (phones/tablets) ── */
+@media (pointer: coarse) {
+  .btn-primary,
+  .btn-ghost { min-height: 44px; }
 }

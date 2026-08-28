@@ -194,11 +194,12 @@ export default function MermaidDiagram({ definition }: MermaidDiagramProps) {
     }
   }, [fullscreen, ready, fit]);
 
-  // ── Wheel zoom ────────────────────────────────────────────────────────────
+  // ── Wheel zoom (Ctrl + scroll only — normal scroll passes through) ──────
   useEffect(() => {
     const el = wrap.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return; // let normal scroll through
       e.preventDefault();
       const r  = el.getBoundingClientRect();
       const mx = e.clientX - r.left;
@@ -398,7 +399,7 @@ export default function MermaidDiagram({ definition }: MermaidDiagramProps) {
 
         {ready && (
           <div style={{ position: 'absolute', bottom: 10, right: 14, fontSize: 10, color: '#94a3b8', pointerEvents: 'none' }}>
-            Scroll to zoom · Drag to pan
+            Ctrl + Scroll to zoom · Drag to pan
           </div>
         )}
       </div>

@@ -53,7 +53,7 @@ export interface Artifact {
 export interface GraphNode {
   id: string;
   label: string;
-  node_type: 'Repository' | 'Module' | 'File' | 'Function' | 'Class' | 'Pattern';
+  node_type: 'Repository' | 'Module' | 'File' | 'Function' | 'Class' | 'Method' | 'Interface' | 'Enum' | 'Endpoint' | 'Test' | 'Constant' | 'Pattern';
   job_id: string;
   properties: Record<string, unknown>;
   created_at: string;
@@ -64,7 +64,7 @@ export interface GraphEdge {
   id: string;
   source_id: string;
   target_id: string;
-  relationship: 'CONTAINS' | 'IMPORTS' | 'DEPENDS_ON' | 'EXHIBITS' | 'CALLS' | 'INHERITS';
+  relationship: 'CONTAINS' | 'IMPORTS' | 'DEPENDS_ON' | 'EXHIBITS' | 'CALLS' | 'INHERITS' | 'IMPLEMENTS' | 'OVERRIDES' | 'TESTS' | 'EXPOSES' | 'CONFIGURES';
   job_id: string;
   properties: Record<string, unknown>;
   created_at: string;

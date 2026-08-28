@@ -22,7 +22,7 @@ import { SidebarJobsSkeleton, ArtifactSkeleton, InsightsSkeleton } from '@/compo
 import {
   Github, ChevronDown, Sparkles, Code2, LayoutDashboard,
   GitBranch, ExternalLink, Clock, AlertCircle, CheckCircle2,
-  XCircle, ArrowLeft, Check, RotateCcw,
+  XCircle, ArrowLeft, Check, RotateCcw, LogOut, Settings,
 } from 'lucide-react';
 import AnimatedPipelineComponent from '@/components/pipeline/AnimatedPipeline';
 import * as Select from '@radix-ui/react-select';
@@ -31,6 +31,15 @@ import dynamic from 'next/dynamic';
 import { useInsights } from '@/features/insights/hooks/useInsights';
 import InsightsDashboard from '@/features/insights/components/InsightsDashboard';
 import { AnimatePresence, motion } from 'framer-motion';
+import { ChatPanel } from '@/features/chat';
+import { RepositoryOverview } from '@/features/overview';
+import { BlastRadiusPanel } from '@/features/blast-radius';
+import { useGraphData } from '@/features/graph/hooks/useGraphData';
+import { NavigatePanel } from '@/features/navigation';
+import { onNavigateEvent } from '@/lib/navigate-events';
+import { useAuth } from '@/lib/auth';
+import { ProfileSettingsModal } from '@/features/settings/ProfileSettingsModal';
+import { useIsCompact } from '@/lib/utils/useBreakpoint';
 
 const ArtifactViewer = dynamic(
   () => import('@/features/artifacts/components/ArtifactViewer'),
@@ -64,10 +73,32 @@ function hoverBg(_d: boolean)    { return 'rgba(255,255,255,0.30)'; }
 // Removed — the global liquid-blob background in layout.tsx covers all pages.
 
 // ── Navbar ────────────────────────────────────────────────────────────────────
-const DashboardNavbar = React.memo(function DashboardNavbar() {
+const DashboardNavbar = React.memo(function DashboardNavbar({ onMenuClick, showMenuButton }: { onMenuClick?: () => void; showMenuButton?: boolean }) {
   const hov = hoverBg(false);
   const bdr = tintBorder(false);
+  const { user, logout, deleteAccount } = useAuth();
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteInput, setDeleteInput] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showUserMenu]);
+
   return (
+    <>
     <header style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200,
       display: 'flex', justifyContent: 'center', padding: '14px 24px', pointerEvents: 'none',
@@ -75,7 +106,7 @@ const DashboardNavbar = React.memo(function DashboardNavbar() {
       <nav aria-label="Dashboard navigation" style={{
         pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 4,
         padding: '7px 10px', borderRadius: 9999, width: '100%', maxWidth: 960,
-        background: 'rgba(255,255,255,0.72)',
+        background: 'var(--glass-nav)',
         backdropFilter: 'blur(50px) saturate(200%) brightness(1.04)',
         WebkitBackdropFilter: 'blur(50px) saturate(200%) brightness(1.04)',
         border: '0.5px solid rgba(255,255,255,0.90)',
@@ -85,6 +116,30 @@ const DashboardNavbar = React.memo(function DashboardNavbar() {
           'inset 0 -1px 0 rgba(255,255,255,0.55),' +
           'inset 0 0 0 0.5px rgba(255,255,255,0.65)',
       }}>
+        {/* Mobile/tablet menu toggle — opens the sidebar drawer */}
+        {showMenuButton && (
+          <button
+            type="button"
+            onClick={onMenuClick}
+            aria-label="Open repository menu"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 34, height: 34, borderRadius: 12, flexShrink: 0,
+              background: 'rgba(255,255,255,0.20)', border: `0.5px solid ${bdr}`,
+              cursor: 'pointer', color: 'var(--text-secondary)',
+              transition: 'background 0.2s ease',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = hov)}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.20)')}
+          >
+            <svg width="15" height="11" viewBox="0 0 15 11" fill="none" aria-hidden="true">
+              <rect width="15" height="1.6" rx="0.8" fill="currentColor" />
+              <rect y="4.7" width="15" height="1.6" rx="0.8" fill="currentColor" />
+              <rect y="9.4" width="15" height="1.6" rx="0.8" fill="currentColor" />
+            </svg>
+          </button>
+        )}
+
         {/* Logo */}
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', borderRadius: 16, textDecoration: 'none', flexShrink: 0, transition: 'background 0.2s ease' }}
           onMouseEnter={e => (e.currentTarget.style.background = hov)}
@@ -98,22 +153,253 @@ const DashboardNavbar = React.memo(function DashboardNavbar() {
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
           <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', background: 'rgba(255,255,255,0.22)', border: `0.5px solid ${bdr}`, borderRadius: 100, padding: '4px 14px' }}>Dashboard</span>
         </div>
-        {/* Right */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-          <Link href="/" style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', padding: '6px 14px', borderRadius: 14, textDecoration: 'none', transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', gap: 6 }}
-            onMouseEnter={e => { e.currentTarget.style.background = hov; e.currentTarget.style.color = 'var(--text)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
-            <ArrowLeft style={{ width: 13, height: 13 }} /> Home
-          </Link>
-          <a href="https://github.com/SUDHEER-KANDURU/cortex" target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', padding: '6px 14px', borderRadius: 14, textDecoration: 'none', transition: 'all 0.2s ease' }}
-            onMouseEnter={e => { e.currentTarget.style.background = hov; e.currentTarget.style.color = 'var(--text)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
-            GitHub
-          </a>
+        {/* Right — user profile & logout */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, position: 'relative' }} ref={menuRef}>
+          {/* Home/GitHub text links — hidden on compact widths to prevent crowding */}
+          {!showMenuButton && (
+            <>
+              <Link href="/" style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', padding: '6px 14px', borderRadius: 14, textDecoration: 'none', transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', gap: 6 }}
+                onMouseEnter={e => { e.currentTarget.style.background = hov; e.currentTarget.style.color = 'var(--text)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
+                <ArrowLeft style={{ width: 13, height: 13 }} /> Home
+              </Link>
+              <a href="https://github.com/SUDHEER-KANDURU/cortex" target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', padding: '6px 14px', borderRadius: 14, textDecoration: 'none', transition: 'all 0.2s ease' }}
+                onMouseEnter={e => { e.currentTarget.style.background = hov; e.currentTarget.style.color = 'var(--text)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
+                GitHub
+              </a>
+            </>
+          )}
+
+          {/* User avatar button */}
+          {user && (
+            <button
+              type="button"
+              onClick={() => setShowUserMenu(prev => !prev)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '5px 10px', borderRadius: 14, border: 'none',
+                background: showUserMenu ? hov : 'rgba(0,0,0,0)',
+                cursor: 'pointer', transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = hov; }}
+              onMouseLeave={e => { if (!showUserMenu) e.currentTarget.style.background = 'rgba(0,0,0,0)'; }}
+              aria-label="User menu"
+            >
+              <span style={{
+                width: 26, height: 26, borderRadius: '50%',
+                background: 'var(--primary)', color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 700, letterSpacing: '-0.02em',
+              }}>
+                {user.name.charAt(0).toUpperCase()}
+              </span>
+            </button>
+          )}
+
+          {/* Dropdown menu */}
+          {showUserMenu && user && (
+            <div style={{
+              position: 'absolute', top: '100%', right: 0, marginTop: 8,
+              width: 240, borderRadius: 14, overflow: 'hidden',
+              background: 'rgba(255,255,255,0.95)',
+              backdropFilter: 'blur(40px)',
+              WebkitBackdropFilter: 'blur(40px)',
+              border: '0.5px solid rgba(0,0,0,0.08)',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
+              zIndex: 300,
+            }}>
+              {/* User info */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{
+                    width: 34, height: 34, borderRadius: '50%',
+                    background: 'var(--primary)', color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 14, fontWeight: 700, flexShrink: 0,
+                  }}>
+                    {user.name.charAt(0).toUpperCase()}
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {user.name}
+                    </p>
+                    <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {user.email}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              {/* Menu items */}
+              <div style={{ padding: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => { setShowUserMenu(false); setShowSettings(true); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                    padding: '9px 12px', borderRadius: 8, border: 'none',
+                    background: 'transparent', cursor: 'pointer',
+                    fontSize: 13, fontWeight: 500, color: 'var(--text)',
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <Settings style={{ width: 14, height: 14 }} />
+                  Account settings
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowUserMenu(false); logout(); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                    padding: '9px 12px', borderRadius: 8, border: 'none',
+                    background: 'transparent', cursor: 'pointer',
+                    fontSize: 13, fontWeight: 500, color: 'var(--danger, #ef5350)',
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,83,80,0.06)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <LogOut style={{ width: 14, height: 14 }} />
+                  Sign out
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowUserMenu(false); setShowDeleteConfirm(true); setDeleteInput(''); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                    padding: '9px 12px', borderRadius: 8, border: 'none',
+                    background: 'transparent', cursor: 'pointer',
+                    fontSize: 13, fontWeight: 500, color: '#dc2626',
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.06)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <XCircle style={{ width: 14, height: 14 }} />
+                  Delete Account
+                </button>
+              </div>
+            </div>
+          )}
+
         </div>
       </nav>
     </header>
+
+    {/* Profile Settings modal */}
+    <ProfileSettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+
+    {/* Delete Account confirmation modal — outside header to avoid stacking context issues */}
+    {showDeleteConfirm && (
+      <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)',
+      }}
+        onClick={() => { if (!isDeleting) { setShowDeleteConfirm(false); setDeleteError(''); } }}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            background: '#fff', borderRadius: 20, padding: '32px 28px',
+            width: 'calc(100% - 48px)', maxWidth: 400,
+            boxShadow: '0 24px 80px rgba(0,0,0,0.22), 0 4px 12px rgba(0,0,0,0.08)',
+            display: 'flex', flexDirection: 'column', gap: 18,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: 12,
+              background: 'rgba(220,38,38,0.08)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <AlertCircle style={{ width: 20, height: 20, color: '#dc2626' }} />
+            </div>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#111' }}>
+              Delete your account?
+            </h3>
+          </div>
+          <p style={{ margin: 0, fontSize: 13, color: '#666', lineHeight: 1.6 }}>
+            This action is <strong style={{ color: '#111' }}>permanent</strong> and cannot be undone. All your data, jobs, and artifacts will be removed.
+          </p>
+          <div style={{
+            background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10,
+            padding: '12px 14px',
+          }}>
+            <p style={{ margin: 0, fontSize: 12, color: '#7f1d1d', lineHeight: 1.5 }}>
+              To confirm, type <strong>&quot;Delete&quot;</strong> below:
+            </p>
+          </div>
+          <input
+            type="text"
+            value={deleteInput}
+            onChange={e => setDeleteInput(e.target.value)}
+            placeholder="Type Delete"
+            autoFocus
+            disabled={isDeleting}
+            style={{
+              width: '100%', padding: '11px 14px', borderRadius: 10,
+              border: deleteInput === 'Delete' ? '1.5px solid #dc2626' : '1.5px solid #e5e7eb',
+              fontSize: 14, outline: 'none',
+              boxSizing: 'border-box',
+              transition: 'border-color 0.2s',
+              fontFamily: 'var(--font-sans)',
+            }}
+          />
+          {deleteError && (
+            <p style={{ margin: 0, fontSize: 12, color: '#dc2626', fontWeight: 500 }}>
+              {deleteError}
+            </p>
+          )}
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={() => { setShowDeleteConfirm(false); setDeleteError(''); }}
+              style={{
+                padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                border: '1px solid #e5e7eb', background: '#fff', color: '#555',
+                cursor: 'pointer', transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#f9fafb'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={deleteInput !== 'Delete' || isDeleting}
+              onClick={async () => {
+                if (deleteInput !== 'Delete') return;
+                setIsDeleting(true);
+                setDeleteError('');
+                try {
+                  await deleteAccount();
+                } catch (err: unknown) {
+                  const msg = err instanceof Error ? err.message : 'Failed to delete account. Please try again.';
+                  setDeleteError(msg);
+                  setIsDeleting(false);
+                }
+              }}
+              style={{
+                padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                border: 'none', cursor: deleteInput === 'Delete' && !isDeleting ? 'pointer' : 'not-allowed',
+                background: deleteInput === 'Delete' ? '#dc2626' : '#e5e7eb',
+                color: deleteInput === 'Delete' ? '#fff' : '#9ca3af',
+                opacity: isDeleting ? 0.6 : 1,
+                transition: 'background 0.2s, color 0.2s',
+              }}
+            >
+              {isDeleting ? 'Deleting…' : 'Delete Account'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 });
 
@@ -249,6 +535,14 @@ const JobRow = React.memo(function JobRow({ job, isSelected, onClick, onDelete, 
   const isFailed = job.status === 'failed';
   const [hovered, setHovered] = React.useState(false);
   const [deleteVisible, setDeleteVisible] = React.useState(false);
+  // On touch devices there is no hover, so the cursor-position reveal never
+  // fires. Detect coarse pointers and keep the delete button reachable.
+  const [isTouch, setIsTouch] = React.useState(false);
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      setIsTouch(window.matchMedia('(pointer: coarse)').matches);
+    }
+  }, []);
   const rowRef = React.useRef<HTMLDivElement>(null);
   const { retriedJob, isRetrying, error: retryError, retry } = useRetryJob();
 
@@ -287,6 +581,9 @@ const JobRow = React.memo(function JobRow({ job, isSelected, onClick, onDelete, 
     setDeleteVisible(false);
   };
 
+  // On touch the delete affordance is always visible (no hover to reveal it).
+  const showDelete = isTouch || deleteVisible;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <div
@@ -308,8 +605,8 @@ const JobRow = React.memo(function JobRow({ job, isSelected, onClick, onDelete, 
             background: isSelected ? '#1E2A38' : hovered ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0)',
             borderLeft: `2px solid ${isSelected ? '#1E2A38' : 'rgba(0,0,0,0)'}`,
             boxSizing: 'border-box',
-            // Slide left only when cursor is in the right 30% zone
-            transform: deleteVisible ? 'translateX(-32px)' : 'translateX(0)',
+            // Slide left when cursor is in the right zone, or always on touch
+            transform: showDelete ? 'translateX(-32px)' : 'translateX(0)',
             transition: 'transform 0.2s cubic-bezier(0.16,1,0.3,1), background 0.15s ease, border-color 0.15s ease',
           }}
         >
@@ -347,10 +644,10 @@ const JobRow = React.memo(function JobRow({ job, isSelected, onClick, onDelete, 
             border: 'none',
             cursor: 'pointer',
             color: 'var(--danger)',
-            opacity: deleteVisible ? 1 : 0,
-            transform: deleteVisible ? 'scale(1)' : 'scale(0.7)',
+            opacity: showDelete ? 1 : 0,
+            transform: showDelete ? 'scale(1)' : 'scale(0.7)',
             transition: 'opacity 0.15s ease, transform 0.2s cubic-bezier(0.16,1,0.3,1)',
-            pointerEvents: deleteVisible ? 'auto' : 'none',
+            pointerEvents: showDelete ? 'auto' : 'none',
             padding: 0,
           }}
         >
@@ -398,25 +695,49 @@ interface SidebarProps {
   selectedJobId: string | null; onJobSelected: (job: Job) => void;
   onJobSubmitted: (job: Job) => void; onJobDeleted: (id: string) => void;
   onJobRetried: (newJob: Job) => void;
+  /** When true the sidebar fills its container (drawer) instead of a fixed 300px column. */
+  compact?: boolean;
+  /** Shown as a close (✕) button inside the drawer on compact layouts. */
+  onClose?: () => void;
 }
 
-const Sidebar = React.memo(function Sidebar({ jobs, jobsLoading, jobsError, selectedJobId, onJobSelected, onJobSubmitted, onJobDeleted, onJobRetried }: SidebarProps) {
+const Sidebar = React.memo(function Sidebar({ jobs, jobsLoading, jobsError, selectedJobId, onJobSelected, onJobSubmitted, onJobDeleted, onJobRetried, compact, onClose }: SidebarProps) {
   const bdr = 'rgba(255,255,255,0.45)';
   return (
     <aside aria-label="Repository sidebar" style={{
-      background: 'rgba(255,255,255,0.68)',
-      backdropFilter: 'blur(40px) saturate(180%) brightness(1.03)',
-      WebkitBackdropFilter: 'blur(40px) saturate(180%) brightness(1.03)',
+      background: 'rgba(255,255,255,0.72)',
+      backdropFilter: 'blur(18px) saturate(160%)',
+      WebkitBackdropFilter: 'blur(18px) saturate(160%)',
       isolation: 'isolate',
       border: '0.5px solid rgba(255,255,255,0.88)',
       boxShadow:
         '0 8px 40px rgba(80,60,20,0.09),' +
         'inset 0 1px 0 rgba(255,255,255,0.98),' +
         'inset 0 0 0 0.5px rgba(255,255,255,0.65)',
-      width: 300, minWidth: 300, maxWidth: 300,
+      // Compact (drawer): fill the container. Desktop: fixed 300px column.
+      width: compact ? '100%' : 300,
+      minWidth: compact ? 0 : 300,
+      maxWidth: compact ? '100%' : 300,
+      height: '100%',
       display: 'flex', flexDirection: 'column', borderRadius: 20, overflow: 'hidden', flexShrink: 0,
     }}>
       <div style={{ padding: '20px 18px', borderBottom: `0.5px solid ${bdr}` }}>
+        {compact && onClose && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close repository menu"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 32, height: 32, borderRadius: 10, border: 'none',
+                background: 'rgba(0,0,0,0.04)', cursor: 'pointer', color: 'var(--text-secondary)',
+              }}
+            >
+              <XCircle style={{ width: 16, height: 16 }} />
+            </button>
+          </div>
+        )}
         <SidebarForm onJobSubmitted={onJobSubmitted} />
       </div>
       <div className="dash-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 10px 12px' }}>
@@ -665,6 +986,26 @@ const InsightsTab = React.memo(function InsightsTab({ jobId }: { jobId: string }
   return <InsightsDashboard report={report} isDark={false} />;
 });
 
+// ── Blast Radius tab — uses graph data ───────────────────────────────────────
+const BlastRadiusTab = React.memo(function BlastRadiusTab({ jobId }: { jobId: string }) {
+  const { nodes, isLoading } = useGraphData(jobId);
+
+  if (isLoading) return <InsightsSkeleton />;
+  if (!nodes.length) return <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>No graph data available.</p>;
+
+  return <BlastRadiusPanel jobId={jobId} nodes={nodes} />;
+});
+
+// ── Navigate tab — code navigation ──────────────────────────────────────────
+const NavigateTab = React.memo(function NavigateTab({ jobId, initialNodeId }: { jobId: string; initialNodeId?: string }) {
+  const { nodes, isLoading } = useGraphData(jobId);
+
+  if (isLoading) return <InsightsSkeleton />;
+  if (!nodes.length) return <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>No graph data available.</p>;
+
+  return <NavigatePanel jobId={jobId} nodes={nodes} initialNodeId={initialNodeId} />;
+});
+
 // ── Right panel ───────────────────────────────────────────────────────────────
 interface RightPanelProps {
   activeJob: Job | null;
@@ -674,7 +1015,8 @@ interface RightPanelProps {
 }
 
 const RightPanel = React.memo(function RightPanel({ activeJob, artifacts, artifactsLoading, artifactsError, onJobRetried }: RightPanelProps) {
-  const [activeTab, setActiveTab] = useState<'artifact' | 'insights'>('artifact');
+  const [activeTab, setActiveTab] = useState<'artifact' | 'insights' | 'chat' | 'overview' | 'blast-radius' | 'navigate'>('overview');
+  const [navigateTargetId, setNavigateTargetId] = useState<string | undefined>(undefined);
   const { retriedJob, isRetrying, error: retryError, retry } = useRetryJob();
 
   React.useEffect(() => {
@@ -686,6 +1028,22 @@ const RightPanel = React.memo(function RightPanel({ activeJob, artifacts, artifa
     setActiveTab('artifact');
   }, [activeJob?.id]);
 
+  // Listen for navigate events from other components (graph, insights, etc.)
+  React.useEffect(() => {
+    const unsubscribe = onNavigateEvent((event) => {
+      setActiveTab('navigate');
+      if (event.nodeId) {
+        // Direct node ID — navigate immediately
+        setNavigateTargetId(event.nodeId);
+      } else if (event.label) {
+        // No node ID but have a label — NavigatePanel will show search with this term
+        // The user can select the matching entity from the search results
+        setNavigateTargetId(undefined);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
   if (!activeJob) return <EmptyState />;
 
   const bdr = 'rgba(255,255,255,0.45)';
@@ -695,16 +1053,19 @@ const RightPanel = React.memo(function RightPanel({ activeJob, artifacts, artifa
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
       <PanelHeader activeJob={activeJob} />
 
-      {/* Tab bar — only show when job is completed */}
+      {/* Tab bar — only show when job is completed. Scrolls horizontally on
+          narrow screens so all six tabs stay reachable without overflow. */}
       {isCompleted && (
-        <div style={{
+        <div className="scrollbar-hide" style={{
           display: 'flex', gap: 2, padding: '0 24px',
           borderBottom: `0.5px solid ${bdr}`,
           background: 'rgba(0,0,0,0)',
           flexShrink: 0,
+          overflowX: 'auto',
         }}>
-          {(['artifact', 'insights'] as const).map(tab => {
+          {(['overview', 'artifact', 'insights', 'navigate', 'blast-radius', 'chat'] as const).map(tab => {
             const isActive = activeTab === tab;
+            const labels = { overview: 'Overview', artifact: 'Artifact', insights: 'Insights', navigate: 'Navigate', 'blast-radius': 'Blast Radius', chat: 'Chat' };
             return (
               <button
                 key={tab}
@@ -718,11 +1079,12 @@ const RightPanel = React.memo(function RightPanel({ activeJob, artifacts, artifa
                   marginBottom: -1,
                   transition: 'color 0.15s',
                   letterSpacing: '0.02em', fontFamily: 'var(--font-sans)',
+                  flexShrink: 0, whiteSpace: 'nowrap',
                 }}
                 onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = 'var(--text)'; }}
                 onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = 'var(--text-muted)'; }}
               >
-                {tab === 'artifact' ? '📄 Artifact' : '📊 Engineering Insights'}
+                {labels[tab]}
                 {/* Spring-animated active underline indicator */}
                 {isActive && (
                   <motion.span
@@ -832,8 +1194,18 @@ const RightPanel = React.memo(function RightPanel({ activeJob, artifacts, artifa
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
               style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
             >
-              {activeTab === 'insights' && isCompleted ? (
+              {activeTab === 'overview' && isCompleted ? (
+                <RepositoryOverview jobId={activeJob.id} />
+              ) : activeTab === 'insights' && isCompleted ? (
                 <InsightsTab jobId={activeJob.id} />
+              ) : activeTab === 'navigate' && isCompleted ? (
+                <NavigateTab jobId={activeJob.id} initialNodeId={navigateTargetId} />
+              ) : activeTab === 'blast-radius' && isCompleted ? (
+                <BlastRadiusTab jobId={activeJob.id} />
+              ) : activeTab === 'chat' && isCompleted ? (
+                <div style={{ height: 'clamp(400px, calc(100vh - 280px), 100%)', minHeight: 400 }}>
+                  <ChatPanel jobId={activeJob.id} repoName={extractShortName(activeJob.repo_url)} />
+                </div>
               ) : (
                 artifacts.map(artifact => (
                   <div key={artifact.id} style={{
@@ -875,9 +1247,20 @@ export default function DashboardPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
+  // ── Responsive shell ──────────────────────────────────────────────────────
+  // Below 1024px the fixed sidebar becomes a slide-in drawer opened from the
+  // navbar hamburger. Desktop keeps the side-by-side layout unchanged.
+  const isCompact = useIsCompact();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   React.useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Auto-close the drawer whenever we return to desktop widths.
+  React.useEffect(() => {
+    if (!isCompact) setDrawerOpen(false);
+  }, [isCompact]);
 
   // Initial jobs fetch — serve from session cache first to avoid blank sidebar
   React.useEffect(() => {
@@ -947,9 +1330,10 @@ export default function DashboardPage() {
   const handleJobSubmitted = useCallback((job: Job) => {
     setJobs(prev => [job, ...prev]);
     setSelectedJob(job);
+    setDrawerOpen(false);
   }, []);
 
-  const handleJobSelected = useCallback((job: Job) => { setSelectedJob(job); }, []);
+  const handleJobSelected = useCallback((job: Job) => { setSelectedJob(job); setDrawerOpen(false); }, []);
 
   const handleJobDeleted = useCallback((id: string) => {
     // Optimistically remove from UI immediately
@@ -1037,31 +1421,48 @@ export default function DashboardPage() {
     );
   }
 
+  const sidebar = (
+    <Sidebar
+      jobs={jobs.filter(j => !hiddenJobIds.has(j.id))}
+      jobsLoading={jobsLoading}
+      jobsError={jobsError}
+      selectedJobId={selectedJob?.id ?? null}
+      onJobSelected={handleJobSelected}
+      onJobSubmitted={handleJobSubmitted}
+      onJobDeleted={handleJobDeleted}
+      onJobRetried={handleJobSubmitted}
+      compact={isCompact}
+      onClose={isCompact ? () => setDrawerOpen(false) : undefined}
+    />
+  );
+
   return (
     <>
       <div style={{ position: 'fixed', inset: 0, zIndex: 1, display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-sans)' }}>
-        <DashboardNavbar />
+        <DashboardNavbar showMenuButton={isCompact} onMenuClick={() => setDrawerOpen(true)} />
 
-        <div style={{ flex: 1, display: 'flex', paddingTop: 80, paddingBottom: 20, paddingLeft: 20, paddingRight: 20, gap: 16, overflow: 'hidden', boxSizing: 'border-box' }}>
-          {/* Sidebar */}
-          <div className="dash-scroll" style={{ display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto', overflowX: 'clip', height: '100%' }}>
-            <Sidebar
-              jobs={jobs.filter(j => !hiddenJobIds.has(j.id))}
-              jobsLoading={jobsLoading}
-              jobsError={jobsError}
-              selectedJobId={selectedJob?.id ?? null}
-              onJobSelected={handleJobSelected}
-              onJobSubmitted={handleJobSubmitted}
-              onJobDeleted={handleJobDeleted}
-              onJobRetried={handleJobSubmitted}
-            />
-          </div>
+        <div style={{
+          flex: 1, display: 'flex',
+          paddingTop: 80,
+          paddingBottom: isCompact ? 12 : 20,
+          paddingLeft: isCompact ? 12 : 20,
+          paddingRight: isCompact ? 12 : 20,
+          gap: 16, overflow: 'hidden', boxSizing: 'border-box',
+        }}>
+          {/* Desktop sidebar — inline column. Hidden on compact (drawer instead). */}
+          {!isCompact && (
+            <div className="dash-scroll" style={{ display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto', overflowX: 'clip', height: '100%' }}>
+              {sidebar}
+            </div>
+          )}
 
           {/* Main glass panel */}
           <main className="dash-content" style={{
-            background: 'rgba(255,255,255,0.68)',
-            backdropFilter: 'blur(40px) saturate(180%) brightness(1.03)',
-            WebkitBackdropFilter: 'blur(40px) saturate(180%) brightness(1.03)',
+            // Background is already ~68% opaque, so a lighter blur reads the same
+            // but avoids re-blurring the backdrop on every inner scroll frame.
+            background: 'rgba(255,255,255,0.72)',
+            backdropFilter: 'blur(18px) saturate(160%)',
+            WebkitBackdropFilter: 'blur(18px) saturate(160%)',
             isolation: 'isolate',
             border: '0.5px solid rgba(255,255,255,0.88)',
             boxShadow:
@@ -1076,6 +1477,47 @@ export default function DashboardPage() {
           </main>
         </div>
       </div>
+
+      {/* ── Mobile/tablet sidebar drawer ── */}
+      {isCompact && (
+        <AnimatePresence>
+          {drawerOpen && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                key="drawer-backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setDrawerOpen(false)}
+                style={{
+                  position: 'fixed', inset: 0, zIndex: 400,
+                  background: 'rgba(26,24,20,0.35)', backdropFilter: 'blur(2px)',
+                }}
+                aria-hidden="true"
+              />
+              {/* Drawer */}
+              <motion.div
+                key="drawer-panel"
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+                style={{
+                  position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 401,
+                  width: 'min(320px, 88vw)', padding: 12,
+                  display: 'flex', flexDirection: 'column',
+                }}
+                role="dialog"
+                aria-label="Repository menu"
+              >
+                {sidebar}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+      )}
     </>
   );
 }

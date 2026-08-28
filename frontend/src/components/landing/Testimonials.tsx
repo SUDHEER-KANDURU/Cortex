@@ -297,6 +297,65 @@ function APISpecOutput({ active }: { active: boolean }) {
   )
 }
 
+// ── Onboarding Guide Preview ─────────────────────────────────────────────────
+function OnboardingGuideOutput({ active }: { active: boolean }) {
+  const [step, setStep] = useState(0)
+
+  const steps = [
+    { icon: "1", title: "Project overview", sub: "architecture & key modules" },
+    { icon: "2", title: "Setup instructions", sub: "env, deps, local dev" },
+    { icon: "3", title: "Key conventions", sub: "naming, layers, patterns" },
+    { icon: "4", title: "Where to start", sub: "entry points & hot paths" },
+  ]
+
+  useEffect(() => {
+    if (!active) { setStep(0); return }
+    let s = 0
+    const t = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      s += 1
+      setStep(s)
+      if (s >= steps.length) clearInterval(t)
+    }, 350)
+    return () => clearInterval(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active])
+
+  return (
+    <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: "6px" }}>
+      <div style={{ fontSize: "9px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "4px",
+        opacity: step > 0 ? 1 : 0, transition: "opacity 0.3s ease" }}>
+        onboarding-guide.md
+      </div>
+      {steps.map((s, i) => (
+        <div key={i} style={{
+          display: "flex", alignItems: "center", gap: "10px",
+          padding: "6px 10px", borderRadius: "8px",
+          background: i < step ? "var(--primary-dim)" : "transparent",
+          border: `1px solid ${i < step ? "var(--border-hover)" : "var(--border)"}`,
+          opacity: i < step ? 1 : 0.3,
+          transform: i < step ? "none" : "translateX(-4px)",
+          transition: `all 0.35s ease ${i * 60}ms`,
+        }}>
+          <span style={{
+            width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: "9px", fontWeight: 800,
+            background: i < step ? "var(--primary)" : "var(--border)",
+            color: i < step ? "#fff" : "var(--text-muted)",
+          }}>
+            {s.icon}
+          </span>
+          <div>
+            <span style={{ fontSize: "10px", fontWeight: 600, color: "var(--text)" }}>{s.title}</span>
+            <span style={{ fontSize: "9px", color: "var(--text-muted)", marginLeft: "6px" }}>{s.sub}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Output Card ───────────────────────────────────────────────────────────────
 interface OutputDef {
   id: string
@@ -341,6 +400,13 @@ const OUTPUTS: OutputDef[] = [
     headline: "OpenAPI 3.0 spec from your endpoints",
     description: "Inferred from FastAPI route definitions, Pydantic models, and docstrings.",
     Visual: APISpecOutput,
+  },
+  {
+    id: "onboarding",
+    label: "Onboarding Guide",
+    headline: "Day-one guide for new developers",
+    description: "Structured walkthrough of architecture, setup, conventions, and entry points — generated from the graph.",
+    Visual: OnboardingGuideOutput,
   },
 ]
 
@@ -405,7 +471,7 @@ function OutputCard({ output, index }: { output: OutputDef; index: number }) {
 export function PortfolioTestimonials() {
   return (
     <section id="testimonials" className="py-20 md:py-32"
-      style={{ borderTop: "1px solid var(--cx-card-border)", background: "var(--cx-section-bg)", backdropFilter: "blur(20px) saturate(200%)", WebkitBackdropFilter: "blur(20px) saturate(200%)" }}>
+      style={{ borderTop: "1px solid var(--cx-card-border)", background: "var(--cx-section-bg)" }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12">
         <div className="mb-12 md:mb-16" data-reveal="up">
           <p className="cx-eyebrow" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", marginBottom: "10px" }}>Artifacts</p>

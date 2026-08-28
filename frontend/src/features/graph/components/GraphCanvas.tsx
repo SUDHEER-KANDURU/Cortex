@@ -21,6 +21,8 @@ import 'reactflow/dist/style.css';
 import { X } from 'lucide-react';
 import type { GraphNode, GraphEdge } from '@/types';
 import { NODE_TYPE_COLORS } from '@/features/graph/graph.types';
+import NavigateButton from '@/components/shared/NavigateButton';
+import { emitNavigate } from '@/lib/navigate-events';
 
 export interface GraphCanvasProps {
   nodes: GraphNode[];
@@ -101,7 +103,8 @@ function NodeDetailPanel({ node, onClose }: {
     <aside
       aria-label={`Node details: ${node.label}`}
       style={{
-        position: 'absolute', right: 0, top: 0, height: '100%', width: 288,
+        position: 'absolute', right: 0, top: 0, height: '100%',
+        width: 'min(288px, 85%)', maxWidth: 288,
         overflowY: 'auto', zIndex: 10,
         background: T.panelBg,
         backdropFilter: 'blur(30px) saturate(180%)',
@@ -142,6 +145,15 @@ function NodeDetailPanel({ node, onClose }: {
       <p style={{ fontSize: 11, color: T.panelMuted, fontFamily: 'ui-monospace, monospace', wordBreak: 'break-all', marginBottom: 12 }}>
         {node.id}
       </p>
+
+      {/* Navigate action */}
+      <div style={{ marginBottom: 12 }}>
+        <NavigateButton
+          onClick={() => emitNavigate({ nodeId: node.id, label: node.label, nodeType: node.node_type })}
+          size="md"
+          label="Navigate"
+        />
+      </div>
 
       <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.panelMuted, marginBottom: 8 }}>
         Properties
@@ -199,7 +211,7 @@ export default function GraphCanvas({ nodes: rawNodes, edges: rawEdges }: GraphC
 
   return (
     <div style={{
-      position: 'relative', height: 600, width: '100%',
+      position: 'relative', height: 'clamp(400px, 65vh, 600px)', width: '100%',
       overflow: 'hidden', borderRadius: 16,
       border: `0.5px solid ${T.containerBorder}`,
       background: 'rgba(255,255,255,0.15)',
@@ -222,6 +234,9 @@ export default function GraphCanvas({ nodes: rawNodes, edges: rawEdges }: GraphC
         maxZoom={2}
         attributionPosition="bottom-left"
         style={{ background: 'transparent' }}
+        zoomOnScroll={false}
+        zoomActivationKeyCode="Control"
+        panOnScroll={true}
       >
         <Background
           variant={BackgroundVariant.Dots}

@@ -267,7 +267,7 @@ function Legend() {
         fontFamily: 'Inter, system-ui, sans-serif',
         zIndex: 10,
         boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-        maxWidth: 220,
+        maxWidth: 'min(220px, 60%)',
       }}
     >
       <div style={{ fontWeight: 600, marginBottom: 8, color: '#111827', fontSize: 12 }}>
@@ -387,7 +387,7 @@ export default function ArchitectureDiagram({
       />
 
       {/* React Flow Canvas */}
-      <div style={{ flex: 1, position: 'relative', minHeight: 500 }}>
+      <div style={{ flex: 1, position: 'relative', minHeight: 320 }}>
         <ReactFlow
           nodes={flowNodes}
           edges={flowEdges}
@@ -401,6 +401,9 @@ export default function ArchitectureDiagram({
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
+          zoomOnScroll={false}
+          zoomActivationKeyCode="Control"
+          panOnScroll={true}
         >
           <Background color="#E5E7EB" gap={20} size={1} />
           <Controls

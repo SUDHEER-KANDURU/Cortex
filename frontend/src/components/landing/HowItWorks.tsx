@@ -858,9 +858,10 @@ export function PortfolioHowItWorks() {
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
-        background: "var(--cx-section-bg)",
-        backdropFilter: "saturate(180%) blur(20px)",
-        WebkitBackdropFilter: "saturate(180%) blur(20px)",
+        // This panel is sticky and full-height, so any backdrop-filter here is
+        // re-sampled on every frame of the pinned scroll animation. Use an
+        // opaque-ish tint instead of a live blur to keep the pin smooth.
+        background: "rgba(244,242,239,0.82)",
         paddingTop: "8px",
         paddingBottom: "8px",
       }}>

@@ -86,7 +86,7 @@ export default function ArchitectureDiagramPanel({ jobId }: ArchitectureDiagramP
   return (
     <div style={{
       width: '100%',
-      height: 600,
+      height: 'clamp(400px, 65vh, 600px)',
       border: '1px solid #E5E7EB',
       borderRadius: 12,
       overflow: 'hidden',

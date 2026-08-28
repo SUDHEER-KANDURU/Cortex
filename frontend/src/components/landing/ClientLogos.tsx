@@ -10,12 +10,11 @@ export function PortfolioClientLogos() {
   return (
     <section className="py-16 overflow-hidden relative" style={{ borderTop: "1px solid var(--cx-card-border)" }}>
 
-      {/* Frosted strip */}
+      {/* Frosted strip — full-bleed tint (no live backdrop blur so it does not
+          re-sample the background while the logo marquee animates). */}
       <div style={{
         position: "absolute", inset: 0, pointerEvents: "none",
-        background: "rgba(255,255,255,0.04)",
-        backdropFilter: "blur(20px) saturate(200%)",
-        WebkitBackdropFilter: "blur(20px) saturate(200%)",
+        background: "rgba(255,255,255,0.10)",
         borderTop: "1px solid var(--cx-card-border)",
         borderBottom: "1px solid var(--cx-card-border)",
       }} />
