@@ -13,19 +13,19 @@ Endpoints:
 
 from __future__ import annotations
 
+from collections import defaultdict
+
+import structlog
+from cortex.graph.domain.entities import NodeType, RelationshipType
+from cortex.graph.infrastructure.dependencies import graph_repository
+from cortex.insights.application.engine import InsightsEngine
+from cortex.insights.application.performance_analyzer import PerformanceAnalyzer
+from cortex.insights.application.security_analyzer import SecurityAnalyzer
+from cortex.insights.application.testing_analyzer import TestingAnalyzer
+from cortex.jobs.infrastructure.dependencies import job_repository
+from cortex.pipeline.infrastructure.graph_builder import GraphBuildResult
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-
-from cortex.graph.infrastructure.dependencies import graph_repository
-from cortex.jobs.infrastructure.dependencies import job_repository
-from cortex.insights.application.engine import InsightsEngine
-from cortex.insights.application.security_analyzer import SecurityAnalyzer
-from cortex.insights.application.performance_analyzer import PerformanceAnalyzer
-from cortex.insights.application.testing_analyzer import TestingAnalyzer
-from cortex.pipeline.infrastructure.graph_builder import GraphBuildResult
-from cortex.graph.domain.entities import NodeType, RelationshipType
-from shared.exceptions import NotFoundError
-import structlog
 
 logger = structlog.get_logger()
 
@@ -134,7 +134,10 @@ async def get_overview(job_id: str) -> OverviewResponse:
     # Count by type
     files = [n for n in nodes if n.node_type == NodeType.FILE]
     modules = [n for n in nodes if n.node_type == NodeType.MODULE]
-    classes = [n for n in nodes if n.node_type in (NodeType.CLASS, NodeType.INTERFACE, NodeType.ENUM)]
+    classes = [
+        n for n in nodes
+        if n.node_type in (NodeType.CLASS, NodeType.INTERFACE, NodeType.ENUM)
+    ]
     functions = [n for n in nodes if n.node_type in (NodeType.FUNCTION, NodeType.METHOD)]
     endpoints = [n for n in nodes if n.node_type == NodeType.ENDPOINT]
     tests = [n for n in nodes if n.node_type == NodeType.TEST]
@@ -142,16 +145,21 @@ async def get_overview(job_id: str) -> OverviewResponse:
     total_lines = sum(int(f.properties.get("lines", 0) or 0) for f in files)
 
     # Languages
-    from collections import defaultdict
     lang_counts: dict[str, int] = defaultdict(int)
     for f in files:
         lang = str(f.properties.get("language", ""))
         if lang and lang != "unknown":
             lang_counts[lang] += 1
-    languages = sorted(lang_counts.keys(), key=lambda l: lang_counts[l], reverse=True)
+    languages = sorted(
+        lang_counts.keys(), key=lambda lang: lang_counts[lang], reverse=True
+    )
 
     # Complexity
-    complexities = [int(fn.properties.get("cyclomatic", 0) or 0) for fn in functions + endpoints + tests if int(fn.properties.get("cyclomatic", 0) or 0) > 0]
+    complexities = [
+        int(fn.properties.get("cyclomatic", 0) or 0)
+        for fn in functions + endpoints + tests
+        if int(fn.properties.get("cyclomatic", 0) or 0) > 0
+    ]
     avg_cc = round(sum(complexities) / max(len(complexities), 1), 2)
     max_cc = max(complexities, default=0)
 
@@ -361,6 +369,269 @@ async def get_extended_analysis(job_id: str) -> ExtendedAnalysisResponse:
             )
             for f in testing.findings
         ],
+    )
+
+
+# ─── Blast Radius Endpoint ────────────────────────────────────────────────────
+
+# ─── Full Understanding Endpoint ──────────────────────────────────────────────
+
+class ArchitectureResponse(BaseModel):
+    """Architecture intelligence for the overview."""
+    style: str
+    description: str
+    evidence: list[str]
+    frameworks: list[str]
+    languages: list[str]
+
+
+class DataFlowStepOverview(BaseModel):
+    symbol: str
+    node_type: str
+    role: str
+
+
+class DataFlowOverview(BaseModel):
+    name: str
+    entry_point: str
+    steps: list[DataFlowStepOverview]
+
+
+class EntryPointOverview(BaseModel):
+    label: str
+    kind: str
+    method: str = ""
+    route: str = ""
+    file_path: str = ""
+
+
+class ModuleOverview(BaseModel):
+    name: str
+    architecture_role: str = ""
+    layer: str = ""
+    purpose: str = ""
+    file_count: int = 0
+    key_classes: list[str] = []
+    dependencies: list[str] = []
+    dependents: list[str] = []
+    coupling_score: float = 0.0
+    risks: list[str] = []
+
+
+class StartingPointResponse(BaseModel):
+    symbol: str
+    file_path: str
+    reason: str
+
+
+class FullUnderstandingResponse(BaseModel):
+    """Complete Cortex understanding — enriched overview for the frontend."""
+    # Identity
+    repo_name: str
+    repo_url: str
+    # Purpose
+    purpose: str = ""
+    headline: str = ""
+    # Architecture
+    architecture: ArchitectureResponse
+    # Structure
+    total_files: int = 0
+    total_lines: int = 0
+    total_modules: int = 0
+    total_classes: int = 0
+    total_functions: int = 0
+    total_endpoints: int = 0
+    total_tests: int = 0
+    # Health
+    overall_score: int = 0
+    overall_grade: str = ""
+    # Rich intelligence
+    entry_points: list[EntryPointOverview] = []
+    modules: list[ModuleOverview] = []
+    data_flows: list[DataFlowOverview] = []
+    starting_point: StartingPointResponse | None = None
+    complexity_hotspots: list[dict] = []
+    architectural_risks: list[str] = []
+    top_dependencies: list[str] = []
+
+
+@router.get(
+    "/{job_id}/understanding",
+    response_model=FullUnderstandingResponse,
+    summary="Full repository understanding",
+    description=(
+        "The enriched overview combining structure, health, architecture, "
+        "data flows, modules, and starting point recommendations. "
+        "Powers the interactive exploration UI."
+    ),
+)
+async def get_full_understanding(job_id: str) -> FullUnderstandingResponse:
+    """Get the full Cortex understanding for the overview UI."""
+    from cortex.reasoning.application.reasoner import CortexReasoner
+
+    job = await job_repository.get_by_id(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    nodes = await graph_repository.get_nodes_by_job(job_id)
+    edges = await graph_repository.get_edges_by_job(job_id)
+
+    if not nodes:
+        raise HTTPException(status_code=404, detail="No graph data for this job")
+
+    reasoner = CortexReasoner()
+    u = reasoner.understand(
+        job_id=job_id, repo_url=job.repo_url, nodes=nodes, edges=edges
+    )
+
+    starting_point = None
+    if u.start_here:
+        starting_point = StartingPointResponse(
+            symbol=u.start_here,
+            file_path=u.start_here_file,
+            reason=u.start_here_reason,
+        )
+
+    return FullUnderstandingResponse(
+        repo_name=u.repo_name,
+        repo_url=u.repo_url,
+        purpose=u.purpose,
+        headline=u.headline,
+        architecture=ArchitectureResponse(
+            style=u.architecture_style.value,
+            description=u.architecture_description,
+            evidence=u.architecture_evidence,
+            frameworks=u.frameworks,
+            languages=u.languages,
+        ),
+        total_files=u.total_files,
+        total_lines=u.total_lines,
+        total_modules=u.total_modules,
+        total_classes=u.total_classes,
+        total_functions=u.total_functions,
+        total_endpoints=u.total_endpoints,
+        total_tests=u.total_tests,
+        overall_score=u.overall_score,
+        overall_grade=u.overall_grade,
+        entry_points=[
+            EntryPointOverview(
+                label=ep.label, kind=ep.kind, method=ep.method,
+                route=ep.route, file_path=ep.file_path,
+            )
+            for ep in u.entry_points[:20]
+        ],
+        modules=[
+            ModuleOverview(
+                name=m.name, architecture_role=m.architecture_role,
+                layer=m.layer, purpose=m.purpose, file_count=m.file_count,
+                key_classes=m.key_classes[:5], dependencies=m.dependencies[:5],
+                dependents=m.dependents[:5], coupling_score=m.coupling_score,
+                risks=m.risks[:3],
+            )
+            for m in u.modules
+        ],
+        data_flows=[
+            DataFlowOverview(
+                name=f.name, entry_point=f.entry_point,
+                steps=[
+                    DataFlowStepOverview(
+                        symbol=s.symbol, node_type=s.node_type, role=s.role,
+                    )
+                    for s in f.steps
+                ],
+            )
+            for f in u.data_flows[:10]
+        ],
+        starting_point=starting_point,
+        complexity_hotspots=u.complexity_hotspots[:10],
+        architectural_risks=u.architectural_risks[:5],
+        top_dependencies=u.top_dependencies[:10],
+    )
+
+
+# ─── Blast Radius Endpoint (existing) ─────────────────────────────────────────
+
+
+class BlastRadiusNodeResponse(BaseModel):
+    """A node affected by a potential change."""
+    id: str
+    label: str
+    node_type: str
+    file_path: str
+    distance: int
+    relationship: str
+
+
+class BlastRadiusResponse(BaseModel):
+    """Full blast radius analysis for a node."""
+    target_id: str
+    target_label: str
+    target_type: str
+    target_file: str
+    direct_dependents: list[BlastRadiusNodeResponse]
+    transitive_dependents: list[BlastRadiusNodeResponse]
+    affected_modules: list[str]
+    affected_tests: list[BlastRadiusNodeResponse]
+    risk_level: str
+    risk_score: int
+    risk_factors: list[str]
+    impact_paths: list[list[str]]
+
+
+@router.get(
+    "/{job_id}/blast-radius/{node_id}",
+    response_model=BlastRadiusResponse,
+    summary="Blast radius — what breaks if this changes?",
+    description=(
+        "Computes the full impact graph for a node: direct dependents, "
+        "transitive dependents, affected modules, affected tests, and risk level."
+    ),
+)
+async def get_blast_radius(job_id: str, node_id: str) -> BlastRadiusResponse:
+    """Get blast radius for a specific graph node."""
+    from cortex.overview.blast_radius import BlastRadiusAnalyzer
+
+    node = await graph_repository.get_node_by_id(node_id)
+    if not node or node.job_id != job_id:
+        raise HTTPException(status_code=404, detail="Node not found")
+
+    all_nodes = await graph_repository.get_nodes_by_job(job_id)
+    all_edges = await graph_repository.get_edges_by_job(job_id)
+
+    analyzer = BlastRadiusAnalyzer()
+    result = analyzer.analyze(node, all_nodes, all_edges)
+
+    return BlastRadiusResponse(
+        target_id=result.target_id,
+        target_label=result.target_label,
+        target_type=result.target_type,
+        target_file=result.target_file,
+        direct_dependents=[
+            BlastRadiusNodeResponse(
+                id=d.id, label=d.label, node_type=d.node_type,
+                file_path=d.file_path, distance=d.distance, relationship=d.relationship,
+            )
+            for d in result.direct_dependents
+        ],
+        transitive_dependents=[
+            BlastRadiusNodeResponse(
+                id=d.id, label=d.label, node_type=d.node_type,
+                file_path=d.file_path, distance=d.distance, relationship=d.relationship,
+            )
+            for d in result.transitive_dependents
+        ],
+        affected_modules=result.affected_modules,
+        affected_tests=[
+            BlastRadiusNodeResponse(
+                id=t.id, label=t.label, node_type=t.node_type,
+                file_path=t.file_path, distance=t.distance, relationship=t.relationship,
+            )
+            for t in result.affected_tests
+        ],
+        risk_level=result.risk_level,
+        risk_score=result.risk_score,
+        risk_factors=result.risk_factors,
+        impact_paths=result.impact_paths,
     )
 
 
