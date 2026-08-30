@@ -5,10 +5,12 @@ Model: deepseek-ai/deepseek-v4-pro-0813 (primary)
 Fallback: meta/llama-3.2-11b-vision-instruct
 """
 
-import httpx
 import json
+import re
+from collections.abc import AsyncGenerator
+
+import httpx
 import structlog
-from typing import AsyncGenerator
 
 logger = structlog.get_logger()
 
@@ -142,6 +144,78 @@ class NIMClient:
                 logger.error("nim_stream_error", model=model, error=str(e))
                 yield f"\n\n[Error: {str(e)}]"
 
+    async def refine(
+        self,
+        draft: str,
+        evidence: str,
+        *,
+        temperature: float = 0.3,
+        max_tokens: int = 900,
+    ) -> str:
+        """Refine a Cortex-authored explanation WITHOUT changing its facts.
+
+        This is the "NIM as verifier" contract: Cortex has already produced the
+        explanation deterministically from repository evidence. NIM only improves
+        readability and flow. It must NOT introduce files, symbols, metrics, or
+        relationships that are not present in `evidence`, and must not contradict
+        the draft's facts.
+
+        On ANY failure (no key, network error, empty response) this returns the
+        original `draft` unchanged — Cortex's explanation always stands on its own.
+        """
+        if not self._api_key:
+            return draft
+
+        system_msg = (
+            "You are a technical editor refining an explanation that was produced "
+            "by a deterministic code-analysis engine (Cortex) from verified "
+            "repository evidence.\n\n"
+            "STRICT RULES:\n"
+            "- The DRAFT's facts are authoritative. Do NOT change any file path, "
+            "symbol name, number, metric, or relationship.\n"
+            "- Do NOT add facts, files, symbols, or claims not present in the "
+            "EVIDENCE. If something seems missing, leave it out.\n"
+            "- You MAY improve clarity, flow, phrasing, and structure only.\n"
+            "- Preserve the section headings and their order.\n"
+            "- If the draft is already clear, return it essentially unchanged.\n"
+            "- Never contradict the draft."
+        )
+        user_msg = (
+            f"## EVIDENCE (the only facts you may rely on)\n{evidence}\n\n"
+            f"## DRAFT TO REFINE\n{draft}\n\n"
+            "Return the refined explanation only."
+        )
+        messages = [
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": user_msg},
+        ]
+
+        try:
+            chunks: list[str] = []
+            async for chunk in self.stream(
+                messages, temperature=temperature, max_tokens=max_tokens
+            ):
+                chunks.append(chunk)
+            refined = "".join(chunks).strip()
+            # Guard 1: a suspiciously short or empty refinement means NIM failed
+            # or produced garbage — fall back to the trustworthy Cortex draft.
+            if len(refined) < max(40, len(draft) * 0.3):
+                logger.warning("nim_refine_too_short_fallback", draft_len=len(draft),
+                               refined_len=len(refined))
+                return draft
+            # Guard 2: grounding check. If NIM invented file paths or symbols
+            # that appear in neither the draft nor the evidence, it is no longer
+            # Cortex's grounded answer — reject it and return the draft.
+            invented = _invented_entities(refined, draft + "\n" + evidence)
+            if invented:
+                logger.warning("nim_refine_invented_entities_fallback",
+                               invented=invented[:8])
+                return draft
+            return refined
+        except Exception as e:
+            logger.warning("nim_refine_failed_fallback", error=str(e))
+            return draft
+
     async def is_available(self) -> bool:
         """Check if NIM API is reachable and key is valid."""
         if not self._api_key or self._api_key == "":
@@ -159,3 +233,40 @@ class NIMClient:
 
 # Sentinel object used internally to signal "try the next model"
 _RETRY_SENTINEL = object()
+
+
+# Matches file-path-like tokens (a/b/c.py) and dotted symbol references
+# (module.Class.method) — the kinds of "facts" NIM must not invent.
+_ENTITY_RE = re.compile(r"\b[\w./]+\.(?:py|ts|tsx|js|jsx|java|go|rb)\b|\b\w+(?:\.\w+){1,}\b")
+
+
+def _invented_entities(refined: str, source: str) -> list[str]:
+    """Return file/symbol-like tokens in `refined` that are absent from `source`.
+
+    Used as a grounding guard: Cortex's draft + evidence define the allowed set
+    of repository facts. Any file path or dotted symbol the refinement adds that
+    is not traceable to that set is treated as fabrication.
+
+    Conservative by design — it only flags path-like and dotted tokens (the
+    shapes real repo facts take), not ordinary prose, to avoid false rejections.
+    """
+    source_l = source.lower()
+    invented: list[str] = []
+    seen: set[str] = set()
+    for match in _ENTITY_RE.findall(refined):
+        tok = match.strip(".")
+        if not tok or len(tok) < 4:
+            continue
+        low = tok.lower()
+        # Skip common English "sentence.Next" false positives and versions.
+        if low[0].isdigit():
+            continue
+        if low in seen:
+            continue
+        seen.add(low)
+        # Grounded if the whole token OR its final segment appears in the source.
+        last = low.split(".")[-1]
+        if low in source_l or (len(last) >= 4 and last in source_l):
+            continue
+        invented.append(tok)
+    return invented

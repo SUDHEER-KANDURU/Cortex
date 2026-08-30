@@ -2,9 +2,15 @@
 
 import uuid
 from collections.abc import AsyncGenerator
+from typing import TYPE_CHECKING
 
 import structlog
 
+if TYPE_CHECKING:
+    from cortex.chat.infrastructure.context_retriever import QueryIntent
+    from cortex.reasoning.application.producers import _BaseProducer
+    from cortex.reasoning.domain.answer import CortexAnswer
+    from cortex.reasoning.domain.entities import RepositoryUnderstanding
 from cortex.chat.domain.entities import (
     ChatSession,
     MessageRole,
@@ -17,30 +23,19 @@ from cortex.jobs.infrastructure.dependencies import job_repository
 
 logger = structlog.get_logger()
 
-SYSTEM_PROMPT = """You are Cortex, an AI Engineering Copilot that deeply understands codebases. You have analyzed this repository and built a complete knowledge graph of its structure, relationships, and engineering health.
+# NIM's role in chat is to REFINE Cortex's grounded draft answer, not to author
+# facts. Cortex assembles the answer from the knowledge graph first; NIM only
+# improves clarity and flow and must not introduce facts absent from the context.
+REFINE_SYSTEM_PROMPT = """You are the natural-language layer of Cortex, an Engineering Copilot. Cortex has already analysed this repository, built a knowledge graph, and produced a grounded DRAFT ANSWER plus the CODE CONTEXT it was derived from.
 
-You answer like an engineer who has already studied this codebase. Your responses are grounded in evidence from the knowledge graph.
+Your job is to refine the draft into a clear, conversational reply.
 
-Response Structure (use when appropriate):
-1. **Answer** — Direct answer to the question
-2. **Evidence** — Specific files, symbols, and relationships backing the answer
-3. **Related Context** — Connected components, callers, dependencies
-4. **Issues/Metrics** — Relevant engineering health data if applicable
-5. **Suggested Next Action** — What to explore or do next
-
-Rules:
-- Always reference specific class names, file paths, and methods from the context
-- If the context doesn't contain enough information, say so clearly
-- Trace actual execution flows through real classes — never fabricate paths
-- Use code formatting for class names, file paths, and symbols
-- Distinguish between DIRECT evidence (proven from graph) and INFERRED relationships
-- When explaining architecture, show the actual module boundaries and dependencies
-- When discussing impact, reference the real dependency chain
-- Never make up class names or file paths that aren't in the context
-- If the context includes prior analysis history, use it for temporal questions
-  but clearly distinguish current state from historical state
-- For debugging questions, always show the relevant callers and callees
-- For refactoring questions, always note the blast radius and affected tests
+STRICT RULES:
+- The DRAFT ANSWER's facts are authoritative. Do NOT change any file path, class name, method, metric, or relationship.
+- Do NOT add files, symbols, or claims that are not in the CODE CONTEXT or DRAFT.
+- You MAY improve wording, structure, and flow, and answer the user's exact question using only the given facts.
+- If the context lacks the answer, say so plainly rather than inventing.
+- Keep code formatting for class names, file paths, and symbols.
 """
 
 
@@ -144,41 +139,53 @@ class ChatService:
             session.job_id, user_message, repo_url=repo_url
         )
 
-        # Build messages for NIM
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {
-                "role": "system",
-                "content": f"Here is the code context:\n\n{context}",
-            },
-        ]
-
-        # Add conversation history (last 6 messages)
-        recent = session.messages[-6:]
-        for msg in recent[:-1]:  # Skip the last one we just added
-            messages.append({
-                "role": msg.role.value,
-                "content": msg.content,
-            })
-
-        messages.append({
-            "role": "user",
-            "content": user_message,
-        })
+        # ── Cortex authors a grounded DRAFT answer FIRST (deterministic) ──────
+        # This is the source of truth. It is a validated CortexAnswer built from
+        # the knowledge graph via an Answer Producer, and is always available,
+        # with or without NIM (Req 9.1). `cortex_answer` holds the authoritative
+        # facts/evidence/epistemic tags; `cortex_draft` is its rendered markdown.
+        cortex_answer, cortex_draft = await self._generate_answer(
+            session.job_id, user_message, context
+        )
 
         # Stream response
         full_response = []
 
         if self._use_nim:
+            # NIM REFINES the Cortex draft — it does not author facts.
+            messages = [
+                {"role": "system", "content": REFINE_SYSTEM_PROMPT},
+                {"role": "system", "content": f"## CODE CONTEXT\n\n{context}"},
+            ]
+            # Conversation history for continuity (last 6 messages)
+            recent = session.messages[-6:]
+            for msg in recent[:-1]:  # Skip the user msg we just added
+                messages.append({"role": msg.role.value, "content": msg.content})
+            messages.append({
+                "role": "user",
+                "content": (
+                    f"User question:\n{user_message}\n\n"
+                    f"## DRAFT ANSWER (Cortex, authoritative facts)\n{cortex_draft}\n\n"
+                    "Refine this into a clear reply to the question, keeping all facts."
+                ),
+            })
+            nim_failed = False
             async for chunk in self._nim.stream(messages):
+                # NIMClient yields a canned error string on total failure — detect
+                # it and fall back to the trustworthy Cortex draft instead.
+                if chunk.startswith("Sorry — I couldn't connect"):
+                    nim_failed = True
+                    break
                 full_response.append(chunk)
                 yield chunk
+            if nim_failed or not "".join(full_response).strip():
+                full_response = []
+                for word in cortex_draft.split(" "):
+                    full_response.append(word + " ")
+                    yield word + " "
         else:
-            # Fallback — rule-based response when no NIM key
-            response = await self._generate_fallback(
-                session.job_id, user_message, context
-            )
-            for word in response.split(" "):
+            # No NIM key — stream Cortex's own grounded answer directly.
+            for word in cortex_draft.split(" "):
                 full_response.append(word + " ")
                 yield word + " "
                 import asyncio
@@ -209,194 +216,175 @@ class ChatService:
             logger.warning("chat_job_lookup_failed", job_id=job_id, error=str(e))
             return None
 
-    async def _generate_fallback(
+    def _try_entity_explanation(
+        self,
+        question: str,
+        nodes: list,
+        edges: list,
+    ) -> str | None:
+        """If the question targets a specific file/class/function, explain it
+        with the SAME CortexExplainer that Navigate uses.
+
+        Returns the explanation markdown, or None if no confident entity match —
+        in which case the caller falls back to repository-level answers.
+        """
+        from cortex.graph.domain.entities import NodeType
+        from cortex.reasoning.application.explainer import CortexExplainer
+
+        q = question.lower()
+        target = None
+        best_score = 0
+
+        for n in nodes:
+            label = str(n.label or "")
+            if not label:
+                continue
+            path = str(n.properties.get("path", "") or "")
+            file_name = path.split("/")[-1] if path else ""
+            score = 0
+            # Strongest: the exact FILE name (must contain a dot, so we never
+            # match a bare directory segment as a stray substring) appears.
+            if (
+                n.node_type == NodeType.FILE
+                and file_name
+                and "." in file_name
+                and file_name.lower() in q
+            ):
+                score = 100 + len(file_name)
+            # Next: a class/function name (>=4 chars to avoid noise) mentioned.
+            elif (
+                n.node_type in (
+                    NodeType.CLASS, NodeType.INTERFACE, NodeType.ENUM,
+                    NodeType.FUNCTION, NodeType.METHOD, NodeType.ENDPOINT,
+                )
+                and len(label) >= 4
+                and label.lower() in q
+            ):
+                score = 50 + len(label)
+            if score > best_score:
+                best_score, target = score, n
+
+        if target is None:
+            return None
+
+        explanation = CortexExplainer().explain_node(target.id, nodes, edges)
+        if explanation is None:
+            return None
+        return explanation.to_markdown()
+
+    def _select_producer(
+        self,
+        intent: "QueryIntent",
+        understanding: "RepositoryUnderstanding",
+        nodes: list,
+        edges: list,
+    ) -> "_BaseProducer":
+        """Map a detected `QueryIntent` to the Answer Producer that best serves it.
+
+        This replaces the old ad-hoc `_format_*` formatters (Req 4.5). Every
+        intent now resolves to a deterministic producer that emits a
+        `CortexAnswer` — one shape for every output. Producers that need graph
+        structure (e.g. `ApiSpecProducer` reads ENDPOINT nodes) are handed the
+        nodes/edges already fetched from the graph repository.
+        """
+        from cortex.chat.infrastructure.context_retriever import QueryIntent
+        from cortex.reasoning.application.producers import (
+            ApiSpecProducer,
+            ArchitectureOverviewProducer,
+            InterviewPrepProducer,
+            LearningPathProducer,
+            ModuleBreakdownProducer,
+        )
+
+        # Intent → producer class. Every existing intent maps to the closest
+        # producer; unmapped/GENERAL falls through to the architecture overview,
+        # which is the most complete stack-agnostic answer.
+        mapping = {
+            QueryIntent.ARCHITECTURE: ArchitectureOverviewProducer,
+            QueryIntent.METRICS: ArchitectureOverviewProducer,
+            QueryIntent.ENTRY_POINT: ApiSpecProducer,
+            QueryIntent.DATA_FLOW: ApiSpecProducer,
+            QueryIntent.LEARNING: LearningPathProducer,
+            QueryIntent.COMPLEXITY: InterviewPrepProducer,
+            QueryIntent.EXPLANATION: ArchitectureOverviewProducer,
+            QueryIntent.GENERAL: ArchitectureOverviewProducer,
+            QueryIntent.NAVIGATION: ModuleBreakdownProducer,
+            QueryIntent.DEPENDENCY: ModuleBreakdownProducer,
+            QueryIntent.DEBUGGING: InterviewPrepProducer,
+        }
+        producer_cls = mapping.get(intent, ArchitectureOverviewProducer)
+        return producer_cls(understanding, nodes=nodes, edges=edges)
+
+    def _build_cortex_answer(
+        self,
+        job_id: str,
+        question: str,
+        nodes: list,
+        edges: list,
+        repo_url: str,
+    ) -> "CortexAnswer":
+        """Build a `CortexAnswer` for a question from the deterministic layer.
+
+        Returns the validated `CortexAnswer`, or None if no producer-backed
+        answer can be built (caller then falls back to the raw graph context).
+        This is the sole source of facts/evidence/epistemic tags — NIM only
+        rewords the rendered form later (Req 9.1, Req 9.2).
+        """
+        from cortex.chat.infrastructure.context_retriever import detect_intent
+        from cortex.reasoning.application.reasoner import CortexReasoner
+
+        intent = detect_intent(question)
+        reasoner = CortexReasoner()
+        understanding = reasoner.understand(
+            job_id=job_id, repo_url=repo_url, nodes=nodes, edges=edges
+        )
+        producer = self._select_producer(intent, understanding, nodes, edges)
+        return producer.produce()
+
+    async def _generate_answer(
         self,
         job_id: str,
         question: str,
         context: str,
-    ) -> str:
-        """Intelligent rule-based fallback when NIM is not available.
+    ) -> tuple[object | None, str]:
+        """Produce the grounded draft for a question.
 
-        Uses the Cortex Reasoning Layer to provide structured answers
-        directly from the knowledge graph — no AI generation needed.
+        Returns ``(cortex_answer, draft_markdown)``:
+          - ``cortex_answer`` is the authoritative `CortexAnswer` (or None when
+            the answer came from the entity explainer or the raw-context
+            fallback and no producer answer was built).
+          - ``draft_markdown`` is the text to stream / hand to NIM.
+
+        Entity-targeted questions keep the deep `CortexExplainer` path so Chat
+        and Navigate share one understanding. All repository-level intents route
+        through Answer Producers (Req 4.5). On any failure the raw graph context
+        is returned so chat always answers.
         """
-        from cortex.chat.infrastructure.context_retriever import detect_intent, QueryIntent
-        from cortex.reasoning.application.reasoner import CortexReasoner
         from cortex.graph.infrastructure.dependencies import graph_repository
+        from cortex.reasoning.application.answer_serializer import (
+            render_answer_markdown,
+        )
 
-        q_lower = question.lower()
-        intent = detect_intent(question)
-
-        # Try to produce a reasoner-backed answer
         try:
             nodes = await graph_repository.get_nodes_by_job(job_id)
             edges = await graph_repository.get_edges_by_job(job_id)
 
             if nodes:
+                # ── Entity-specific questions use the SAME deep explainer that
+                # Navigate uses, so Chat and Navigate share one understanding
+                # foundation rather than Chat giving a shallower answer. ──────
+                entity_answer = self._try_entity_explanation(question, nodes, edges)
+                if entity_answer:
+                    return None, entity_answer
+
                 repo_url = await self._resolve_repo_url(job_id) or ""
-                reasoner = CortexReasoner()
-                understanding = reasoner.understand(
-                    job_id=job_id, repo_url=repo_url, nodes=nodes, edges=edges
+                answer = self._build_cortex_answer(
+                    job_id, question, nodes, edges, repo_url
                 )
-
-                # Generate intent-specific structured response
-                if intent == QueryIntent.ARCHITECTURE:
-                    return self._format_architecture_answer(understanding)
-                elif intent == QueryIntent.METRICS:
-                    return self._format_metrics_answer(understanding)
-                elif intent in (QueryIntent.ENTRY_POINT, QueryIntent.DATA_FLOW):
-                    return self._format_flow_answer(understanding)
-                elif intent == QueryIntent.LEARNING:
-                    return self._format_learning_answer(understanding)
-                elif intent == QueryIntent.COMPLEXITY:
-                    return self._format_complexity_answer(understanding)
-                elif intent in (QueryIntent.EXPLANATION, QueryIntent.GENERAL):
-                    return self._format_general_answer(understanding, context)
-                elif intent == QueryIntent.NAVIGATION:
-                    return self._format_navigation_answer(understanding, context)
-                elif intent == QueryIntent.DEPENDENCY:
-                    return self._format_dependency_answer(understanding)
+                if answer is not None:
+                    return answer, render_answer_markdown(answer)
         except Exception as e:
-            logger.debug("fallback_reasoner_failed", error=str(e))
+            logger.debug("answer_producer_failed", error=str(e))
 
-        # Final fallback: return raw context
-        return (
-            f"**Answer** (from repository analysis):\n\n{context}\n\n"
-            f"---\n*For conversational AI answers, add a NIM API key to "
-            f"backend/.env: `NIM_API_KEY=your_key_here`*"
-        )
-
-    def _format_architecture_answer(self, u) -> str:
-        """Format an architecture answer from understanding."""
-        lines = [
-            f"**Answer:** {u.repo_name} uses a {u.architecture_style.value.replace('_', ' ')} architecture.",
-            "",
-            f"{u.architecture_description}",
-            "",
-            "**Evidence:**",
-        ]
-        for ev in u.architecture_evidence[:4]:
-            lines.append(f"- {ev}")
-        if u.modules:
-            lines.append(f"\n**Key Modules ({len(u.modules)}):**")
-            for m in u.modules[:5]:
-                role = f" ({m.architecture_role})" if m.architecture_role else ""
-                lines.append(f"- `{m.name}`{role} — {m.file_count} files, deps: {', '.join(m.dependencies[:3]) or 'none'}")
-        if u.frameworks:
-            lines.append(f"\n**Frameworks:** {', '.join(u.frameworks)}")
-        lines.append(f"\n**Suggested next:** Ask about a specific module or the data flow.")
-        return "\n".join(lines)
-
-    def _format_metrics_answer(self, u) -> str:
-        """Format a metrics answer."""
-        lines = [
-            f"**Answer:** Repository metrics for `{u.repo_name}`:",
-            "",
-            f"| Metric | Value |",
-            f"|--------|-------|",
-            f"| Files | {u.total_files} |",
-            f"| Lines of code | {u.total_lines:,} |",
-            f"| Modules | {u.total_modules} |",
-            f"| Classes | {u.total_classes} |",
-            f"| Functions | {u.total_functions} |",
-            f"| Endpoints | {u.total_endpoints} |",
-            f"| Tests | {u.total_tests} |",
-            f"| Health Score | {u.overall_score}/100 (Grade {u.overall_grade}) |",
-            f"| Languages | {', '.join(u.languages)} |",
-            "",
-            f"**Suggested next:** Ask about complexity hotspots or engineering risks.",
-        ]
-        return "\n".join(lines)
-
-    def _format_flow_answer(self, u) -> str:
-        """Format an entry point / data flow answer."""
-        lines = [f"**Answer:** {u.repo_name} has {len(u.entry_points)} entry points.\n"]
-        if u.entry_points:
-            lines.append("**Entry Points:**")
-            for ep in u.entry_points[:8]:
-                detail = f"- `{ep.label}` ({ep.kind})"
-                if ep.route:
-                    detail += f" — {ep.method} {ep.route}"
-                if ep.file_path:
-                    detail += f" in `{ep.file_path}`"
-                lines.append(detail)
-        if u.data_flows:
-            lines.append(f"\n**Execution Flows ({len(u.data_flows)} traced):**")
-            for flow in u.data_flows[:3]:
-                path = " → ".join(f"`{s.symbol}`" for s in flow.steps)
-                lines.append(f"- **{flow.name}:** {path}")
-        lines.append(f"\n**Suggested next:** Ask about a specific endpoint or what calls what.")
-        return "\n".join(lines)
-
-    def _format_learning_answer(self, u) -> str:
-        """Format a learning path answer."""
-        lines = [f"**Answer:** Here's where to start learning `{u.repo_name}`:\n"]
-        if u.start_here:
-            lines.append(f"**Start Here:** `{u.start_here}` in `{u.start_here_file}`")
-            lines.append(f"- *Why:* {u.start_here_reason}")
-        if u.modules:
-            lines.append(f"\n**Recommended reading order:**")
-            for i, m in enumerate(u.modules[:5], 1):
-                lines.append(f"{i}. `{m.name}` — {m.file_count} files, role: {m.architecture_role or 'feature'}")
-        lines.append(f"\n**Suggested next:** Use the `/reasoning/{{job_id}}/learning-path` endpoint for the full guided path.")
-        return "\n".join(lines)
-
-    def _format_complexity_answer(self, u) -> str:
-        """Format a complexity/risk answer."""
-        lines = [f"**Answer:** Complexity analysis for `{u.repo_name}` (Score: {u.overall_score}/100):\n"]
-        if u.complexity_hotspots:
-            lines.append("**Complexity Hotspots:**")
-            for h in u.complexity_hotspots[:5]:
-                lines.append(f"- `{h['symbol']}` in `{h.get('file', '?')}` — cyclomatic: {h['cyclomatic']}, lines: {h.get('lines', '?')}")
-        if u.architectural_risks:
-            lines.append(f"\n**Architectural Risks:**")
-            for risk in u.architectural_risks[:5]:
-                lines.append(f"- {risk}")
-        god_modules = [m for m in u.modules if m.is_god_module]
-        if god_modules:
-            lines.append(f"\n**Over-sized modules:**")
-            for m in god_modules[:3]:
-                lines.append(f"- `{m.name}` ({m.function_count} functions, {m.class_count} classes)")
-        lines.append(f"\n**Suggested next:** Ask about the blast radius of a specific hotspot.")
-        return "\n".join(lines)
-
-    def _format_general_answer(self, u, context: str) -> str:
-        """Format a general/explanation answer."""
-        lines = [
-            f"**Answer:** `{u.repo_name}` — {u.purpose}\n",
-            f"**Architecture:** {u.architecture_style.value.replace('_', ' ')} ({u.overall_grade} grade, {u.overall_score}/100)",
-            f"**Structure:** {u.total_files} files, {u.total_modules} modules, {u.total_classes} classes, {u.total_functions} functions",
-            f"**Languages:** {', '.join(u.languages)}",
-        ]
-        if u.frameworks:
-            lines.append(f"**Frameworks:** {', '.join(u.frameworks)}")
-        if u.start_here:
-            lines.append(f"\n**Start here:** `{u.start_here}` — {u.start_here_reason}")
-        lines.append(f"\n**Suggested next:** Ask about the architecture, a specific module, or the main execution flow.")
-        return "\n".join(lines)
-
-    def _format_navigation_answer(self, u, context: str) -> str:
-        """Format a navigation answer."""
-        lines = [f"**Answer:** Here's the module map for `{u.repo_name}`:\n"]
-        for m in u.modules[:10]:
-            role = f" ({m.architecture_role})" if m.architecture_role else ""
-            classes = f", key: {', '.join(m.key_classes[:2])}" if m.key_classes else ""
-            lines.append(f"- `{m.name}`{role} at `{m.path}` — {m.file_count} files{classes}")
-        lines.append(f"\n**Suggested next:** Ask about a specific module name to get its full details.")
-        return "\n".join(lines)
-
-    def _format_dependency_answer(self, u) -> str:
-        """Format a dependency answer."""
-        lines = [f"**Answer:** Dependency analysis for `{u.repo_name}`:\n"]
-        if u.top_dependencies:
-            lines.append("**Most depended-on components:**")
-            for dep in u.top_dependencies[:8]:
-                lines.append(f"- {dep}")
-        if u.modules:
-            lines.append(f"\n**Module dependency map:**")
-            for m in u.modules[:6]:
-                if m.dependencies or m.dependents:
-                    deps = ', '.join(m.dependencies[:3]) if m.dependencies else 'none'
-                    lines.append(f"- `{m.name}` → depends on: {deps}")
-        lines.append(f"\n**Suggested next:** Ask about blast radius for a specific component.")
-        return "\n".join(lines)
+        # Final fallback: return the grounded repository context directly.
+        return None, f"**Answer** (from Cortex repository analysis):\n\n{context}"

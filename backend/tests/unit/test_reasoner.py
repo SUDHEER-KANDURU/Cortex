@@ -248,3 +248,64 @@ class TestReasonerEdgeCases:
         u = reasoner.understand(_JOB, _REPO, nodes, edges)
         assert u.total_files == 1
         assert u.total_functions >= 1
+
+
+class TestReasonerManifestDetection:
+    """Manifest-fed language and framework detection (Req 2.4, Req 2.5)."""
+
+    def test_manifest_frameworks_added_without_import_signals(
+        self, reasoner: CortexReasoner
+    ):
+        """A framework declared only in a manifest is detected even when no
+        import/label signal exists in the graph."""
+        from cortex.pipeline.domain.entities import ManifestInfo
+
+        nodes = [
+            _node("f1", "app.ts", NodeType.FILE, {"language": "typescript", "lines": 50}),
+        ]
+        manifests = [
+            ManifestInfo(
+                source="package.json",
+                languages=["typescript"],
+                frameworks=["react", "nextjs"],
+            )
+        ]
+        u = reasoner.understand(_JOB, _REPO, nodes, [], manifests=manifests)
+        assert "react" in u.frameworks
+        assert "nextjs" in u.frameworks
+
+    def test_manifest_language_folded_in_when_no_source_files(
+        self, reasoner: CortexReasoner
+    ):
+        """A language present only via its manifest still appears in languages."""
+        from cortex.pipeline.domain.entities import ManifestInfo
+
+        nodes = [
+            _node("f1", "app.py", NodeType.FILE, {"language": "python", "lines": 100}),
+        ]
+        manifests = [ManifestInfo(source="Gemfile", languages=["ruby"], frameworks=["rails"])]
+        u = reasoner.understand(_JOB, _REPO, nodes, [], manifests=manifests)
+        assert "python" in u.languages
+        assert "ruby" in u.languages
+        assert "rails" in u.frameworks
+
+    def test_dominant_language_listed_first(self, reasoner: CortexReasoner):
+        """Language with the most source files is dominant and listed first."""
+        nodes = [
+            _node("f1", "a.py", NodeType.FILE, {"language": "python", "lines": 10}),
+            _node("f2", "b.py", NodeType.FILE, {"language": "python", "lines": 10}),
+            _node("f3", "c.ts", NodeType.FILE, {"language": "typescript", "lines": 10}),
+        ]
+        u = reasoner.understand(_JOB, _REPO, nodes, [])
+        assert u.languages[0] == "python"
+        assert "typescript" in u.languages
+
+    def test_manifests_default_to_none_preserves_behavior(
+        self, reasoner: CortexReasoner
+    ):
+        """Omitting manifests keeps prior graph-only detection working."""
+        nodes = [
+            _node("f1", "app.py", NodeType.FILE, {"language": "python", "lines": 100}),
+        ]
+        u = reasoner.understand(_JOB, _REPO, nodes, [])
+        assert u.languages == ["python"]

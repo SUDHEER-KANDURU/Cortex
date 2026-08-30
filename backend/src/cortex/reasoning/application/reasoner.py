@@ -21,6 +21,7 @@ import structlog
 
 from cortex.graph.domain.entities import GraphNode, GraphEdge, NodeType, RelationshipType
 from cortex.insights.application.engine import InsightsEngine
+from cortex.pipeline.domain.entities import ManifestInfo
 from cortex.reasoning.domain.entities import (
     ArchitectureStyle,
     DataFlow,
@@ -146,10 +147,17 @@ class CortexReasoner:
         repo_url: str,
         nodes: list[GraphNode],
         edges: list[GraphEdge],
+        manifests: list[ManifestInfo] | None = None,
     ) -> RepositoryUnderstanding:
         """Produce a complete RepositoryUnderstanding from graph data.
 
         This is the PRIMARY entry point for the reasoning layer.
+
+        ``manifests`` carries the ``ManifestInfo`` results of parsing the
+        repository's dependency/build descriptors. When provided, the
+        languages and frameworks they declare are merged into detection in
+        addition to import/label signals, so framework identification does not
+        rely only on sniffing source imports (Req 2.4).
         """
         repo_name = repo_url.rstrip("/").split("/")[-1]
         idx = _GraphIndex(nodes, edges)
@@ -169,7 +177,7 @@ class CortexReasoner:
         self._compute_structure(understanding, idx)
 
         # ── Languages & Frameworks ────────────────────────────────────────────
-        self._detect_languages_and_frameworks(understanding, idx)
+        self._detect_languages_and_frameworks(understanding, idx, manifests or [])
 
         # ── Architecture ──────────────────────────────────────────────────────
         self._detect_architecture(understanding, idx)
@@ -224,16 +232,36 @@ class CortexReasoner:
     # ──────────────────────────────────────────────────────────────────────────
 
     def _detect_languages_and_frameworks(
-        self, u: RepositoryUnderstanding, idx: _GraphIndex
+        self,
+        u: RepositoryUnderstanding,
+        idx: _GraphIndex,
+        manifests: list[ManifestInfo],
     ) -> None:
-        """Detect languages and frameworks from file properties and patterns."""
+        """Detect languages and frameworks from file properties, manifests, and patterns.
+
+        Languages are counted per source file; languages implied by a manifest
+        are folded in as well so an ecosystem is still represented even if its
+        source files were not individually language-tagged. The result orders
+        the dominant language(s) first while representing all detected
+        languages proportionally (Req 2.5).
+        """
         lang_counts: dict[str, int] = defaultdict(int)
         for f in idx.by_type[NodeType.FILE]:
             lang = idx.prop(f, "language")
             if lang and lang != "unknown":
                 lang_counts[lang] += 1
 
-        u.languages = sorted(lang_counts.keys(), key=lambda l: lang_counts[l], reverse=True)
+        # Fold in manifest-declared languages so an ecosystem present only via
+        # its manifest (e.g. a Gemfile with no parsed .rb files) still appears.
+        for info in manifests:
+            for lang in info.languages:
+                if lang and lang not in lang_counts:
+                    lang_counts[lang] += 1
+
+        # Deterministic order: most files first, ties broken alphabetically.
+        u.languages = sorted(
+            lang_counts.keys(), key=lambda lang: (-lang_counts[lang], lang)
+        )
 
         # Framework detection from graph patterns
         frameworks: set[str] = set()
@@ -273,6 +301,12 @@ class CortexReasoner:
                 frameworks.add("express")
             if "@RequestMapping" in decorators or "@GetMapping" in decorators:
                 frameworks.add("spring")
+
+        # Manifest-derived frameworks are authoritative signals: a declared
+        # dependency (e.g. "react" in package.json) identifies a framework even
+        # when no import/label signal was captured in the graph (Req 2.4).
+        for info in manifests:
+            frameworks.update(info.frameworks)
 
         u.frameworks = sorted(frameworks)
 

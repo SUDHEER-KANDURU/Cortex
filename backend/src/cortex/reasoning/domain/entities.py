@@ -10,7 +10,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # Architecture & Module Intelligence
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -243,6 +242,80 @@ class RootCauseAnalysis:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Issue → Fix Intelligence
 # ═══════════════════════════════════════════════════════════════════════════════
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Deterministic Explanation (Cortex's own explainer — NIM only refines it)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@dataclass
+class ExplanationSection:
+    """One section of a repository-grounded explanation.
+
+    `body` is natural-language prose derived from real repository evidence.
+    `evidence` lists the concrete facts (symbols, files, metrics, relationships)
+    the prose is built from, so every claim is traceable.
+    """
+    key:      str            # stable machine key, e.g. "what_is_this"
+    heading:  str            # human heading, e.g. "What is this?"
+    body:     str            # the explanation prose
+    evidence: list[str] = field(default_factory=list)
+
+
+@dataclass
+class Explanation:
+    """A complete, repository-specific explanation of one entity.
+
+    Produced deterministically by CortexExplainer from AST + graph + metrics.
+    It is the source of truth; NIM may only refine the wording of `sections`
+    and must not introduce facts absent from `evidence`.
+    """
+    # Identity of what is being explained
+    node_id:    str
+    label:      str
+    node_type:  str            # "File" / "Class" / "Function" / "Module" / ...
+    file_path:  str = ""
+    architectural_role: str = "ordinary"
+
+    # A one-line, entity-specific headline ("What is this, in a sentence").
+    headline:   str = ""
+
+    # The ordered 12-section reasoning (what → why → how → ... → read next).
+    sections:   list[ExplanationSection] = field(default_factory=list)
+
+    # Flat evidence list (union of section evidence) for quick grounding checks.
+    evidence:   list[str] = field(default_factory=list)
+
+    # Concrete "read next" pointers derived from the graph (file paths / symbols).
+    read_next:  list[str] = field(default_factory=list)
+
+    # 0–1: how much real evidence backs this explanation (more signals = higher).
+    confidence: float = 0.0
+
+    # Where the final prose came from: "cortex" (deterministic) or "cortex+nim".
+    source:     str = "cortex"
+
+    def to_markdown(self) -> str:
+        """Render the explanation as readable markdown (used by chat/export)."""
+        lines = [f"# {self.label}", ""]
+        if self.headline:
+            lines += [f"_{self.headline}_", ""]
+        for s in self.sections:
+            lines += [f"## {s.heading}", "", s.body, ""]
+        if self.read_next:
+            lines += ["## What to read next", ""]
+            lines += [f"- `{r}`" for r in self.read_next]
+        return "\n".join(lines)
+
+    def plain_text(self) -> str:
+        """Render as plain prose (no markdown headers) for compact display."""
+        out = []
+        if self.headline:
+            out.append(self.headline)
+        for s in self.sections:
+            out.append(f"{s.heading}: {s.body}")
+        return "\n\n".join(out)
 
 
 @dataclass
