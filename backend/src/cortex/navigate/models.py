@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
+
 from pydantic import BaseModel
 
 
@@ -140,8 +141,84 @@ class NavigateExplainRequest(BaseModel):
     question: str = ""  # optional specific question
 
 
+class ExplanationSectionResponse(BaseModel):
+    """One section of a Cortex explanation."""
+    key:      str
+    heading:  str
+    body:     str
+    evidence: list[str] = []
+
+
 class NavigateExplainResponse(BaseModel):
-    """AI explanation grounded in navigation evidence."""
-    explanation: str
+    """Cortex explanation of an entity, grounded in graph evidence.
+
+    `explanation` is the full markdown text (backwards compatible).
+    `sections` is the structured 12-part breakdown.
+    `source` is "cortex" (deterministic only) or "cortex+nim" (NIM refined
+    the wording; the facts remain Cortex's).
+    """
+    explanation:   str
+    sections:      list[ExplanationSectionResponse] = []
+    headline:      str = ""
+    architectural_role: str = "ordinary"
+    read_next:     list[str] = []
     evidence_used: list[str] = []
+    confidence:    float = 0.0
+    source:        str = "cortex"
+
+
+# ─── Scoped Explanation (CortexAnswer over a file + line range) ───────────────
+
+
+class ScopedExplainRequest(BaseModel):
+    """Request body for a scoped explanation (Req 7.3).
+
+    A file + line range plus an optional free-text question. The ``job_id`` is
+    supplied as a path parameter (every navigate route is job-scoped), so it is
+    not part of the body.
+    """
+    file_path: str
+    line_start: int
+    line_end: int
+    question: str = ""
+
+
+class EvidenceResponse(BaseModel):
+    """A traceable pointer back into the repository backing a claim."""
+    file_path: str
+    line_start: int | None = None
+    line_end: int | None = None
+    node_id: str | None = None
+
+
+class ClaimResponse(BaseModel):
+    """A single assertion tagged with its epistemic status (fact/inference/prediction)."""
+    text: str
+    epistemic: str
+    evidence: list[EvidenceResponse] = []
+
+
+class AnswerSectionResponse(BaseModel):
+    """An ordered, headed group of claims within an answer."""
+    heading: str
+    claims: list[ClaimResponse] = []
+
+
+class NextActionResponse(BaseModel):
+    """A suggested follow-up rendered as a next-action button."""
+    label: str
+    kind: str
+    target: str = ""
+    line_start: int | None = None
+    line_end: int | None = None
+
+
+class CortexAnswerResponse(BaseModel):
+    """Serialized `CortexAnswer` — the unified answer contract over HTTP (Req 4.1)."""
+    intent: str
+    title: str
+    summary: str
+    sections: list[AnswerSectionResponse] = []
     confidence: float = 0.0
+    coverage_note: str | None = None
+    next_actions: list[NextActionResponse] = []

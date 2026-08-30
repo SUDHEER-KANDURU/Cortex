@@ -7,10 +7,22 @@ import React from 'react';
 import type { Artifact } from '@/types';
 import MermaidDiagram from './MermaidDiagram';
 import MarkdownViewer from './MarkdownViewer';
+import { AnswerView, artifactToAnswer } from '@/features/answer';
 
 export interface ArtifactViewerProps {
   artifact: Artifact;
 }
+
+// Artifact types that are CortexAnswer intents (Modules / API / Learning Path).
+// These render through the single shared AnswerRenderer so their presentation
+// matches every other CortexAnswer output (Req 4.4, Req 8.2). When the backend
+// exposes a structured CortexAnswer endpoint for these intents, swap the
+// artifactToAnswer adapter for the fetched answer — the renderer is unchanged.
+const ANSWER_ARTIFACT_TYPES = new Set<string>([
+  'module_breakdown',
+  'api_spec',
+  'learning_path',
+]);
 
 function tryFormatJson(raw: string): string | null {
   try { return JSON.stringify(JSON.parse(raw), null, 2); }
@@ -40,6 +52,11 @@ export default React.memo(function ArtifactViewer({ artifact }: ArtifactViewerPr
   const contentType = artifact.content_type;
 
   const renderContent = (): React.ReactNode => {
+    // Route CortexAnswer intents through the shared AnswerRenderer.
+    if (ANSWER_ARTIFACT_TYPES.has(artifact.artifact_type)) {
+      return <AnswerView answer={artifactToAnswer(artifact)} />;
+    }
+
     if (!content) {
       return (
         <p style={{ padding: '16px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>

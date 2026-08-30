@@ -8,6 +8,16 @@ export interface NavigateEvent {
   nodeId: string;
   label: string;
   nodeType: string;
+  /**
+   * Optional source location carried by evidence links (Req 7.5). When present,
+   * the Code Navigator opens this file and highlights the referenced line so
+   * evidence chips land the user on the exact code.
+   */
+  filePath?: string | null;
+  /** 1-indexed start of the referenced line range. */
+  lineStart?: number | null;
+  /** 1-indexed end of the referenced line range. */
+  lineEnd?: number | null;
 }
 
 const NAVIGATE_EVENT = 'cortex:navigate';

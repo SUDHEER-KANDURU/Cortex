@@ -4,29 +4,83 @@ Endpoints:
   GET  /api/v1/navigate/{job_id}/{node_id}           — Full navigation context
   GET  /api/v1/navigate/{job_id}/{node_id}/impact     — Impact analysis
   POST /api/v1/navigate/{job_id}/{node_id}/explain    — AI explanation
+  POST /api/v1/navigate/{job_id}/explain              — Scoped explanation (file + line range)
 """
 
 from __future__ import annotations
 
 import structlog
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
-
 from cortex.chat.infrastructure.nim_client import NIMClient
 from cortex.config import get_settings
+from cortex.graph.infrastructure.dependencies import graph_repository
 from cortex.navigate.models import (
+    AnswerSectionResponse,
+    ClaimResponse,
     ConnectedNode,
+    CortexAnswerResponse,
+    EvidenceResponse,
+    ExplanationSectionResponse,
     NavigateExplainRequest,
     NavigateExplainResponse,
     NavigateResponse,
+    NextActionResponse,
+    ScopedExplainRequest,
 )
 from cortex.navigate.service import NavigateService
+from cortex.reasoning.application.explainer import CortexExplainer
+from cortex.reasoning.application.scoped_explanation import ScopedExplanationProducer
+from cortex.reasoning.domain.answer import CortexAnswer
+from fastapi import APIRouter, HTTPException
 
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/navigate", tags=["navigate"])
 
 _service = NavigateService()
+_explainer = CortexExplainer()
+
+
+def _serialize_answer(answer: CortexAnswer) -> CortexAnswerResponse:
+    """Map a domain `CortexAnswer` onto its Pydantic response model."""
+    return CortexAnswerResponse(
+        intent=answer.intent,
+        title=answer.title,
+        summary=answer.summary,
+        sections=[
+            AnswerSectionResponse(
+                heading=section.heading,
+                claims=[
+                    ClaimResponse(
+                        text=claim.text,
+                        epistemic=claim.epistemic.value,
+                        evidence=[
+                            EvidenceResponse(
+                                file_path=ev.file_path,
+                                line_start=ev.line_start,
+                                line_end=ev.line_end,
+                                node_id=ev.node_id,
+                            )
+                            for ev in claim.evidence
+                        ],
+                    )
+                    for claim in section.claims
+                ],
+            )
+            for section in answer.sections
+        ],
+        confidence=answer.confidence,
+        coverage_note=answer.coverage_note,
+        next_actions=[
+            NextActionResponse(
+                label=na.label,
+                kind=na.kind.value,
+                target=na.target,
+                line_start=na.line_start,
+                line_end=na.line_end,
+            )
+            for na in answer.next_actions
+        ],
+    )
 
 
 @router.get(
@@ -65,115 +119,87 @@ async def get_impact(job_id: str, node_id: str) -> list[ConnectedNode]:
 @router.post(
     "/{job_id}/{node_id}/explain",
     response_model=NavigateExplainResponse,
-    summary="AI explanation of an entity",
+    summary="Explain this entity (Cortex's own analysis)",
     description=(
-        "Uses NIM to explain how this entity fits into the system, "
-        "grounded in the navigation evidence (relationships, source, metrics)."
+        "Cortex explains what this file/class/function is, what it does, how it "
+        "works, who uses it, what it uses, how it fits into the architecture, its "
+        "risks, and what to read next — derived deterministically from the "
+        "knowledge graph (AST + metrics + relationships). If a NIM key is "
+        "configured, NIM refines the wording only; Cortex's facts are authoritative. "
+        "Works fully without NIM."
     ),
 )
 async def explain_entity(
     job_id: str, node_id: str, request: NavigateExplainRequest
 ) -> NavigateExplainResponse:
-    """Get an AI explanation of this entity, grounded in graph evidence."""
-    settings = get_settings()
-    if not settings.nim_api_key:
-        raise HTTPException(
-            status_code=503,
-            detail="NIM API key not configured. AI explanation unavailable.",
-        )
+    """Explain an entity. Cortex is the author; NIM (if present) only refines."""
+    # ── Load the job's graph and build Cortex's own explanation FIRST ─────────
+    nodes = await graph_repository.get_nodes_by_job(job_id)
+    if not nodes:
+        raise HTTPException(status_code=404, detail="No graph data for this job")
+    edges = await graph_repository.get_edges_by_job(job_id)
 
-    # First get the full navigation context
-    nav_context = await _service.get_navigation_context(job_id, node_id)
-    if not nav_context:
+    explanation = _explainer.explain_node(node_id, nodes, edges)
+    if explanation is None:
         raise HTTPException(status_code=404, detail="Node not found")
 
-    # Build the evidence summary for the AI
-    evidence_parts: list[str] = []
+    # Cortex's deterministic explanation is the source of truth.
+    draft_md = explanation.to_markdown()
+    source = "cortex"
 
-    # Definition
-    evidence_parts.append(
-        f"Entity: {nav_context.node_type} '{nav_context.label}' "
-        f"at {nav_context.source.file_path}:{nav_context.source.line_start}"
-    )
-
-    # Callers
-    if nav_context.callers:
-        callers_str = ", ".join(f"{c.label} ({c.node_type})" for c in nav_context.callers[:5])
-        evidence_parts.append(f"Called by: {callers_str}")
-
-    # Callees
-    if nav_context.callees:
-        callees_str = ", ".join(f"{c.label} ({c.node_type})" for c in nav_context.callees[:5])
-        evidence_parts.append(f"Calls: {callees_str}")
-
-    # Dependencies
-    if nav_context.dependencies:
-        deps_str = ", ".join(f"{d.label} ({d.node_type})" for d in nav_context.dependencies[:5])
-        evidence_parts.append(f"Depends on: {deps_str}")
-
-    # Dependents
-    if nav_context.dependents:
-        deps_str = ", ".join(f"{d.label} ({d.node_type})" for d in nav_context.dependents[:5])
-        evidence_parts.append(f"Depended on by: {deps_str}")
-
-    # Tests
-    if nav_context.tests:
-        tests_str = ", ".join(t.label for t in nav_context.tests[:5])
-        evidence_parts.append(f"Tested by: {tests_str}")
-
-    # Insights
-    ins = nav_context.insights
-    if ins.complexity > 0:
-        evidence_parts.append(f"Complexity: {ins.complexity}")
-    if ins.risk_factors:
-        evidence_parts.append(f"Risks: {'; '.join(ins.risk_factors)}")
-    if ins.issues:
-        issues_str = "; ".join(f"{i.title} ({i.severity})" for i in ins.issues[:3])
-        evidence_parts.append(f"Issues: {issues_str}")
-
-    # Breadcrumb (architectural position)
-    if nav_context.breadcrumb:
-        path_str = " > ".join(f"{b.label}" for b in nav_context.breadcrumb)
-        evidence_parts.append(f"Architectural path: {path_str}")
-
-    evidence_text = "\n".join(f"- {p}" for p in evidence_parts)
-
-    # Build the prompt
-    user_question = request.question or "Explain how this entity fits into the system architecture."
-
-    system_msg = (
-        "You are Cortex, an AI Engineering Copilot. You are explaining a specific "
-        "code entity to a developer who wants to understand how it fits into the system.\n\n"
-        "Rules:\n"
-        "- Only reference facts from the evidence provided below\n"
-        "- Never invent relationships or file paths\n"
-        "- Be concise but thorough\n"
-        "- Show architectural context\n"
-        "- Highlight risks and important connections\n"
-        "- If evidence is limited, say so clearly\n"
-    )
-
-    user_msg = (
-        f"## Evidence from Knowledge Graph\n\n{evidence_text}\n\n"
-        f"## Question\n\n{user_question}"
-    )
-
-    messages = [
-        {"role": "system", "content": system_msg},
-        {"role": "user", "content": user_msg},
-    ]
-
-    # Call NIM (non-streaming for this endpoint)
-    nim = NIMClient(settings.nim_api_key)
-    response_chunks: list[str] = []
-
-    async for chunk in nim.stream(messages, temperature=0.4, max_tokens=800):
-        response_chunks.append(chunk)
-
-    explanation = "".join(response_chunks)
+    # ── Optional NIM refinement of WORDING ONLY (facts stay Cortex's) ─────────
+    settings = get_settings()
+    if settings.nim_api_key:
+        evidence_text = "\n".join(f"- {e}" for e in explanation.evidence)
+        refined = await NIMClient(settings.nim_api_key).refine(draft_md, evidence_text)
+        if refined and refined != draft_md:
+            draft_md = refined
+            source = "cortex+nim"
 
     return NavigateExplainResponse(
-        explanation=explanation,
-        evidence_used=evidence_parts,
-        confidence=min(len(evidence_parts) / 8.0, 1.0),  # more evidence = higher confidence
+        explanation=draft_md,
+        sections=[
+            ExplanationSectionResponse(
+                key=s.key, heading=s.heading, body=s.body, evidence=s.evidence
+            )
+            for s in explanation.sections
+        ],
+        headline=explanation.headline,
+        architectural_role=explanation.architectural_role,
+        read_next=explanation.read_next,
+        evidence_used=explanation.evidence,
+        confidence=explanation.confidence,
+        source=source,
     )
+
+
+@router.post(
+    "/{job_id}/explain",
+    response_model=CortexAnswerResponse,
+    summary="Scoped explanation of a file + line range",
+    description=(
+        "Resolves a file and line range to the graph node(s) whose span overlaps "
+        "those lines (picking the most specific inner symbol, or falling back to "
+        "whole-file scope when nothing inner matches), then returns a scoped "
+        "explanation as a CortexAnswer. The answer includes the selected code's "
+        "callers, callees, and inferred role where available. Grounded "
+        "deterministically in the knowledge graph — no NIM required."
+    ),
+)
+async def explain_scope(
+    job_id: str, request: ScopedExplainRequest
+) -> CortexAnswerResponse:
+    """Explain a file + line range (Req 7.3, Req 7.4)."""
+    nodes = await graph_repository.get_nodes_by_job(job_id)
+    if not nodes:
+        raise HTTPException(status_code=404, detail="No graph data for this job")
+    edges = await graph_repository.get_edges_by_job(job_id)
+
+    producer = ScopedExplanationProducer(nodes=nodes, edges=edges)
+    answer = producer.produce(
+        file_path=request.file_path,
+        line_start=request.line_start,
+        line_end=request.line_end,
+        question=request.question,
+    )
+    return _serialize_answer(answer)

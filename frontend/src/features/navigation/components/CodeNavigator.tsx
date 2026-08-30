@@ -13,6 +13,7 @@ import {
   ChevronRight, Shield, BookOpen, Hash,
 } from 'lucide-react';
 import { getNodeDetail, type NodeDetailData } from '@/lib/api/navigation.api';
+import { useIsCompact } from '@/lib/utils/useBreakpoint';
 import type { GraphNode } from '@/types';
 
 interface CodeNavigatorProps {
@@ -25,6 +26,7 @@ export default function CodeNavigator({ jobId, nodes }: CodeNavigatorProps) {
   const [detail, setDetail] = useState<NodeDetailData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const isCompact = useIsCompact();
 
   const selectableNodes = nodes.filter(n =>
     n.node_type !== 'Repository'
@@ -57,10 +59,19 @@ export default function CodeNavigator({ jobId, nodes }: CodeNavigatorProps) {
   }, [nodes, handleSelect]);
 
   return (
-    <div style={{ display: 'flex', gap: 16, minHeight: 400 }}>
-      {/* Left panel — Node browser */}
+    <div style={{
+      display: 'flex',
+      flexDirection: isCompact ? 'column' : 'row',
+      gap: 16,
+      minHeight: isCompact ? 0 : 400,
+    }}>
+      {/* Left panel — Node browser. Stacks on top (full width, capped height)
+          on compact widths; fixed 260px column on desktop. */}
       <div style={{
-        width: 260, minWidth: 260, display: 'flex', flexDirection: 'column',
+        width: isCompact ? '100%' : 260,
+        minWidth: isCompact ? 0 : 260,
+        maxHeight: isCompact ? 260 : undefined,
+        display: 'flex', flexDirection: 'column',
         padding: '12px', borderRadius: 12,
         background: 'rgba(255,255,255,0.3)', border: '0.5px solid rgba(255,255,255,0.5)',
       }}>
@@ -110,11 +121,12 @@ export default function CodeNavigator({ jobId, nodes }: CodeNavigatorProps) {
       </div>
 
       {/* Right panel — Node detail */}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ flex: 1, minWidth: 0, minHeight: isCompact ? 200 : undefined }}>
         {!selectedNode && (
           <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', height: '100%', gap: 12, padding: '40px 20px',
+            justifyContent: 'center', height: '100%', minHeight: isCompact ? 200 : undefined,
+            gap: 12, padding: '40px 20px',
           }}>
             <FolderTree style={{ width: 24, height: 24, color: 'var(--text-muted)' }} />
             <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>

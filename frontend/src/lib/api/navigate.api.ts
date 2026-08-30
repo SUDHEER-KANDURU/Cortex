@@ -6,6 +6,7 @@
 // =============================================================================
 
 import { apiClient } from './client';
+import type { CortexAnswer } from '@/types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -103,6 +104,18 @@ export interface NavigateExplainResponse {
   confidence: number;
 }
 
+/**
+ * Request body for a scoped explanation (Req 7.3). A file + line range plus an
+ * optional free-text question. The job id travels as a path parameter, so it is
+ * not part of the body. Mirrors the backend `ScopedExplainRequest`.
+ */
+export interface ScopedExplainRequest {
+  file_path: string;
+  line_start: number;
+  line_end: number;
+  question?: string;
+}
+
 // ─── API Functions ───────────────────────────────────────────────────────────
 
 /** Get full navigation context for a graph entity */
@@ -136,6 +149,31 @@ export async function getNavigateExplain(
   const { data } = await apiClient.post<NavigateExplainResponse>(
     `/navigate/${jobId}/${nodeId}/explain`,
     { node_id: nodeId, question: question ?? '' }
+  );
+  return data;
+}
+
+/**
+ * Scoped explanation for a file + line range (Req 7.3, Req 7.6).
+ *
+ * Resolves the range to the graph node(s) at those lines and returns a
+ * `CortexAnswer`. When nothing is selected, callers pass the file's whole line
+ * span so the backend scopes the answer to the open file (Req 7.6).
+ *
+ * POST /api/v1/navigate/{job_id}/explain
+ */
+export async function explainScope(
+  jobId: string,
+  request: ScopedExplainRequest
+): Promise<CortexAnswer> {
+  const { data } = await apiClient.post<CortexAnswer>(
+    `/navigate/${jobId}/explain`,
+    {
+      file_path: request.file_path,
+      line_start: request.line_start,
+      line_end: request.line_end,
+      question: request.question ?? '',
+    }
   );
   return data;
 }

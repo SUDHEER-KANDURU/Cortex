@@ -17,6 +17,17 @@ export type {
   MetricScore,
   HealthDimension,
   CodeIssue,
+  EngineeringConcern,
   AnalysisCoverage,
   InsightsReport,
 } from './api.types';
+
+export type {
+  EpistemicTag,
+  NextActionKind,
+  Evidence,
+  Claim,
+  AnswerSection,
+  NextAction,
+  CortexAnswer,
+} from './answer.types';
