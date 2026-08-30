@@ -82,11 +82,11 @@ class Settings(BaseSettings):
     rate_limit_verify_resend_window_seconds: int = 900  # 15 minutes
 
 
-_settings_instance: Settings | None = None
-
-
+@lru_cache
 def get_settings() -> Settings:
-    global _settings_instance
-    if _settings_instance is None:
-        _settings_instance = Settings()
-    return _settings_instance
+    """Return the process-wide Settings singleton.
+
+    Wrapped in ``lru_cache`` so it is constructed once and so tests can reset
+    it via ``get_settings.cache_clear()`` to pick up patched environment vars.
+    """
+    return Settings()

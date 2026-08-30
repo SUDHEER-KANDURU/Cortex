@@ -418,12 +418,36 @@ class TestHTTP429Integration:
         from cortex.main import create_app
 
         app = create_app()
+
+        # Override auth so the authenticated endpoints (jobs, chat) are
+        # reached by the rate-limit check under test rather than being
+        # short-circuited by a 401. These tests exercise rate limiting, not
+        # authentication, so a fixed fake user stands in for a logged-in caller.
+        from cortex.auth.domain.entities import User
+        from cortex.auth.presentation.dependencies import get_current_user
+
+        _test_user = User(
+            id="rate-limit-test-user",
+            name="Rate Limit Tester",
+            email="ratelimit@example.com",
+            hashed_password="x",
+            is_active=True,
+            is_verified=True,
+        )
+
+        async def _override_current_user() -> User:
+            return _test_user
+
+        app.dependency_overrides[get_current_user] = _override_current_user
+
         transport = ASGITransport(app=app)
 
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             # Trigger lifespan manually to create tables
             async with app.router.lifespan_context(app):
                 yield client
+
+        app.dependency_overrides.clear()
 
         # Cleanup env vars and test db
         import pathlib
