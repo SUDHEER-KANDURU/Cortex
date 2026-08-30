@@ -21,6 +21,7 @@ import structlog
 
 from cortex.graph.domain.entities import NodeType, RelationshipType
 from cortex.insights.application.file_classifier import FileClassifier, FileCategory
+from cortex.insights.application.grouping import group_into_concerns
 from cortex.insights.application.language_rules import get_rules
 from cortex.insights.domain import thresholds as T
 from cortex.insights.domain.entities import (
@@ -31,6 +32,11 @@ from cortex.insights.domain.entities import (
     IssueSeverity,
     IssueCategory,
     MetricScore,
+)
+from cortex.insights.domain.severity import (
+    ArchitecturalRole,
+    adjust_severity,
+    classify_role,
 )
 
 if TYPE_CHECKING:
@@ -67,6 +73,71 @@ def _percentile(values: list[float], p: float) -> float:
     idx = (len(s) - 1) * p
     lo, hi = int(idx), min(int(idx) + 1, len(s) - 1)
     return s[lo] + (s[hi] - s[lo]) * (idx - lo)
+
+
+# ── Context-aware severity plumbing ───────────────────────────────────────────
+
+class _SeverityContext:
+    """Per-analysis context used to make severity decisions context-aware.
+
+    Built once at the start of compute() and shared (read-only) by every
+    detector so a file's architectural role and blast-radius (fan-in) can
+    influence how seriously a raw metric is treated.
+    """
+
+    def __init__(
+        self,
+        role_by_path: dict[str, ArchitecturalRole],
+        fan_in_by_path: dict[str, int],
+        hub_threshold: int,
+    ) -> None:
+        self.role_by_path = role_by_path
+        self.fan_in_by_path = fan_in_by_path
+        self.hub_threshold = hub_threshold
+
+    def role(self, file_path: str) -> ArchitecturalRole:
+        return self.role_by_path.get(file_path, ArchitecturalRole.ORDINARY)
+
+    def fan_in(self, file_path: str) -> int:
+        return self.fan_in_by_path.get(file_path, 0)
+
+    def is_hub(self, file_path: str) -> bool:
+        return self.fan_in(file_path) >= self.hub_threshold
+
+
+# A neutral context (no role info) — used when a detector runs without one.
+_NEUTRAL_CTX = _SeverityContext({}, {}, hub_threshold=int(T.FANIN_CRITICAL.value))
+
+
+def _apply_context(
+    issue: CodeIssue,
+    ctx: _SeverityContext,
+    *,
+    signal: str,
+    magnitude_ratio: float = 1.0,
+    reinforcing_signals: int = 0,
+) -> CodeIssue:
+    """Adjust an issue's severity for architectural context, in place.
+
+    Records the role, the signal key, and the human-readable factors that
+    moved the severity onto the issue so the evidence trail stays honest.
+    """
+    role = ctx.role(issue.file_path)
+    decision = adjust_severity(
+        base=issue.severity,
+        role=role,
+        signal=signal,
+        magnitude_ratio=magnitude_ratio,
+        dependents=ctx.fan_in(issue.file_path),
+        fan_in_hub=ctx.is_hub(issue.file_path),
+        reinforcing_signals=reinforcing_signals,
+    )
+    issue.severity = decision.severity
+    issue.architectural_role = role.value
+    issue.signal = signal
+    if decision.factors:
+        issue.context_factors = decision.factors
+    return issue
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -217,12 +288,40 @@ class InsightsEngine:
             languages_detected=list(lang_counts.keys()),
         )
 
+        # ── Build context-aware severity context ──────────────────────────────
+        # 1. Fan-in (afferent coupling) per source file — the blast radius that
+        #    turns a complex/large unit into a genuinely higher risk.
+        # 2. Architectural role per source file — routers/orchestrators/
+        #    repositories legitimately have high fan-out; generators/parsers
+        #    legitimately have large procedural bodies. Role lets severity
+        #    reflect engineering reality instead of raw magnitude.
+        fan_in_by_path: dict[str, int] = {}
+        role_by_path: dict[str, ArchitecturalRole] = {}
+        for f in source_files:
+            fpath = _str(f, "path") or f.label
+            in_sources = {
+                e.source_id for e in edges_to.get(f.id, [])
+                if e.relationship in (RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON)
+                and e.source_id in source_file_ids
+                and e.source_id != f.id
+            }
+            fan_in_by_path[fpath] = len(in_sources)
+            role_by_path[fpath] = classify_role(
+                fpath,
+                endpoint_count=_int(f, "endpoints"),
+            )
+        ctx = _SeverityContext(
+            role_by_path=role_by_path,
+            fan_in_by_path=fan_in_by_path,
+            hub_threshold=int(T.FANIN_CRITICAL.value),
+        )
+
         # ── Compute dimensions ────────────────────────────────────────────────
         issues: list[CodeIssue] = []
 
-        complexity_dim   = self._complexity(src_functions, src_classes, issues, dominant_lang)
-        coupling_dim     = self._coupling(source_files, edges, edges_from, edges_to, issues)
-        size_dim         = self._size(source_files, src_classes, issues)
+        complexity_dim   = self._complexity(src_functions, src_classes, issues, dominant_lang, ctx)
+        coupling_dim     = self._coupling(source_files, edges, edges_from, edges_to, issues, ctx)
+        size_dim         = self._size(source_files, src_classes, issues, ctx)
         architecture_dim = self._architecture(source_files, src_classes, edges, edges_from, edges_to, issues)
         documentation_dim= self._documentation(src_functions, src_classes, issues, dominant_lang, node_lang)
         naming_dim       = self._naming(src_functions, src_classes, issues, dominant_lang, node_lang)
@@ -266,6 +365,21 @@ class InsightsEngine:
             "low_issues":         len([i for i in issues if i.severity == IssueSeverity.LOW]),
         }
 
+        sorted_issues = sorted(
+            issues,
+            key=lambda i: (
+                {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}[i.severity.value],
+                i.file_path,
+            ),
+        )
+
+        # ── Group reinforcing signals into coherent engineering concerns ──────
+        # A symbol that trips several detectors (CC + long function + god
+        # function + oversized file) is ONE concern with multiple signals —
+        # not four independent problems. Concerns lead the UX; the individual
+        # issues remain available as supporting evidence.
+        concerns = group_into_concerns(sorted_issues)
+
         report = InsightsReport(
             job_id=job_id,
             repo_url=repo_url,
@@ -274,13 +388,8 @@ class InsightsEngine:
             overall_grade=HealthDimension.grade_from_score(overall),
             overall_confidence=overall_conf,
             dimensions=dimensions,
-            issues=sorted(
-                issues,
-                key=lambda i: (
-                    {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}[i.severity.value],
-                    i.file_path,
-                ),
-            ),
+            issues=sorted_issues,
+            concerns=concerns,
             stats=stats,
             coverage=coverage,
         )
@@ -307,6 +416,7 @@ class InsightsEngine:
         classes:   list["GraphNode"],
         issues:    list[CodeIssue],
         lang:      str,
+        ctx:       "_SeverityContext" = _NEUTRAL_CTX,
     ) -> HealthDimension:
         """Multi-signal complexity analysis.
 
@@ -378,9 +488,18 @@ class InsightsEngine:
                     sig_calls   * w["calls"]
                 )
 
+            # Count reinforcing complexity signals on THIS function so a symbol
+            # that trips several detectors is treated as one stronger concern.
+            reinforcing = sum((
+                has_cyclo and cyclomatic >= T.CYCLOMATIC_HIGH.value,
+                _int(fn, "nesting_depth") >= T.NESTING_HIGH.value,
+                lines > T.FN_LINES_HIGH.value,
+                eff_params > T.FN_PARAMS_HIGH.value,
+            ))
+
             # Also emit standalone cyclomatic complexity issues for Python
             if has_cyclo and cyclomatic >= T.CYCLOMATIC_CRITICAL.value:
-                issues.append(CodeIssue(
+                issues.append(_apply_context(CodeIssue(
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.CRITICAL,
                     title="Critical cyclomatic complexity",
@@ -400,9 +519,11 @@ class InsightsEngine:
                     affected_symbol=name,
                     evidence={"cyclomatic": cyclomatic, "threshold": int(T.CYCLOMATIC_CRITICAL.value), "lines": lines},
                     confidence=1.0,
-                ))
+                ), ctx, signal="cyclomatic",
+                    magnitude_ratio=cyclomatic / T.CYCLOMATIC_CRITICAL.value,
+                    reinforcing_signals=reinforcing))
             elif has_cyclo and cyclomatic >= T.CYCLOMATIC_HIGH.value:
-                issues.append(CodeIssue(
+                issues.append(_apply_context(CodeIssue(
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.HIGH,
                     title="High cyclomatic complexity",
@@ -421,9 +542,11 @@ class InsightsEngine:
                     affected_symbol=name,
                     evidence={"cyclomatic": cyclomatic, "threshold": int(T.CYCLOMATIC_HIGH.value)},
                     confidence=1.0,
-                ))
+                ), ctx, signal="cyclomatic",
+                    magnitude_ratio=cyclomatic / T.CYCLOMATIC_HIGH.value,
+                    reinforcing_signals=reinforcing))
             elif has_cyclo and cyclomatic >= T.CYCLOMATIC_MEDIUM.value:
-                issues.append(CodeIssue(
+                issues.append(_apply_context(CodeIssue(
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.MEDIUM,
                     title="Moderate cyclomatic complexity",
@@ -444,12 +567,14 @@ class InsightsEngine:
                     affected_symbol=name,
                     evidence={"cyclomatic": cyclomatic},
                     confidence=0.90,
-                ))
+                ), ctx, signal="cyclomatic",
+                    magnitude_ratio=cyclomatic / T.CYCLOMATIC_MEDIUM.value,
+                    reinforcing_signals=reinforcing))
 
             # Also flag nesting depth independently
             if _int(fn, "nesting_depth") >= T.NESTING_CRITICAL.value:
                 nd = _int(fn, "nesting_depth")
-                issues.append(CodeIssue(
+                issues.append(_apply_context(CodeIssue(
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.HIGH,
                     title="Deep nesting",
@@ -469,7 +594,9 @@ class InsightsEngine:
                     affected_symbol=name,
                     evidence={"nesting_depth": nd, "threshold": int(T.NESTING_CRITICAL.value)},
                     confidence=0.95,
-                ))
+                ), ctx, signal="nesting",
+                    magnitude_ratio=nd / T.NESTING_CRITICAL.value,
+                    reinforcing_signals=reinforcing))
 
             # Repo-relative percentile outlier detection (only meaningful with ≥20 fns)
             is_percentile_outlier = (
@@ -488,9 +615,18 @@ class InsightsEngine:
                 "composite_score": round(composite, 3),
             }
 
-            if composite >= T.GOD_FUNCTION_SCORE_THRESHOLD or is_percentile_outlier:
+            # A percentile outlier is only a *god function* if the composite
+            # index also confirms real complexity. Being merely long (top-5%
+            # by line count) with low branching/params is a LARGE function,
+            # not a god function — this prevents the false HIGH labels on
+            # trivially-long-but-simple functions (e.g. sequential wiring code).
+            is_god = composite >= T.GOD_FUNCTION_SCORE_THRESHOLD or (
+                is_percentile_outlier and composite >= T.GOD_FUNCTION_SCORE_HIGH
+            )
+
+            if is_god:
                 god_fns.append(fn)
-                issues.append(CodeIssue(
+                issues.append(_apply_context(CodeIssue(
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.HIGH,
                     title="God function — doing too much",
@@ -511,10 +647,12 @@ class InsightsEngine:
                     file_path=filepath, line_start=line_no, line_end=line_no + lines,
                     affected_symbol=name, evidence=evidence,
                     confidence=min(1.0, 0.5 + composite * 0.5),
-                ))
+                ), ctx, signal="god_function",
+                    magnitude_ratio=composite / T.GOD_FUNCTION_SCORE_THRESHOLD,
+                    reinforcing_signals=reinforcing))
             elif composite >= T.GOD_FUNCTION_SCORE_HIGH or lines > T.FN_LINES_HIGH.value:
                 large_fns.append(fn)
-                issues.append(CodeIssue(
+                issues.append(_apply_context(CodeIssue(
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.MEDIUM,
                     title="Large function — approaching complexity limit",
@@ -534,12 +672,12 @@ class InsightsEngine:
                     file_path=filepath, line_start=line_no, line_end=line_no + lines,
                     affected_symbol=name, evidence=evidence,
                     confidence=0.8,
-                ))
+                ), ctx, signal="large_function", reinforcing_signals=reinforcing))
 
             if eff_params > T.FN_PARAMS_CRITICAL.value:
                 param_fns.append(fn)
                 if fn not in god_fns:  # don't double-report
-                    issues.append(CodeIssue(
+                    issues.append(_apply_context(CodeIssue(
                         category=IssueCategory.COMPLEXITY,
                         severity=IssueSeverity.HIGH,
                         title="Too many parameters",
@@ -559,7 +697,9 @@ class InsightsEngine:
                         affected_symbol=name,
                         evidence={"param_count": eff_params, "threshold": int(T.FN_PARAMS_CRITICAL.value)},
                         confidence=0.95,
-                    ))
+                    ), ctx, signal="too_many_params",
+                        magnitude_ratio=eff_params / T.FN_PARAMS_CRITICAL.value,
+                        reinforcing_signals=reinforcing))
 
         # ── Per-class analysis ────────────────────────────────────────────────
         god_classes:   list["GraphNode"] = []
@@ -587,18 +727,30 @@ class InsightsEngine:
                 and cls_lines > T.CLASS_LINES_CRITICAL.value
             )
 
-            if methods > T.CLASS_METHODS_CRITICAL.value or cls_lines > T.CLASS_LINES_CRITICAL.value or is_outlier:
+            # A "god class" is defined by responsibility concentration — many
+            # methods — NOT by raw line count alone. A large class with FEW
+            # methods (e.g. a generator/parser holding a couple of very long
+            # procedures, or a big dataclass) is a *large class*, a different
+            # and lesser concern. Requiring method evidence eliminates the
+            # false "god class" labels on low-method large files.
+            many_methods   = methods > T.CLASS_METHODS_CRITICAL.value
+            large_and_broad = (
+                (cls_lines > T.CLASS_LINES_CRITICAL.value or is_outlier)
+                and methods >= T.CLASS_METHODS_HIGH.value
+            )
+
+            if many_methods or large_and_broad:
                 god_classes.append(cls)
                 detail = []
-                if methods > T.CLASS_METHODS_CRITICAL.value: detail.append(f"{methods} methods")
+                if methods > T.CLASS_METHODS_HIGH.value: detail.append(f"{methods} methods")
                 if cls_lines > T.CLASS_LINES_CRITICAL.value: detail.append(f"{cls_lines} lines")
-                issues.append(CodeIssue(
+                issues.append(_apply_context(CodeIssue(
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.HIGH,
                     title="God class — too many responsibilities",
                     description=(
                         f"This class has {', '.join(detail) if detail else 'an unusually large surface area'}. "
-                        f"A class this large almost certainly handles more than one concern — "
+                        f"With {methods} methods it almost certainly handles more than one concern — "
                         f"meaning a change to one responsibility risks breaking another, "
                         f"and the class is difficult to test in isolation. "
                         f"This is the most common symptom of the Single Responsibility Principle being violated."
@@ -612,10 +764,40 @@ class InsightsEngine:
                     file_path=filepath, line_start=line_no, line_end=line_no + cls_lines,
                     affected_symbol=name, evidence=evidence,
                     confidence=0.85,
-                ))
+                ), ctx, signal="god_class",
+                    magnitude_ratio=max(
+                        methods / T.CLASS_METHODS_CRITICAL.value,
+                        cls_lines / T.CLASS_LINES_CRITICAL.value,
+                    )))
+            elif (cls_lines > T.CLASS_LINES_CRITICAL.value or is_outlier):
+                # Big by line count but NOT method-heavy: a large implementation
+                # class, not a god class. Reported as a real (MEDIUM) concern
+                # with honest framing — the risk is navigability/size, not a
+                # tangle of responsibilities.
+                large_classes.append(cls)
+                issues.append(_apply_context(CodeIssue(
+                    category=IssueCategory.COMPLEXITY,
+                    severity=IssueSeverity.MEDIUM,
+                    title="Large class — heavy implementation",
+                    description=(
+                        f"This class spans {cls_lines} lines across {methods} method(s). "
+                        f"The size comes from long method bodies rather than a large number of "
+                        f"responsibilities, so it is not a classic 'god class' — but a file this "
+                        f"long is still hard to navigate and review, and long methods inside it "
+                        f"are the more likely place for hidden complexity."
+                    ),
+                    recommendation=(
+                        "Rather than splitting the class, look inside its longest methods and "
+                        "extract cohesive steps into named helpers. If distinct phases emerge "
+                        "(parse, transform, emit), those phases can become collaborator classes."
+                    ),
+                    file_path=filepath, line_start=line_no, line_end=line_no + cls_lines,
+                    affected_symbol=name, evidence=evidence,
+                    confidence=0.75,
+                ), ctx, signal="large_class"))
             elif methods > T.CLASS_METHODS_HIGH.value:
                 large_classes.append(cls)
-                issues.append(CodeIssue(
+                issues.append(_apply_context(CodeIssue(
                     category=IssueCategory.COMPLEXITY,
                     severity=IssueSeverity.MEDIUM,
                     title="Large class — starting to accumulate responsibilities",
@@ -637,7 +819,7 @@ class InsightsEngine:
                     file_path=filepath, line_start=line_no, line_end=line_no + cls_lines,
                     affected_symbol=name, evidence=evidence,
                     confidence=0.75,
-                ))
+                ), ctx, signal="large_class"))
 
         # ── Scoring ───────────────────────────────────────────────────────────
         n_fns   = max(1, len(functions))
@@ -709,6 +891,7 @@ class InsightsEngine:
         edges_from:   dict[str, list["GraphEdge"]],
         edges_to:     dict[str, list["GraphEdge"]],
         issues:       list[CodeIssue],
+        ctx:          "_SeverityContext" = _NEUTRAL_CTX,
     ) -> HealthDimension:
         """Martin's coupling metrics — Ca, Ce, instability.
 
@@ -753,7 +936,7 @@ class InsightsEngine:
 
             if ce > T.FANOUT_CRITICAL.value:
                 high_fanout.append((f, ce))
-                issues.append(CodeIssue(
+                issues.append(_apply_context(CodeIssue(
                     category=IssueCategory.COUPLING,
                     severity=IssueSeverity.HIGH,
                     title="High efferent coupling — too many outgoing dependencies",
@@ -771,11 +954,13 @@ class InsightsEngine:
                         "this makes the dependencies explicit and easy to swap in tests."
                     ),
                     file_path=filepath, affected_symbol=label,
-                    evidence={"efferent_coupling": ce, "threshold": int(T.FANOUT_CRITICAL.value)},
+                    evidence={"efferent_coupling": ce, "threshold": int(T.FANOUT_CRITICAL.value),
+                              "afferent_coupling": ca},
                     confidence=0.90,
-                ))
+                ), ctx, signal="fanout",
+                    magnitude_ratio=ce / T.FANOUT_CRITICAL.value))
             elif ce > T.FANOUT_HIGH.value:
-                issues.append(CodeIssue(
+                issues.append(_apply_context(CodeIssue(
                     category=IssueCategory.COUPLING,
                     severity=IssueSeverity.MEDIUM,
                     title="Elevated efferent coupling",
@@ -797,11 +982,12 @@ class InsightsEngine:
                     file_path=filepath, affected_symbol=label,
                     evidence={"efferent_coupling": ce},
                     confidence=0.75,
-                ))
+                ), ctx, signal="fanout",
+                    magnitude_ratio=ce / T.FANOUT_CRITICAL.value))
 
             if ca > T.FANIN_CRITICAL.value:
                 high_fanin.append((f, ca))
-                issues.append(CodeIssue(
+                issues.append(_apply_context(CodeIssue(
                     category=IssueCategory.COUPLING,
                     severity=IssueSeverity.MEDIUM,
                     title="Critical dependency hub — wide blast radius",
@@ -821,7 +1007,8 @@ class InsightsEngine:
                     file_path=filepath, affected_symbol=label,
                     evidence={"afferent_coupling": ca, "threshold": int(T.FANIN_CRITICAL.value)},
                     confidence=0.85,
-                ))
+                ), ctx, signal="fanin_hub",
+                    magnitude_ratio=ca / T.FANIN_CRITICAL.value))
 
         n_files = max(1, len(source_files))
         fanout_pct = len(high_fanout) / n_files
@@ -865,6 +1052,7 @@ class InsightsEngine:
         source_files: list["GraphNode"],
         src_classes:  list["GraphNode"],
         issues:       list[CodeIssue],
+        ctx:          "_SeverityContext" = _NEUTRAL_CTX,
     ) -> HealthDimension:
         """File-level size. Generated/vendor files already excluded."""
         if not source_files:
@@ -883,7 +1071,7 @@ class InsightsEngine:
 
             if lines > T.FILE_LINES_CRITICAL.value:
                 large_files.append(f)
-                issues.append(CodeIssue(
+                issues.append(_apply_context(CodeIssue(
                     category=IssueCategory.SIZE,
                     severity=IssueSeverity.HIGH,
                     title="Oversized source file",
@@ -902,10 +1090,11 @@ class InsightsEngine:
                     file_path=filepath, affected_symbol=label,
                     evidence={"lines": lines, "threshold": int(T.FILE_LINES_CRITICAL.value)},
                     confidence=0.90,
-                ))
+                ), ctx, signal="oversized_file",
+                    magnitude_ratio=lines / T.FILE_LINES_CRITICAL.value))
             elif lines > T.FILE_LINES_HIGH.value:
                 watch_files.append(f)
-                issues.append(CodeIssue(
+                issues.append(_apply_context(CodeIssue(
                     category=IssueCategory.SIZE,
                     severity=IssueSeverity.LOW,
                     title="Large file — approaching split threshold",
@@ -925,11 +1114,12 @@ class InsightsEngine:
                     file_path=filepath, affected_symbol=label,
                     evidence={"lines": lines},
                     confidence=0.80,
-                ))
+                ), ctx, signal="large_file",
+                    magnitude_ratio=lines / T.FILE_LINES_HIGH.value))
 
             if cls_count > T.CLASSES_PER_FILE_CRITICAL.value:
                 multicls_files.append(f)
-                issues.append(CodeIssue(
+                issues.append(_apply_context(CodeIssue(
                     category=IssueCategory.SIZE,
                     severity=IssueSeverity.MEDIUM,
                     title="Multiple classes in one file",
@@ -949,7 +1139,7 @@ class InsightsEngine:
                     file_path=filepath, affected_symbol=label,
                     evidence={"class_count": cls_count},
                     confidence=0.85,
-                ))
+                ), ctx, signal="multiple_classes"))
 
         n_files     = max(1, len(source_files))
         large_pct   = len(large_files) / n_files

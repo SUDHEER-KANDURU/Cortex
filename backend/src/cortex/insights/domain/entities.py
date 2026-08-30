@@ -53,6 +53,15 @@ class CodeIssue:
     # Confidence 0–1 — how certain we are this is a real issue
     confidence: float = 1.0
 
+    # ── Context-aware severity metadata (additive; safe defaults) ────────────
+    # The architectural role of the affected file (router/orchestrator/...).
+    architectural_role: str = "ordinary"
+    # Human-readable reasons the base severity was adjusted by context.
+    context_factors: list[str] = field(default_factory=list)
+    # Machine key for grouping related signals into one concern
+    # (usually the detector name: "fanout", "god_class", "cyclomatic", ...).
+    signal: str = ""
+
     # Preserved for API compat
     @property
     def line(self) -> int:
@@ -127,6 +136,36 @@ class AnalysisCoverage:
 
 
 @dataclass
+class EngineeringConcern:
+    """One coherent engineering concern, backed by one or more signals.
+
+    A single symbol that trips cyclomatic complexity, long-function, and
+    god-function detectors is *one* engineering concern ("this function does
+    too much"), not three independent problems. This groups the underlying
+    `CodeIssue` signals so the user sees the concern first and the supporting
+    metrics as evidence — without ever discarding the individual signals.
+    """
+
+    title:           str
+    severity:        IssueSeverity
+    category:        IssueCategory
+    file_path:       str = ""
+    affected_symbol: str = ""
+    architectural_role: str = "ordinary"
+    # Why it matters / impact / recommendation — synthesised from the signals.
+    summary:         str = ""
+    recommendation:  str = ""
+    # The individual detector signals that make up this concern (evidence kept).
+    signals:         list[CodeIssue] = field(default_factory=list)
+    context_factors: list[str] = field(default_factory=list)
+    confidence:      float = 1.0
+
+    @property
+    def signal_count(self) -> int:
+        return len(self.signals)
+
+
+@dataclass
 class InsightsReport:
     """Complete engineering health report for a repository."""
     job_id:         str
@@ -137,6 +176,7 @@ class InsightsReport:
     overall_confidence: float = 1.0
     dimensions:     list[HealthDimension] = field(default_factory=list)
     issues:         list[CodeIssue]       = field(default_factory=list)
+    concerns:       list[EngineeringConcern] = field(default_factory=list)
     stats:          dict                  = field(default_factory=dict)
     coverage:       AnalysisCoverage      = field(default_factory=AnalysisCoverage)
 

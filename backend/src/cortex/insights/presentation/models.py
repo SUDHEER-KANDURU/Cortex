@@ -5,12 +5,20 @@ Backwards-compatible: all new fields have defaults.
 """
 
 from __future__ import annotations
+
 from typing import Any
-from pydantic import BaseModel
+
 from cortex.insights.domain.entities import (
-    AnalysisCoverage, CodeIssue, HealthDimension,
-    InsightsReport, IssueSeverity, IssueCategory, MetricScore,
+    AnalysisCoverage,
+    CodeIssue,
+    EngineeringConcern,
+    HealthDimension,
+    InsightsReport,
+    IssueCategory,
+    IssueSeverity,
+    MetricScore,
 )
+from pydantic import BaseModel
 
 
 class AnalysisCoverageResponse(BaseModel):
@@ -27,7 +35,7 @@ class AnalysisCoverageResponse(BaseModel):
     languages_detected:  list[str] = []
 
     @classmethod
-    def from_coverage(cls, c: AnalysisCoverage) -> "AnalysisCoverageResponse":
+    def from_coverage(cls, c: AnalysisCoverage) -> AnalysisCoverageResponse:
         return cls(**c.to_dict())
 
 
@@ -41,7 +49,7 @@ class MetricScoreResponse(BaseModel):
     confidence:  float = 1.0
 
     @classmethod
-    def from_metric(cls, m: MetricScore) -> "MetricScoreResponse":
+    def from_metric(cls, m: MetricScore) -> MetricScoreResponse:
         return cls(
             label=m.label, score=m.score, raw_value=m.raw_value,
             unit=m.unit, description=m.description,
@@ -59,7 +67,7 @@ class HealthDimensionResponse(BaseModel):
     metrics:     list[MetricScoreResponse] = []
 
     @classmethod
-    def from_dimension(cls, d: HealthDimension) -> "HealthDimensionResponse":
+    def from_dimension(cls, d: HealthDimension) -> HealthDimensionResponse:
         return cls(
             name=d.name, score=d.score, grade=d.grade,
             summary=d.summary, confidence=d.confidence,
@@ -82,9 +90,13 @@ class CodeIssueResponse(BaseModel):
     affected_symbol: str  = ""
     evidence:        dict[str, Any] = {}
     confidence:      float = 1.0
+    # ── Context-aware severity metadata (additive; safe defaults) ────────────
+    architectural_role: str = "ordinary"
+    context_factors:    list[str] = []
+    signal:             str = ""
 
     @classmethod
-    def from_issue(cls, i: CodeIssue) -> "CodeIssueResponse":
+    def from_issue(cls, i: CodeIssue) -> CodeIssueResponse:
         return cls(
             category=i.category, severity=i.severity,
             title=i.title, description=i.description,
@@ -95,6 +107,42 @@ class CodeIssueResponse(BaseModel):
             affected_symbol=i.affected_symbol,
             evidence=i.evidence,
             confidence=i.confidence,
+            architectural_role=i.architectural_role,
+            context_factors=list(i.context_factors),
+            signal=i.signal,
+        )
+
+
+class EngineeringConcernResponse(BaseModel):
+    """A coherent engineering concern backed by one or more issue signals.
+
+    This is the primary, de-noised view: related signals on the same symbol
+    (e.g. high complexity + long function + god function) are presented as ONE
+    concern, with the individual signals kept as supporting evidence.
+    """
+    title:              str
+    severity:           IssueSeverity
+    category:           IssueCategory
+    file_path:          str = ""
+    affected_symbol:    str = ""
+    architectural_role: str = "ordinary"
+    summary:            str = ""
+    recommendation:     str = ""
+    context_factors:    list[str] = []
+    confidence:         float = 1.0
+    signal_count:       int = 0
+    signals:            list[CodeIssueResponse] = []
+
+    @classmethod
+    def from_concern(cls, c: EngineeringConcern) -> EngineeringConcernResponse:
+        return cls(
+            title=c.title, severity=c.severity, category=c.category,
+            file_path=c.file_path, affected_symbol=c.affected_symbol,
+            architectural_role=c.architectural_role,
+            summary=c.summary, recommendation=c.recommendation,
+            context_factors=list(c.context_factors),
+            confidence=c.confidence, signal_count=c.signal_count,
+            signals=[CodeIssueResponse.from_issue(s) for s in c.signals],
         )
 
 
@@ -107,17 +155,19 @@ class InsightsReportResponse(BaseModel):
     overall_confidence: float = 1.0
     dimensions:         list[HealthDimensionResponse] = []
     issues:             list[CodeIssueResponse]       = []
+    concerns:           list[EngineeringConcernResponse] = []
     stats:              dict = {}
     coverage:           AnalysisCoverageResponse = AnalysisCoverageResponse()
 
     @classmethod
-    def from_report(cls, r: InsightsReport) -> "InsightsReportResponse":
+    def from_report(cls, r: InsightsReport) -> InsightsReportResponse:
         return cls(
             job_id=r.job_id, repo_url=r.repo_url, repo_name=r.repo_name,
             overall_score=r.overall_score, overall_grade=r.overall_grade,
             overall_confidence=r.overall_confidence,
             dimensions=[HealthDimensionResponse.from_dimension(d) for d in r.dimensions],
             issues=[CodeIssueResponse.from_issue(i) for i in r.issues],
+            concerns=[EngineeringConcernResponse.from_concern(c) for c in r.concerns],
             stats=r.stats,
             coverage=AnalysisCoverageResponse.from_coverage(r.coverage),
         )

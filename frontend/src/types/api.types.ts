@@ -123,6 +123,30 @@ export interface CodeIssue {
   affected_symbol: string;
   evidence:        Record<string, unknown>;
   confidence:      number;
+  // Context-aware severity metadata (optional; backend provides defaults)
+  architectural_role?: string;
+  context_factors?:    string[];
+  signal?:             string;
+}
+
+/**
+ * A coherent engineering concern backed by one or more issue signals.
+ * This is the primary, de-noised view: related signals on the same symbol
+ * are grouped into one concern with the individual signals kept as evidence.
+ */
+export interface EngineeringConcern {
+  title:              string;
+  severity:           IssueSeverity;
+  category:           IssueCategory;
+  file_path:          string;
+  affected_symbol:    string;
+  architectural_role: string;
+  summary:            string;
+  recommendation:     string;
+  context_factors:    string[];
+  confidence:         number;
+  signal_count:       number;
+  signals:            CodeIssue[];
 }
 
 export interface AnalysisCoverage {
@@ -148,6 +172,7 @@ export interface InsightsReport {
   overall_confidence: number;
   dimensions:         HealthDimension[];
   issues:             CodeIssue[];
+  concerns?:          EngineeringConcern[];
   stats: {
     total_nodes:        number;
     total_edges:        number;
