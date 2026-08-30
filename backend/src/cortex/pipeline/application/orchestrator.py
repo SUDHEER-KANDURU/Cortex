@@ -14,6 +14,7 @@ from shared.exceptions import CortexError
 import structlog
 
 if TYPE_CHECKING:
+    from cortex.pipeline.domain.entities import Coverage
     from cortex.pipeline.infrastructure.ast_parser import ParsedFile
     from cortex.pipeline.infrastructure.vibe_detector import VibeReport
     from cortex.pipeline.infrastructure.graph_builder import GraphBuildResult
@@ -39,6 +40,10 @@ class PipelineContext:
     # Populated by GitHubFetchStage
     file_tree: list[dict] = field(default_factory=list)
     file_contents: dict[str, str] = field(default_factory=dict)
+    # Candidate code files that exceeded the analysis cap and were not fetched.
+    # ASTParseStage records these as coverage gaps so Coverage reflects partial
+    # analysis instead of the pipeline failing on oversized repos (Req 10.3).
+    skipped_files: list[str] = field(default_factory=list)
 
     # Populated by ASTParseStage
     parsed_files: list[ParsedFile] = field(default_factory=list)
@@ -50,6 +55,11 @@ class PipelineContext:
     graph_result: GraphBuildResult | None = None
     node_count: int = 0
     edge_count: int = 0
+
+    # Coverage for this analysis (Req 1.4, Req 6.1). Populated incrementally:
+    # ASTParseStage records parse-failure gaps and file counts; GraphBuildStage
+    # folds in resolved/unresolved reference counts once the graph exists.
+    coverage: Coverage | None = None
 
     # Populated by ArtifactGenerateStage
     artifact_id: str | None = None

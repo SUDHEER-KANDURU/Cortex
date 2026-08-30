@@ -43,10 +43,12 @@ def _warn_missing_secrets(settings) -> None:  # type: ignore[type-arg]
                    "Set GITHUB_TOKEN in backend/.env to raise limit to 5000 req/hr.",
         )
     if not settings.nim_api_key:
-        _startup_logger.warning(
+        _startup_logger.info(
             "config_missing_nim_api_key",
-            effect="NIM API key not set. AI chat will use rule-based fallback. "
-                   "Set NIM_API_KEY in backend/.env for real AI responses.",
+            effect="NIM API key not set. Cortex still produces its own deterministic, "
+                   "evidence-grounded explanations and chat answers; NIM only refines "
+                   "wording when a key is present. Set NIM_API_KEY in backend/.env to "
+                   "enable optional AI refinement.",
         )
     if not settings.internal_secret:
         _startup_logger.warning(

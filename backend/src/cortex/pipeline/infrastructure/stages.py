@@ -35,7 +35,10 @@ class GitHubFetchStage(AbstractPipelineStage):
                 repo_url=context.repo_url,
             )
 
-            result = await self._analyzer.fetch(context.repo_url, max_files=150)
+            # No explicit max_files — the analyzer defaults to MAX_ANALYSIS_FILES
+            # so large repos are handled (Req 10.1). Files beyond the cap come
+            # back as result.skipped_files and are recorded as coverage gaps.
+            result = await self._analyzer.fetch(context.repo_url)
 
             context.file_tree = [
                 {"path": f.path, "type": "blob", "size": f.size}
@@ -44,12 +47,14 @@ class GitHubFetchStage(AbstractPipelineStage):
             context.file_contents = {
                 f.path: f.content for f in result.fetched_files
             }
+            context.skipped_files = list(result.skipped_files)
 
             logger.info(
                 "github_fetch_stage_completed",
                 job_id=context.job.id,
                 tree_files=len(context.file_tree),
                 code_files=len(context.file_contents),
+                skipped_files=len(context.skipped_files),
             )
 
             # Store file hashes for incremental analysis on next run
@@ -82,6 +87,58 @@ class ASTParseStage(AbstractPipelineStage):
         from cortex.pipeline.infrastructure.ast_parser import ASTParser
         self._parser = ASTParser()
 
+    async def _incremental_parse(self, context: PipelineContext) -> list:
+        """Parse files, reusing cached results for unchanged files.
+
+        Uses the IncrementalAnalyzer's persisted parsed-result cache: unchanged
+        files (matching content hash) are reused, only changed/added files are
+        re-parsed. The CPU-bound re-parse is offloaded to a worker thread so the
+        event loop stays responsive. Any failure degrades to a full parse so the
+        pipeline never fails just because the cache is unavailable.
+        """
+        import asyncio
+
+        file_contents = context.file_contents
+
+        async def _full_parse() -> list:
+            files_to_parse = [
+                (content, path) for path, content in sorted(file_contents.items())
+            ]
+            return await asyncio.to_thread(self._parser.parse_many, files_to_parse)
+
+        try:
+            from cortex.pipeline.infrastructure.incremental_analyzer import (
+                IncrementalAnalyzer,
+            )
+
+            analyzer = IncrementalAnalyzer()
+            await analyzer.ensure_table()
+
+            # Offload the CPU-bound re-parse to a worker thread so the event
+            # loop stays responsive. incremental_parse awaits this coroutine.
+            def _parse_offloaded(files: list[tuple[str, str]]):
+                return asyncio.to_thread(self._parser.parse_many, files)
+
+            result = await analyzer.incremental_parse(
+                context.repo_url, file_contents, _parse_offloaded
+            )
+
+            logger.info(
+                "ast_incremental_parse",
+                job_id=context.job.id,
+                reused=len(result.reused_paths),
+                reparsed=len(result.reparsed_paths),
+                total=len(result.parsed_files),
+            )
+            return result.parsed_files
+        except Exception as inc_err:
+            logger.warning(
+                "ast_incremental_parse_fallback",
+                job_id=context.job.id,
+                error=str(inc_err),
+            )
+            return await _full_parse()
+
     async def execute(self, context: PipelineContext) -> PipelineContext:
         if not context.file_contents:
             context.mark_error(
@@ -97,22 +154,22 @@ class ASTParseStage(AbstractPipelineStage):
                 file_count=len(context.file_contents),
             )
 
-            files_to_parse = [
-                (content, path)
-                for path, content in context.file_contents.items()
-            ]
-
-            # parse_many is CPU-bound (ast.parse + regex over up to 150 files).
-            # Running it directly would block the event loop for the duration.
-            # asyncio.to_thread offloads it to a thread-pool worker, keeping
-            # the loop responsive for other in-flight requests.
-            import asyncio
-            context.parsed_files = await asyncio.to_thread(
-                self._parser.parse_many, files_to_parse
-            )
+            # Incremental, hash-based parse: reuse cached ParsedFile results for
+            # unchanged files and re-parse ONLY changed/added files. Falls back
+            # to a full parse if the incremental path is unavailable (Req 10.1,
+            # 10.2, 10.4).
+            context.parsed_files = await self._incremental_parse(context)
 
             successful = [p for p in context.parsed_files if not p.has_errors()]
             failed = [p for p in context.parsed_files if p.has_errors()]
+
+            # Record coverage gaps for every file that failed to parse, and
+            # capture preliminary file coverage. Reference counts are folded in
+            # later by GraphBuildStage once the graph exists (Req 1.4, Req 6.1).
+            from cortex.pipeline.infrastructure.coverage import compute_coverage
+            context.coverage = compute_coverage(
+                context.parsed_files, skipped_files=context.skipped_files
+            )
 
             logger.info(
                 "ast_parse_stage_completed",
@@ -120,6 +177,7 @@ class ASTParseStage(AbstractPipelineStage):
                 total=len(context.parsed_files),
                 successful=len(successful),
                 failed=len(failed),
+                coverage_gaps=context.coverage.gap_count(),
                 total_classes=sum(len(p.classes) for p in successful),
                 total_functions=sum(len(p.all_functions()) for p in successful),
             )
@@ -185,6 +243,14 @@ class GraphBuildStage(AbstractPipelineStage):
             context.graph_result = graph_result
             context.node_count = graph_result.node_count()
             context.edge_count = graph_result.edge_count()
+
+            # Recompute coverage now that the graph exists so resolved vs.
+            # unresolved reference counts are included alongside the parse-time
+            # file coverage and gaps (Req 6.1).
+            from cortex.pipeline.infrastructure.coverage import compute_coverage
+            context.coverage = compute_coverage(
+                context.parsed_files, graph_result, skipped_files=context.skipped_files
+            )
 
             # Persist graph to SQLite using bulk inserts — one transaction
             # for all nodes, one for all edges. This replaces the previous

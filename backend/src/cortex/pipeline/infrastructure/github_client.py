@@ -13,6 +13,13 @@ from shared.exceptions import InfrastructureError
 
 logger = structlog.get_logger()
 
+# Maximum number of code files fetched/analyzed in a single pass. Raised well
+# above the previous fixed cap (was 50/60/150) so large repositories are handled
+# (Req 10.1). When a repo has MORE candidate code files than this, the extra
+# files are NOT dropped silently — the pipeline records them as coverage gaps so
+# analysis degrades to partial Coverage instead of failing (Req 10.3).
+MAX_ANALYSIS_FILES = 2000
+
 # Shared set of extensions considered "code" for fetching and classification.
 CODE_EXTENSIONS = {
     ".py", ".java", ".ts", ".tsx", ".js", ".jsx",
@@ -128,6 +135,11 @@ class GitHubClient:
         # Fix 11 — persistent client, shared across all requests in this instance
         self._client = httpx.AsyncClient(headers=headers, timeout=30.0)
 
+        # Candidate code-file paths that exceeded the per-analysis file cap on
+        # the most recent get_code_files call. Callers read this to record the
+        # over-limit files as coverage gaps (partial Coverage, Req 10.3).
+        self.last_skipped_files: list[str] = []
+
     async def close(self) -> None:
         """Close the underlying HTTP connection pool."""
         await self._client.aclose()
@@ -229,7 +241,7 @@ class GitHubClient:
         self,
         owner: str,
         repo: str,
-        max_files: int = 50,
+        max_files: int = MAX_ANALYSIS_FILES,
     ) -> list[GitHubFile]:
         """Fetch code files in parallel with a concurrency limit of 10.
 
@@ -237,22 +249,30 @@ class GitHubClient:
         Fix 12 — expanded extension whitelist; fallback to config/markup files
         when no code files match so the pipeline never returns 0 files for a
         non-empty repository.
+
+        Task 18 — the cap is raised to ``MAX_ANALYSIS_FILES`` so large repos are
+        handled (Req 10.1). Candidate code files beyond the cap are recorded in
+        ``self.last_skipped_files`` (largest-first ordering preserved) so the
+        caller can degrade to partial Coverage rather than dropping them silently
+        (Req 10.3).
         """
         tree = await self.get_file_tree(owner, repo)
 
-        code_nodes = sorted(
+        ranked_code = sorted(
             [
                 n for n in tree
                 if n.is_file() and n.extension() in CODE_EXTENSIONS
             ],
-            key=lambda n: n.size,
-            reverse=True,  # largest files first — they carry the most signal
-        )[:max_files]
+            key=lambda n: (-n.size, n.path),  # largest first; path tiebreak = deterministic
+        )
+        code_nodes = ranked_code[:max_files]
+        # Files past the cap are not fetched but are remembered as gaps.
+        self.last_skipped_files = [n.path for n in ranked_code[max_files:]]
 
         # Fallback: if no code files matched, fetch config/markup files so the
         # pipeline has something to analyze rather than failing outright.
         if not code_nodes:
-            code_nodes = sorted(
+            ranked_config = sorted(
                 [
                     n for n in tree
                     if n.is_file() and (
@@ -260,9 +280,10 @@ class GitHubClient:
                         or n.path.split("/")[-1] in CONFIG_FILENAMES
                     )
                 ],
-                key=lambda n: n.size,
-                reverse=True,
-            )[:max_files]
+                key=lambda n: (-n.size, n.path),
+            )
+            code_nodes = ranked_config[:max_files]
+            self.last_skipped_files = [n.path for n in ranked_config[max_files:]]
 
         logger.info(
             "github_fetching_code_files",

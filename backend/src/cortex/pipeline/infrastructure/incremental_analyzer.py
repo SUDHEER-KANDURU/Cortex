@@ -20,8 +20,10 @@ Storage: ~40 bytes per file (path + sha256 prefix) = ~400KB for 10K files
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass, field
-from typing import Any
+import inspect
+import json
+from dataclasses import asdict, dataclass, field
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -30,7 +32,68 @@ from cortex.db import get_engine
 from cortex.config import get_settings
 import structlog
 
+if TYPE_CHECKING:
+    from cortex.pipeline.infrastructure.ast_parser import ParsedFile
+
 logger = structlog.get_logger()
+
+
+def content_hash_of(content: str) -> str:
+    """Return the canonical content hash used across incremental analysis.
+
+    A single definition keeps hashing consistent everywhere (store_hashes,
+    compute_diff, and the parsed-result cache all use this), so identical file
+    content always maps to the same key (Req 10.4).
+    """
+    return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+
+def serialize_parsed_file(parsed: "ParsedFile") -> str:
+    """Serialize a ``ParsedFile`` to a deterministic JSON string.
+
+    ``dataclasses.asdict`` recurses through the nested functions/classes/imports
+    dataclasses. The ``Language`` enum is stored as its string value. Keys are
+    sorted so identical inputs always produce byte-identical output (Req 10.4).
+    """
+    data = asdict(parsed)
+    data["language"] = parsed.language.value
+    return json.dumps(data, sort_keys=True)
+
+
+def deserialize_parsed_file(blob: str) -> "ParsedFile":
+    """Reconstruct a ``ParsedFile`` from :func:`serialize_parsed_file` output."""
+    from cortex.pipeline.infrastructure.ast_parser import (
+        Language,
+        ParsedClass,
+        ParsedFile,
+        ParsedFunction,
+        ParsedImport,
+    )
+
+    data = json.loads(blob)
+
+    def _fn(d: dict) -> ParsedFunction:
+        return ParsedFunction(**d)
+
+    def _cls(d: dict) -> ParsedClass:
+        methods = [_fn(m) for m in d.get("methods", [])]
+        return ParsedClass(**{**d, "methods": methods})
+
+    def _imp(d: dict) -> ParsedImport:
+        return ParsedImport(**d)
+
+    return ParsedFile(
+        path=data["path"],
+        language=Language(data["language"]),
+        functions=[_fn(f) for f in data.get("functions", [])],
+        classes=[_cls(c) for c in data.get("classes", [])],
+        imports=[_imp(i) for i in data.get("imports", [])],
+        line_count=data.get("line_count", 0),
+        parse_errors=list(data.get("parse_errors", [])),
+        is_test_file=data.get("is_test_file", False),
+        is_config_file=data.get("is_config_file", False),
+        docstring=data.get("docstring"),
+    )
 
 
 @dataclass
@@ -39,6 +102,22 @@ class FileHash:
     path: str
     content_hash: str  # SHA-256 hex prefix (first 16 chars)
     line_count: int = 0
+
+
+#: Callable that turns [(content, path)] into a list of ParsedFile. The pipeline
+#: passes ``ASTParser.parse_many`` (optionally thread-offloaded) as this callable.
+ParseFilesCallable = Any
+
+
+@dataclass
+class IncrementalParseResult:
+    """Result of :meth:`IncrementalAnalyzer.incremental_parse`."""
+    #: All parsed files (reused + re-parsed) in deterministic path order.
+    parsed_files: list["ParsedFile"] = field(default_factory=list)
+    #: Paths whose cached ParsedFile was reused (content unchanged).
+    reused_paths: list[str] = field(default_factory=list)
+    #: Paths that were (re-)parsed this run (changed, added, or uncached).
+    reparsed_paths: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -92,6 +171,25 @@ class IncrementalAnalyzer:
                 CREATE INDEX IF NOT EXISTS ix_file_hashes_repo
                 ON file_hashes(repo_url)
             """))
+            # Cache of parsed results keyed by (repo_url, file_path, content_hash).
+            # This is the source of truth for reusing UNCHANGED files on
+            # re-analysis: if a file's content hash matches a cached row, its
+            # ParsedFile is reconstructed from the stored blob instead of being
+            # re-parsed (Req 10.2, Req 10.4).
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS parsed_results (
+                    repo_url TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    content_hash TEXT NOT NULL,
+                    parsed_json TEXT NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (repo_url, file_path, content_hash)
+                )
+            """))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS ix_parsed_results_repo
+                ON parsed_results(repo_url)
+            """))
 
     async def store_hashes(
         self,
@@ -117,7 +215,7 @@ class IncrementalAnalyzer:
             # Insert new hashes
             count = 0
             for path, content in file_contents.items():
-                content_hash = hashlib.sha256(content.encode()).hexdigest()[:16]
+                content_hash = content_hash_of(content)
                 line_count = content.count("\n") + 1
                 await conn.execute(
                     text("""
@@ -159,6 +257,87 @@ class IncrementalAnalyzer:
             for row in rows
         }
 
+    async def store_parsed_results(
+        self,
+        repo_url: str,
+        parsed_by_path: dict[str, "ParsedFile"],
+        file_contents: dict[str, str],
+    ) -> int:
+        """Persist parsed results so unchanged files can be reused next run.
+
+        Rows are keyed by (repo_url, file_path, content_hash). Only files whose
+        content is available are stored. Existing rows for this repo are cleared
+        first so the cache always reflects the latest analyzed state and never
+        grows unbounded across re-analyses.
+        """
+        if not parsed_by_path:
+            return 0
+
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text("DELETE FROM parsed_results WHERE repo_url = :repo_url"),
+                {"repo_url": repo_url},
+            )
+            count = 0
+            for path, parsed in parsed_by_path.items():
+                content = file_contents.get(path)
+                if content is None:
+                    continue
+                await conn.execute(
+                    text("""
+                        INSERT OR REPLACE INTO parsed_results
+                            (repo_url, file_path, content_hash, parsed_json)
+                        VALUES (:repo_url, :path, :hash, :blob)
+                    """),
+                    {
+                        "repo_url": repo_url,
+                        "path": path,
+                        "hash": content_hash_of(content),
+                        "blob": serialize_parsed_file(parsed),
+                    },
+                )
+                count += 1
+
+        logger.info(
+            "parsed_results_stored",
+            repo_url=repo_url,
+            file_count=count,
+        )
+        return count
+
+    async def get_cached_parsed_results(
+        self,
+        repo_url: str,
+    ) -> dict[tuple[str, str], "ParsedFile"]:
+        """Return cached parsed results keyed by (file_path, content_hash).
+
+        The content hash is part of the key so a reused result is only returned
+        when the file content is byte-for-byte identical to what was parsed
+        before (Req 10.2). Returns an empty dict when nothing is cached.
+        """
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    "SELECT file_path, content_hash, parsed_json "
+                    "FROM parsed_results WHERE repo_url = :repo_url"
+                ),
+                {"repo_url": repo_url},
+            )
+            rows = result.fetchall()
+
+        cache: dict[tuple[str, str], "ParsedFile"] = {}
+        for path, chash, blob in rows:
+            try:
+                cache[(path, chash)] = deserialize_parsed_file(blob)
+            except Exception as err:  # pragma: no cover - defensive
+                logger.warning(
+                    "parsed_result_deserialize_failed",
+                    repo_url=repo_url,
+                    file_path=path,
+                    error=str(err),
+                )
+        return cache
+
     async def compute_diff(
         self,
         repo_url: str,
@@ -194,7 +373,7 @@ class IncrementalAnalyzer:
         # Changed files (in both, but hash differs)
         common_paths = current_paths & stored_paths
         for path in sorted(common_paths):
-            current_hash = hashlib.sha256(current_files[path].encode()).hexdigest()[:16]
+            current_hash = content_hash_of(current_files[path])
             if current_hash != stored[path].content_hash:
                 diff.changed_files.append(path)
 
@@ -212,6 +391,73 @@ class IncrementalAnalyzer:
         )
 
         return diff
+
+    async def incremental_parse(
+        self,
+        repo_url: str,
+        file_contents: dict[str, str],
+        parse_files: "ParseFilesCallable",
+    ) -> "IncrementalParseResult":
+        """Parse ``file_contents`` reusing unchanged cached results (Req 10.1, 10.2).
+
+        Determines which files changed via stored content hashes, re-parses ONLY
+        the changed/added files, and reuses the cached ``ParsedFile`` for every
+        unchanged file whose content hash matches. The parsed results and hashes
+        for the whole current file set are then persisted so the next run can
+        reuse them.
+
+        ``parse_files`` is an injected callable that turns ``[(content, path)]``
+        into ``[ParsedFile]`` (the pipeline passes ``ASTParser.parse_many`` via a
+        thread offload). Output ordering follows ``sorted(file_contents)`` so the
+        result is deterministic regardless of dict insertion order (Req 10.4).
+        """
+        cache = await self.get_cached_parsed_results(repo_url)
+
+        ordered_paths = sorted(file_contents.keys())
+        reused: dict[str, ParsedFile] = {}
+        to_parse: list[tuple[str, str]] = []  # (content, path)
+
+        for path in ordered_paths:
+            content = file_contents[path]
+            key = (path, content_hash_of(content))
+            cached = cache.get(key)
+            if cached is not None:
+                reused[path] = cached
+            else:
+                to_parse.append((content, path))
+
+        newly_parsed_list = parse_files(to_parse) if to_parse else []
+        # Allow parse_files to be async (e.g. an asyncio.to_thread offload) so
+        # callers can keep CPU-bound parsing off the event loop.
+        if inspect.isawaitable(newly_parsed_list):
+            newly_parsed_list = await newly_parsed_list
+        newly_parsed = {pf.path: pf for pf in newly_parsed_list}
+
+        # Assemble the final result in deterministic path order.
+        parsed_by_path: dict[str, ParsedFile] = {}
+        for path in ordered_paths:
+            if path in newly_parsed:
+                parsed_by_path[path] = newly_parsed[path]
+            elif path in reused:
+                parsed_by_path[path] = reused[path]
+
+        # Persist the fresh state for the next run.
+        await self.store_parsed_results(repo_url, parsed_by_path, file_contents)
+
+        result = IncrementalParseResult(
+            parsed_files=[parsed_by_path[p] for p in ordered_paths if p in parsed_by_path],
+            reused_paths=sorted(reused.keys()),
+            reparsed_paths=sorted(newly_parsed.keys()),
+        )
+
+        logger.info(
+            "incremental_parse_completed",
+            repo_url=repo_url,
+            total=len(result.parsed_files),
+            reused=len(result.reused_paths),
+            reparsed=len(result.reparsed_paths),
+        )
+        return result
 
     async def delete_graph_nodes_for_files(
         self,
