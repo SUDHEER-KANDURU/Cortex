@@ -2,23 +2,23 @@
 Takes ParsedFile objects from the AST parser and creates
 GraphNode and GraphEdge domain entities for persistent storage."""
 
-import uuid
 import hashlib
+import uuid
 from dataclasses import dataclass, field
-import structlog
 
+import structlog
 from cortex.graph.domain.entities import (
-    GraphNode,
     GraphEdge,
+    GraphNode,
     NodeType,
     RelationshipType,
 )
 from cortex.pipeline.infrastructure.ast_parser import (
-    ParsedFile,
     ParsedClass,
+    ParsedFile,
     ParsedFunction,
-    Language,
 )
+from cortex.pipeline.infrastructure.symbol_table import SymbolTable
 
 logger = structlog.get_logger()
 
@@ -81,10 +81,18 @@ class GraphBuilder:
         TestFile → TESTS → Module (heuristic from filename)
     """
 
-    def __init__(self, job_id: str, repo_url: str) -> None:
+    def __init__(
+        self,
+        job_id: str,
+        repo_url: str,
+        path_aliases: dict[str, str] | None = None,
+    ) -> None:
         self._job_id = job_id
         self._repo_url = repo_url
         self._node_index: dict[str, GraphNode] = {}
+        # Configured path aliases (e.g. tsconfig ``paths``) used by the symbol
+        # resolver to resolve aliased imports (Req 3.3). Empty by default.
+        self._path_aliases: dict[str, str] = dict(path_aliases or {})
 
     def build(self, parsed_files: list[ParsedFile]) -> GraphBuildResult:
         """Build the complete knowledge graph from parsed files.
@@ -103,6 +111,13 @@ class GraphBuilder:
                 job_id=self._job_id,
             )
             return result
+
+        # Step 0 — Build the deterministic symbol table pre-pass (Req 3.1).
+        # Populated from ALL parsed files so call/import resolution has full
+        # repo context before any edge is created.
+        symbol_table = SymbolTable.from_parsed_files(
+            parsed_files, path_aliases=self._path_aliases
+        )
 
         # Step 1 — Create repository root node
         repo_node = self._create_repo_node()
@@ -160,14 +175,6 @@ class GraphBuilder:
                 relationship=RelationshipType.CONTAINS,
             ))
 
-        module_name_index: dict[str, list[GraphNode]] = {}
-        for parsed_file in parsed_files:
-            file_node = file_nodes.get(parsed_file.path)
-            if not file_node:
-                continue
-            for module_name in self._candidate_module_names(parsed_file.path):
-                module_name_index.setdefault(module_name, []).append(file_node)
-
         # Step 4 — Create class and function nodes and import edges
         for parsed_file in parsed_files:
             file_node = file_nodes.get(parsed_file.path)
@@ -218,23 +225,46 @@ class GraphBuilder:
                     relationship=RelationshipType.CONTAINS,
                 ))
 
-            # Step 7 — Create import edges
+            # Step 7 — Create import edges via the deterministic resolver.
+            # The resolver understands relative imports, package re-exports,
+            # and configured path aliases (Req 3.3). An IMPORTS edge is created
+            # ONLY when a module resolves to a single file; otherwise the
+            # reference is counted as unresolved, never fabricated (Req 3.2).
+            resolved_imports = 0
+            unresolved_imports = 0
+            seen_import_targets: set[str] = set()
             for imp in parsed_file.imports:
                 if not imp.module:
                     continue
-                target_nodes = self._resolve_import_targets(
+                resolved = symbol_table.resolve_import(
                     imp.module,
-                    module_name_index,
-                    file_node,
+                    from_file=parsed_file.path,
+                    imported_names=imp.names,
+                    is_relative=imp.is_relative,
                 )
-                for target_node in target_nodes:
-                    if target_node.id == file_node.id:
-                        continue
-                    result.edges.append(self._create_edge(
-                        source=file_node,
-                        target=target_node,
-                        relationship=RelationshipType.IMPORTS,
-                    ))
+                target_node = None
+                if resolved is not None:
+                    target_node = file_nodes.get(resolved.file)
+                    if target_node is None:
+                        target_node = self._node_index.get(
+                            self._make_id("file", resolved.file)
+                        )
+                if target_node is None or target_node.id == file_node.id:
+                    unresolved_imports += 1
+                    continue
+                if target_node.id in seen_import_targets:
+                    continue
+                seen_import_targets.add(target_node.id)
+                resolved_imports += 1
+                result.edges.append(self._create_edge(
+                    source=file_node,
+                    target=target_node,
+                    relationship=RelationshipType.IMPORTS,
+                ))
+
+            # Honest per-file evidence of import-graph completeness (Req 3.4).
+            file_node.properties["resolved_imports"] = resolved_imports
+            file_node.properties["unresolved_imports"] = unresolved_imports
 
         # Step 8 — Add inheritance and implements edges between classes
         class_name_index: dict[str, GraphNode] = {
@@ -266,37 +296,68 @@ class GraphBuilder:
                             ))
 
         # Step 9 — Add CALLS edges from function call targets
-        # Build function name → node index for call resolution
-        fn_name_index: dict[str, GraphNode] = {}
-        for n in result.nodes:
-            if n.node_type in (NodeType.FUNCTION, NodeType.METHOD, NodeType.ENDPOINT, NodeType.TEST):
-                # Index by simple name and qualified name
-                fn_name_index[n.label] = n
-                qualified = n.properties.get("qualified_name", "")
-                if qualified:
-                    fn_name_index[qualified] = n
+        # ── Scoped, collision-safe call resolution ───────────────────────────
+        # A bare name like `save` must NOT link to every `save` in the repo.
+        # Resolve each call using the STRONGEST available context, in order:
+        #   1. self.<method>  → a method of the SAME class
+        #   2. <name>         → a symbol defined in the SAME file
+        #   3. <name>         → a symbol imported by this file (unambiguous)
+        #   4. Class.method / qualified → exact qualified-name match
+        #   5. <name>         → a repo-wide UNIQUE definition (only if exactly one)
+        # If a call cannot be resolved confidently, it is counted as UNRESOLVED
+        # and NO edge is fabricated.
+        # Which internal modules/symbols each file imports (for imported scope).
+        imports_by_file = self._imports_by_file(parsed_files)
+
+        # A generous but bounded per-function edge cap prevents pathological
+        # fan-out while preserving complete meaningful relationships.
+        max_call_edges_per_fn = 25
 
         for parsed_file in parsed_files:
+            file_path = parsed_file.path
             for fn in parsed_file.all_functions():
                 if not fn.calls:
                     continue
-                source_node_id = self._make_id("fn", f"{parsed_file.path}.{fn.qualified_name()}")
+                source_node_id = self._make_id("fn", f"{file_path}.{fn.qualified_name()}")
                 source_node = self._node_index.get(source_node_id)
                 if not source_node:
                     continue
-                # Resolve up to 5 calls per function to avoid edge explosion
-                resolved = 0
-                for call_target in fn.calls:
-                    if resolved >= 5:
+
+                parent_class = fn.parent_class or ""
+                resolved_targets: set[str] = set()
+                unresolved = 0
+
+                for raw_call in fn.calls:
+                    resolved = symbol_table.resolve(
+                        raw_call,
+                        from_file=file_path,
+                        imports=imports_by_file.get(file_path, set()),
+                        parent_class=parent_class,
+                    )
+                    target = None
+                    if resolved is not None:
+                        target = self._node_index.get(
+                            self._make_id("fn", f"{resolved.file}.{resolved.qualified_name}")
+                        )
+                    if target is None or target.id == source_node.id:
+                        if resolved is None or target is None:
+                            unresolved += 1
+                        continue
+                    if target.id in resolved_targets:
+                        continue
+                    if len(resolved_targets) >= max_call_edges_per_fn:
                         break
-                    target_node = fn_name_index.get(call_target)
-                    if target_node and target_node.id != source_node.id:
-                        result.edges.append(self._create_edge(
-                            source=source_node,
-                            target=target_node,
-                            relationship=RelationshipType.CALLS,
-                        ))
-                        resolved += 1
+                    resolved_targets.add(target.id)
+                    result.edges.append(self._create_edge(
+                        source=source_node,
+                        target=target,
+                        relationship=RelationshipType.CALLS,
+                    ))
+
+                # Record how many calls we could NOT resolve — honest evidence
+                # of graph incompleteness that the explainer uses for confidence.
+                source_node.properties["resolved_calls"] = len(resolved_targets)
+                source_node.properties["unresolved_calls"] = unresolved
 
         # Step 10 — Add TESTS edges from test files to modules they test
         # Heuristic: test file "test_jobs.py" or "jobs_test.py" likely tests
@@ -390,6 +451,8 @@ class GraphBuilder:
                 "max_complexity": parsed_file.max_complexity(),
                 "endpoints": len(parsed_file.all_endpoints()),
                 "documentation_ratio": round(parsed_file.documentation_ratio(), 2),
+                # Author intent: the module-level docstring, bounded.
+                "docstring_summary": self._docstring_summary(parsed_file.docstring),
             },
         )
 
@@ -424,6 +487,7 @@ class GraphBuilder:
                 "is_interface": parsed_class.is_interface,
                 "is_enum": parsed_class.is_enum,
                 "has_docstring": parsed_class.has_docstring(),
+                "docstring_summary": self._docstring_summary(parsed_class.docstring),
                 "decorators": ", ".join(parsed_class.decorators),
                 "attributes": ", ".join(parsed_class.attributes[:15]),
                 "attribute_count": len(parsed_class.attributes),
@@ -464,8 +528,10 @@ class GraphBuilder:
                 "param_count":   len(fn.parameters),
                 "lines":         fn.line_count(),
                 "has_docstring": fn.has_docstring(),
+                "docstring_summary": self._docstring_summary(fn.docstring),
                 "decorators":    ", ".join(fn.decorators),
                 "qualified_name": fn.qualified_name(),
+                "parent_class":   fn.parent_class or "",
                 # ── Complexity metrics ────────────────────────────────────────
                 "cyclomatic":       fn.cyclomatic_complexity,
                 "branch_count":     fn.branch_count,
@@ -475,7 +541,7 @@ class GraphBuilder:
                 "is_test":          fn.is_test,
                 "is_endpoint":      fn.is_endpoint,
                 "route_info":       fn.route_info or "",
-                "calls":            ", ".join(fn.calls[:10]),
+                "calls":            ", ".join(fn.calls[:20]),
             },
         )
 
@@ -548,68 +614,6 @@ class GraphBuilder:
         """Normalize a repository-relative path to forward-slash form."""
         return path.replace("\\", "/").strip("/")
 
-    def _candidate_module_names(self, file_path: str) -> list[str]:
-        """Return import-style module names that could match a file path."""
-        normalized = self._normalize_path(file_path)
-        parts = [part for part in normalized.split("/") if part]
-        if not parts:
-            return []
-
-        names: list[str] = []
-        for index in range(len(parts)):
-            if parts[index].endswith(".py"):
-                stem = parts[index][:-3]
-                module_parts = parts[index + 1:] if index < len(parts) - 1 else []
-                candidates = [
-                    ".".join(parts[index + 1:]),
-                    ".".join(parts[index + 1:-1]) if len(parts[index + 1:]) > 1 else None,
-                    stem,
-                ]
-                names.extend(
-                    candidate
-                    for candidate in candidates
-                    if candidate
-                )
-                break
-
-        if not names:
-            return []
-
-        # Also include suffix-based names for nested packages.
-        suffix_names = []
-        for index in range(1, len(parts)):
-            suffix_names.append(".".join(parts[index:]))
-        return list(dict.fromkeys(names + suffix_names))
-
-    def _resolve_import_targets(
-        self,
-        import_module: str,
-        module_name_index: dict[str, list[GraphNode]],
-        source_node: GraphNode,
-    ) -> list[GraphNode]:
-        """Resolve a Python import to file nodes using module-name matching."""
-        candidates: list[GraphNode] = []
-        seen: set[str] = set()
-        normalized_import = import_module.strip(".")
-
-        for module_name in {normalized_import, normalized_import.split(".")[-1]}:
-            if not module_name:
-                continue
-            for target_node in module_name_index.get(module_name, []):
-                if target_node.id not in seen:
-                    seen.add(target_node.id)
-                    candidates.append(target_node)
-
-        if not candidates:
-            for module_name, targets in module_name_index.items():
-                if module_name.endswith(normalized_import) or normalized_import.endswith(module_name):
-                    for target_node in targets:
-                        if target_node.id != source_node.id and target_node.id not in seen:
-                            seen.add(target_node.id)
-                            candidates.append(target_node)
-
-        return candidates
-
     def _emit_debug_summary(
         self,
         parsed_files: list[ParsedFile],
@@ -645,6 +649,49 @@ class GraphBuilder:
                 for edge in result.edges[:20]
             ],
         )
+
+    def _imports_by_file(
+        self,
+        parsed_files: list[ParsedFile],
+    ) -> dict[str, set[str]]:
+        """Map each file path to the set of simple symbol names it imports.
+
+        Used so a bare call can be resolved to an imported symbol only when the
+        current file actually imports something of that name.
+        """
+        out: dict[str, set[str]] = {}
+        for pf in parsed_files:
+            names: set[str] = set()
+            for imp in pf.imports:
+                for n in imp.names:
+                    names.add(n)
+                # `import x.y.z` / `from a import b` — last module segment too.
+                if imp.module:
+                    names.add(imp.module.split(".")[-1])
+            out[pf.path] = names
+        return out
+
+    @staticmethod
+    def _docstring_summary(docstring: str | None, limit: int = 240) -> str:
+        """Return a bounded, single-paragraph summary of a docstring.
+
+        Preserves the author's intent (the first paragraph — the part that
+        states *what* the symbol is for) while keeping the graph small. Never
+        stores the full body. Returns "" when there is no docstring.
+        """
+        if not docstring:
+            return ""
+        text = docstring.strip()
+        if not text:
+            return ""
+        # First paragraph = up to the first blank line (the summary line/para).
+        para = text.split("\n\n", 1)[0].strip()
+        # Collapse internal whitespace/newlines so it reads as one clean line.
+        para = " ".join(para.split())
+        if len(para) > limit:
+            # Cut on a word boundary within the limit and mark truncation.
+            para = para[:limit].rsplit(" ", 1)[0].rstrip() + "…"
+        return para
 
     def _make_id(self, prefix: str, value: str) -> str:
         """Create a deterministic, collision-free node ID.

@@ -13,4 +13,7 @@ public class Example {
 
     assert result.path == "Example.java"
     assert result.language.value == "java"
-    assert result.functions[0].name == "run"
+    # tree-sitter attributes `run` to its enclosing class as a method; the point
+    # of this test is that logging with **summary() does not raise on the `path`
+    # kwarg, and that the symbol is extracted.
+    assert any(f.name == "run" for f in result.all_functions())
