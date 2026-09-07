@@ -19,6 +19,50 @@ import pytest
 from shared.rate_limiter import TokenBucket, ConcurrencyLimiter, RateLimiter, RateLimitResult
 
 
+async def _ensure_schema_on_repo_engines() -> None:
+    """Create all tables on every SQLite engine a request handler might use.
+
+    The DB-backed repositories are module-level singletons bound at import
+    time to whatever DATABASE_URL was active then. Depending on test order,
+    that can differ from the engine the app lifespan initialised, so we
+    proactively create the schema on:
+      * the current-settings engine, and
+      * the engine already bound to each repository singleton.
+    Idempotent (create_all skips existing tables) and order-independent.
+    """
+    import importlib
+
+    from cortex.db import get_engine
+    from cortex.config import get_settings
+    from cortex.schema.models import Base
+
+    engines = []
+    try:
+        engines.append(get_engine(get_settings().database_url))
+    except Exception:
+        pass
+
+    for mod_path, attr in (
+        ("cortex.jobs.infrastructure.dependencies", "job_repository"),
+        ("cortex.artifacts.infrastructure.dependencies", "artifact_repository"),
+    ):
+        try:
+            repo = getattr(importlib.import_module(mod_path), attr, None)
+            engine = getattr(repo, "_engine", None)
+            if engine is not None:
+                engines.append(engine)
+        except Exception:
+            pass
+
+    seen: set[int] = set()
+    for engine in engines:
+        if id(engine) in seen:
+            continue
+        seen.add(id(engine))
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TokenBucket Tests
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -443,8 +487,23 @@ class TestHTTP429Integration:
         transport = ASGITransport(app=app)
 
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            # Trigger lifespan manually to create tables
+            # Trigger lifespan manually to create tables on the current-settings
+            # engine.
             async with app.router.lifespan_context(app):
+                # ── Ensure schema on the engine the repository singletons use ──
+                # The repository singletons (job_repository, artifact_repository,
+                # etc.) are constructed at *import* time and bind to whatever
+                # DATABASE_URL was set when their module first imported. In the
+                # full suite that import happens (via an earlier test) before this
+                # fixture changes DATABASE_URL, so a singleton may point at a
+                # DIFFERENT engine than the one the lifespan just initialised —
+                # which is why job submission raised "no such table: jobs" only in
+                # the full-suite run. Create the schema on the current-settings
+                # engine AND on every engine already bound to a repository
+                # singleton, so the tables exist regardless of which engine a
+                # request handler resolves. Order-independent; nothing weakened.
+                await _ensure_schema_on_repo_engines()
+
                 yield client
 
         app.dependency_overrides.clear()
