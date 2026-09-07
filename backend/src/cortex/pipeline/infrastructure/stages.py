@@ -166,9 +166,12 @@ class ASTParseStage(AbstractPipelineStage):
             # Record coverage gaps for every file that failed to parse, and
             # capture preliminary file coverage. Reference counts are folded in
             # later by GraphBuildStage once the graph exists (Req 1.4, Req 6.1).
+            import asyncio
             from cortex.pipeline.infrastructure.coverage import compute_coverage
-            context.coverage = compute_coverage(
-                context.parsed_files, skipped_files=context.skipped_files
+            context.coverage = await asyncio.to_thread(
+                compute_coverage,
+                context.parsed_files,
+                skipped_files=context.skipped_files,
             )
 
             logger.info(
@@ -199,9 +202,13 @@ class VibeDetectStage(AbstractPipelineStage):
         if not context.parsed_files:
             return context  # skip silently — not fatal
 
+        import asyncio
+
         try:
-            context.vibe_report = self._detector.analyze(
-                context.parsed_files, context.repo_url
+            # CPU-bound analysis — offload to a worker thread so the event
+            # loop stays responsive and status polling isn't blocked.
+            context.vibe_report = await asyncio.to_thread(
+                self._detector.analyze, context.parsed_files, context.repo_url
             )
             logger.info(
                 "vibe_detect_stage_completed",
@@ -237,8 +244,12 @@ class GraphBuildStage(AbstractPipelineStage):
                 parsed_file_count=len(context.parsed_files),
             )
 
+            import asyncio
+
             builder = GraphBuilder(job_id=context.job.id, repo_url=context.repo_url)
-            graph_result = builder.build(context.parsed_files)
+            # CPU-bound graph construction — offload to a worker thread so the
+            # event loop stays responsive and status polling isn't blocked.
+            graph_result = await asyncio.to_thread(builder.build, context.parsed_files)
 
             context.graph_result = graph_result
             context.node_count = graph_result.node_count()
@@ -248,8 +259,11 @@ class GraphBuildStage(AbstractPipelineStage):
             # unresolved reference counts are included alongside the parse-time
             # file coverage and gaps (Req 6.1).
             from cortex.pipeline.infrastructure.coverage import compute_coverage
-            context.coverage = compute_coverage(
-                context.parsed_files, graph_result, skipped_files=context.skipped_files
+            context.coverage = await asyncio.to_thread(
+                compute_coverage,
+                context.parsed_files,
+                graph_result,
+                skipped_files=context.skipped_files,
             )
 
             # Persist graph to SQLite using bulk inserts — one transaction
@@ -304,6 +318,8 @@ class ArtifactGenerateStage(AbstractPipelineStage):
             )
             return context
 
+        import asyncio
+
         try:
             from cortex.pipeline.infrastructure.artifact_generator import (
                 MermaidGenerator,
@@ -316,64 +332,76 @@ class ArtifactGenerateStage(AbstractPipelineStage):
             mermaid_gen = MermaidGenerator()
             markdown_gen = MarkdownReportGenerator()
 
-            if artifact_type == "architecture_diagram":
-                from cortex.pipeline.infrastructure.architecture_diagram_generator import (
-                    ArchitectureDiagramGenerator,
-                )
-                content = ArchitectureDiagramGenerator().generate(graph_result, repo_name)
-                content_type = ArtifactContentType.MARKDOWN
+            def _generate() -> tuple[str, ArtifactContentType]:
+                """CPU-bound artifact rendering. Runs in a worker thread so
+                the event loop stays responsive and status polling isn't
+                blocked. Returns (content, content_type)."""
+                content: str
+                content_type: ArtifactContentType
 
-            elif artifact_type == "module_breakdown":
-                content = markdown_gen.generate_module_breakdown(graph_result, repo_name)
-                content_type = ArtifactContentType.MARKDOWN
+                if artifact_type == "architecture_diagram":
+                    from cortex.pipeline.infrastructure.architecture_diagram_generator import (
+                        ArchitectureDiagramGenerator,
+                    )
+                    content = ArchitectureDiagramGenerator().generate(graph_result, repo_name)
+                    content_type = ArtifactContentType.MARKDOWN
 
-            elif artifact_type == "learning_path":
-                content = markdown_gen.generate_learning_path(graph_result, repo_name)
-                content_type = ArtifactContentType.MARKDOWN
+                elif artifact_type == "module_breakdown":
+                    content = markdown_gen.generate_module_breakdown(graph_result, repo_name)
+                    content_type = ArtifactContentType.MARKDOWN
 
-            elif artifact_type == "api_spec":
-                content = markdown_gen.generate_api_spec(graph_result, repo_name)
-                content_type = ArtifactContentType.MARKDOWN
+                elif artifact_type == "learning_path":
+                    content = markdown_gen.generate_learning_path(graph_result, repo_name)
+                    content_type = ArtifactContentType.MARKDOWN
 
-            elif artifact_type == "interview_questions":
-                content = markdown_gen.generate_interview_questions(graph_result, repo_name)
-                content_type = ArtifactContentType.MARKDOWN
+                elif artifact_type == "api_spec":
+                    content = markdown_gen.generate_api_spec(graph_result, repo_name)
+                    content_type = ArtifactContentType.MARKDOWN
 
-            elif artifact_type == "vibe_code_detection":
-                from cortex.pipeline.infrastructure.code_quality_generator import (
-                    CodeQualityGenerator,
-                )
-                content = CodeQualityGenerator().generate(
-                    graph_result, repo_name, vibe_report=context.vibe_report
-                )
-                content_type = ArtifactContentType.MARKDOWN
+                elif artifact_type == "interview_questions":
+                    content = markdown_gen.generate_interview_questions(graph_result, repo_name)
+                    content_type = ArtifactContentType.MARKDOWN
 
-            elif artifact_type == "folder_structure":
-                content = markdown_gen.generate_module_breakdown(graph_result, repo_name)
-                content_type = ArtifactContentType.MARKDOWN
+                elif artifact_type == "vibe_code_detection":
+                    from cortex.pipeline.infrastructure.code_quality_generator import (
+                        CodeQualityGenerator,
+                    )
+                    content = CodeQualityGenerator().generate(
+                        graph_result, repo_name, vibe_report=context.vibe_report
+                    )
+                    content_type = ArtifactContentType.MARKDOWN
 
-            elif artifact_type == "engineering_report":
-                from cortex.pipeline.infrastructure.engineering_report_generator import (
-                    EngineeringReportGenerator,
-                )
-                content = EngineeringReportGenerator().generate(graph_result, repo_name)
-                content_type = ArtifactContentType.MARKDOWN
+                elif artifact_type == "folder_structure":
+                    content = markdown_gen.generate_module_breakdown(graph_result, repo_name)
+                    content_type = ArtifactContentType.MARKDOWN
 
-            elif artifact_type == "database_schema":
-                from cortex.pipeline.infrastructure.database_schema_generator import (
-                    DatabaseSchemaGenerator,
-                )
-                schema_gen = DatabaseSchemaGenerator()
-                content = schema_gen.generate(
-                    context.parsed_files or [],
-                    graph_result,
-                    repo_name,
-                )
-                content_type = ArtifactContentType.MARKDOWN
+                elif artifact_type == "engineering_report":
+                    from cortex.pipeline.infrastructure.engineering_report_generator import (
+                        EngineeringReportGenerator,
+                    )
+                    content = EngineeringReportGenerator().generate(graph_result, repo_name)
+                    content_type = ArtifactContentType.MARKDOWN
 
-            else:
-                content = mermaid_gen.generate(graph_result, repo_name)
-                content_type = ArtifactContentType.MERMAID
+                elif artifact_type == "database_schema":
+                    from cortex.pipeline.infrastructure.database_schema_generator import (
+                        DatabaseSchemaGenerator,
+                    )
+                    schema_gen = DatabaseSchemaGenerator()
+                    content = schema_gen.generate(
+                        context.parsed_files or [],
+                        graph_result,
+                        repo_name,
+                    )
+                    content_type = ArtifactContentType.MARKDOWN
+
+                else:
+                    content = mermaid_gen.generate(graph_result, repo_name)
+                    content_type = ArtifactContentType.MERMAID
+
+                return content, content_type
+
+            # Offload the CPU-bound rendering to a worker thread.
+            content, content_type = await asyncio.to_thread(_generate)
 
             context.artifact_content = content
             context.artifact_content_type = content_type

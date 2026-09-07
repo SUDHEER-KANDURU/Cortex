@@ -113,13 +113,9 @@ async def _post_pipeline_intelligence(job: Job) -> None:
     await fts.index_facts(repo_url=job.repo_url, job_id=job.id)
     await fts.index_nodes(job_id=job.id)
 
-    # Step 6: Store file hashes for incremental analysis on next run
-    from cortex.pipeline.infrastructure.incremental_analyzer import IncrementalAnalyzer
-    incremental = IncrementalAnalyzer()
-    # File contents are not available here (they're in PipelineContext, not persisted).
-    # Hash storage is triggered from the pipeline stages instead. This is a no-op
-    # placeholder — actual hash storage happens in GitHubFetchStage when file_contents
-    # are available.
+    # Note: file-hash storage for incremental analysis is NOT done here.
+    # File contents live in PipelineContext (not persisted), so hashing is
+    # triggered from GitHubFetchStage where file_contents are available.
 
     logger.info(
         "post_pipeline_intelligence_complete",
@@ -143,7 +139,12 @@ async def _run_pipeline_for_job(job: Job, service: JobService, identity_key: str
 
         await service.mark_running(job.id)
         pipeline = build_default_pipeline()
-        context = await pipeline.run(job)
+
+        async def _report_progress(stage: str, percent: int) -> None:
+            # Best-effort live progress for the client — never abort on failure.
+            await service.update_progress(job.id, stage, percent)
+
+        context = await pipeline.run(job, progress=_report_progress)
 
         if context.has_error():
             logger.error(
@@ -182,21 +183,37 @@ async def _run_pipeline_for_job(job: Job, service: JobService, identity_key: str
         )
 
     except Exception as e:
+        import asyncio
         import traceback
         logger.error("pipeline_failed", job_id=job.id, error=str(e))
         traceback.print_exc()
-        try:
-            await service.mark_failed(job.id, str(e))
-        except Exception as mark_err:
-            # mark_failed itself failed (e.g. DB unreachable).
-            # Log it — do not swallow it silently. The job will be stuck in
-            # 'running' and will be reset to 'failed' on next server restart
-            # via the lifespan startup reset.
+        # Mark the job failed with retry/backoff. A single mark_failed() can
+        # transiently fail (e.g. SQLite write-lock contention while other
+        # stages/repos are committing). If we give up after one try the row
+        # stays 'running' forever and the UI polls it indefinitely, so retry
+        # a few times before falling back to the startup/watchdog reaper.
+        marked = False
+        for attempt in range(4):
+            try:
+                await service.mark_failed(job.id, str(e))
+                marked = True
+                break
+            except Exception as mark_err:
+                logger.warning(
+                    "mark_failed_retry",
+                    job_id=job.id,
+                    attempt=attempt + 1,
+                    error=str(mark_err),
+                )
+                await asyncio.sleep(0.5 * (attempt + 1))
+        if not marked:
+            # All retries exhausted. Do not swallow it silently — the job is
+            # stuck in 'running' and will only be reset by the stale-running
+            # watchdog on the next poll or the lifespan startup reset.
             logger.error(
                 "mark_failed_error",
                 job_id=job.id,
                 original_error=str(e),
-                mark_failed_error=str(mark_err),
             )
     finally:
         # Always release the concurrency slot regardless of outcome
