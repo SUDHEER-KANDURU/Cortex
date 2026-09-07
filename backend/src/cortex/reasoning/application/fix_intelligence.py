@@ -9,12 +9,11 @@ Deterministic fix templates for common issues. NIM explains the approach.
 
 from __future__ import annotations
 
-from collections import defaultdict
 
 import structlog
 
 from cortex.graph.domain.entities import GraphNode, GraphEdge, NodeType, RelationshipType
-from cortex.insights.domain.entities import CodeIssue, IssueCategory
+from cortex.insights.domain.entities import CodeIssue
 from cortex.overview.blast_radius import BlastRadiusAnalyzer
 from cortex.reasoning.domain.entities import FixIntelligence
 
