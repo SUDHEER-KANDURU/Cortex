@@ -18,6 +18,7 @@ rather than crashing the pipeline.
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -664,6 +665,60 @@ class TreeSitterParser(LanguageParser):
                     names.append(self._text(ident, source).lstrip("@"))
         return names
 
+    def _decorator_texts(self, node: Node, source: bytes) -> list[str]:
+        """Full raw text of decorators/annotations/attributes on a definition.
+
+        Unlike ``_decorators_before`` (which returns bare names), this keeps the
+        arguments — e.g. ``@GetMapping("/users")`` or ``[HttpGet("/users")]`` —
+        so a route path can be extracted for endpoint detection (Req 2.3).
+        """
+        texts: list[str] = []
+        prev = node.prev_named_sibling
+        while prev is not None and prev.type in {"decorator", "attribute_list",
+                                                 "annotation", "marker_annotation"}:
+            texts.append(self._text(prev, source))
+            prev = prev.prev_named_sibling
+        for child in node.children:
+            if child.type in {"modifiers", "attribute_list", "decorator"}:
+                for n in self._iter_all(child):
+                    if n.type in {"annotation", "marker_annotation", "attribute",
+                                  "decorator"}:
+                        texts.append(self._text(n, source))
+        return texts
+
+    # HTTP verbs recognised across decorator/annotation frameworks.
+    _HTTP_VERBS = ("get", "post", "put", "patch", "delete", "options", "head")
+
+    def _detect_endpoint(
+        self, node: Node, source: bytes
+    ) -> tuple[bool, str | None]:
+        """Detect whether a function/method is an HTTP route handler.
+
+        Handles decorator/annotation frameworks for every tree-sitter language:
+          - TS/JS (NestJS):   @Get('/x'), @Post(), @Controller
+          - Java (Spring):    @GetMapping("/x"), @RequestMapping, @PostMapping
+          - C# (ASP.NET):     [HttpGet("/x")], [Route("/x")]
+        Returns ``(is_endpoint, route_info)`` where ``route_info`` is like
+        ``"GET /x"`` when a path can be extracted, else the verb alone.
+        """
+        for dec in self._decorator_texts(node, source):
+            low = dec.lower().lstrip("@[").strip()
+            # Extract a quoted route path if the decorator carries one.
+            m = re.search(r"""["']([^"']+)["']""", dec)
+            path = m.group(1) if m else ""
+
+            # Spring-style: GetMapping / PostMapping / RequestMapping.
+            for verb in self._HTTP_VERBS:
+                if low.startswith(f"{verb}mapping") or low.startswith(f"http{verb}"):
+                    return True, f"{verb.upper()} {path}".strip()
+                # NestJS-style bare verb decorators: @Get('/x').
+                if low.startswith(f"{verb}(") or low == verb:
+                    return True, f"{verb.upper()} {path}".strip()
+            if low.startswith("requestmapping") or low.startswith("route("):
+                return True, (f"ROUTE {path}".strip() if path else "ROUTE")
+
+        return False, None
+
     @staticmethod
     def _iter_all(node: Node) -> Iterator[Node]:
         """Yield node then all descendants (pre-order)."""
@@ -701,6 +756,7 @@ class TreeSitterParser(LanguageParser):
         nesting = self._nesting_depth(node)
 
         is_test = name.lower().startswith("test") or "test" in name.lower()[:5]
+        is_endpoint, route_info = self._detect_endpoint(node, source)
 
         return ParsedFunction(
             name=name,
@@ -719,6 +775,8 @@ class TreeSitterParser(LanguageParser):
             call_count=len(calls),
             calls=list(dict.fromkeys(calls))[:20],
             is_test=is_test,
+            is_endpoint=is_endpoint,
+            route_info=route_info,
         )
 
     def _function_name(self, node: Node, source: bytes) -> str:
@@ -776,25 +834,40 @@ class TreeSitterParser(LanguageParser):
 
     # ── Complexity + call targets ────────────────────────────────────────────
     def _complexity_and_calls(self, node: Node, source: bytes) -> tuple[int, list[str]]:
-        """Count decision points (McCabe) and collect call targets in one walk."""
+        """Count decision points (McCabe) and collect call targets in one walk.
+
+        Nested function/method bodies are their OWN functions (parsed and scored
+        separately). Descending into them would inflate the enclosing function's
+        cyclomatic complexity with decisions that do not belong to it and would
+        also attribute a closure's calls to its parent. So the walk stops at any
+        nested function boundary — only this function's own body is counted.
+        """
         spec = self._spec
+        nested_fn_types = spec.function_nodes | spec.method_nodes | {
+            "arrow_function", "function_expression", "function", "lambda",
+        }
         branch_count = 0
         calls: list[str] = []
-        for n in self._iter_all(node):
-            if n is node:
-                continue
-            # Do not descend into nested function bodies' own decisions? We still
-            # count them; nested functions are rare and counting is conservative.
-            if n.type in spec.branch_nodes:
-                branch_count += 1
-            elif n.type in {"binary_expression", "boolean_operator"}:
-                op = n.child_by_field_name("operator")
-                if op is not None and self._text(op, source) in {"&&", "||", "and", "or"}:
+
+        def walk(n: Node) -> None:
+            nonlocal branch_count
+            for child in n.children:
+                # A nested function begins a new scope — do not descend into it.
+                if child.type in nested_fn_types:
+                    continue
+                if child.type in spec.branch_nodes:
                     branch_count += 1
-            if n.type in spec.call_nodes:
-                target = self._call_target(n, source)
-                if target:
-                    calls.append(target)
+                elif child.type in {"binary_expression", "boolean_operator"}:
+                    op = child.child_by_field_name("operator")
+                    if op is not None and self._text(op, source) in {"&&", "||", "and", "or"}:
+                        branch_count += 1
+                if child.type in spec.call_nodes:
+                    target = self._call_target(child, source)
+                    if target:
+                        calls.append(target)
+                walk(child)
+
+        walk(node)
         return branch_count, calls
 
     def _call_target(self, node: Node, source: bytes) -> str | None:

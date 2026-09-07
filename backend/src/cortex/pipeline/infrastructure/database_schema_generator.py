@@ -16,7 +16,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from cortex.pipeline.infrastructure.ast_parser import ParsedFile, ParsedClass
 from cortex.pipeline.infrastructure.graph_builder import GraphBuildResult
-from cortex.graph.domain.entities import NodeType
 import re
 import structlog
 
@@ -233,9 +232,13 @@ class DatabaseSchemaGenerator:
         # Also try lowercased and without suffixes
         entity_name_variants: dict[str, str] = {}
         for e in entities:
-            entity_name_variants[e.name.lower()] = e.name
-            entity_name_variants[e.name.lower().rstrip("model")] = e.name
-            entity_name_variants[e.name.lower().rstrip("entity")] = e.name
+            name_lower = e.name.lower()
+            entity_name_variants[name_lower] = e.name
+            # Strip common ORM suffixes so a FK like "user" resolves to "UserModel".
+            # Use removesuffix() — rstrip() removes any trailing chars in the set,
+            # which corrupts names (e.g. "role".rstrip("model") -> "ro").
+            entity_name_variants[name_lower.removesuffix("model")] = e.name
+            entity_name_variants[name_lower.removesuffix("entity")] = e.name
 
         for entity in entities:
             for f in entity.fields:

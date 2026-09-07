@@ -62,8 +62,12 @@ def _sum_resolution_counts(properties: dict) -> tuple[int, int]:
     return resolved, unresolved
 
 
-#: Reason recorded for files skipped because the repo exceeded the file cap.
-_OVER_LIMIT_REASON = "File skipped: repository exceeded the analysis file limit"
+#: Reason recorded for files skipped before parsing — either the repository
+#: exceeded the analysis file cap or an individual file exceeded the per-file
+#: size limit. Both are honest coverage gaps rather than silent drops.
+_OVER_LIMIT_REASON = (
+    "File skipped before parsing (repository file cap or per-file size limit)"
+)
 
 
 def compute_coverage(

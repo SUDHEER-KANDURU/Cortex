@@ -4,6 +4,7 @@ GraphNode and GraphEdge domain entities for persistent storage."""
 
 import hashlib
 import uuid
+from collections import defaultdict
 from dataclasses import dataclass, field
 
 import structlog
@@ -266,34 +267,64 @@ class GraphBuilder:
             file_node.properties["resolved_imports"] = resolved_imports
             file_node.properties["unresolved_imports"] = unresolved_imports
 
-        # Step 8 — Add inheritance and implements edges between classes
-        class_name_index: dict[str, GraphNode] = {
-            n.label: n
-            for n in result.nodes
-            if n.node_type in (NodeType.CLASS, NodeType.INTERFACE, NodeType.ENUM)
-        }
+        # Step 8 — Add inheritance and implements edges between classes.
+        # ── Collision-safe, file-scoped base-class resolution ────────────────
+        # A bare base name like `Base` must NOT link to every `Base` in the
+        # repo. We resolve each base class using the STRONGEST context first,
+        # exactly like calls/imports go through the SymbolTable:
+        #   1. a class/interface/enum defined in the SAME file, then
+        #   2. a repo-wide UNIQUE definition (only when exactly one exists).
+        # If a base name is ambiguous across files, NO edge is fabricated —
+        # a wrong inheritance edge is worse than a missing one (Req 3.2, 3.5).
+        typed = (NodeType.CLASS, NodeType.INTERFACE, NodeType.ENUM)
+
+        # (file, class_name) → node for same-file resolution.
+        class_by_file_name: dict[tuple[str, str], GraphNode] = {}
+        # class_name → set of node ids across all files (for uniqueness check).
+        class_nodes_by_name: dict[str, list[GraphNode]] = defaultdict(list)
+        for n in result.nodes:
+            if n.node_type in typed:
+                file_path = str(n.properties.get("file", "") or "")
+                class_by_file_name.setdefault((file_path, n.label), n)
+                class_nodes_by_name[n.label].append(n)
+
+        def _resolve_base(base_name: str, from_file: str) -> GraphNode | None:
+            # 1. Same-file definition wins outright — no ambiguity possible.
+            same_file = class_by_file_name.get((from_file, base_name))
+            if same_file is not None:
+                return same_file
+            # 2. Repo-wide unique definition (distinct across a single file).
+            candidates = class_nodes_by_name.get(base_name, [])
+            distinct_files = {str(c.properties.get("file", "") or "") for c in candidates}
+            if len(candidates) >= 1 and len(distinct_files) == 1:
+                return candidates[0]
+            # Ambiguous (same name in multiple files) → refuse to guess.
+            return None
 
         for parsed_file in parsed_files:
             for parsed_class in parsed_file.classes:
-                class_node = class_name_index.get(parsed_class.name)
+                class_node = class_by_file_name.get(
+                    (parsed_file.path, parsed_class.name)
+                )
                 if not class_node:
                     continue
                 for base in parsed_class.base_classes:
-                    base_node = class_name_index.get(base)
-                    if base_node:
-                        # If base is an interface/protocol, use IMPLEMENTS
-                        if base_node.node_type == NodeType.INTERFACE:
-                            result.edges.append(self._create_edge(
-                                source=class_node,
-                                target=base_node,
-                                relationship=RelationshipType.IMPLEMENTS,
-                            ))
-                        else:
-                            result.edges.append(self._create_edge(
-                                source=class_node,
-                                target=base_node,
-                                relationship=RelationshipType.INHERITS,
-                            ))
+                    base_node = _resolve_base(base, parsed_file.path)
+                    if base_node is None or base_node.id == class_node.id:
+                        continue
+                    # If base is an interface/protocol, use IMPLEMENTS.
+                    if base_node.node_type == NodeType.INTERFACE:
+                        result.edges.append(self._create_edge(
+                            source=class_node,
+                            target=base_node,
+                            relationship=RelationshipType.IMPLEMENTS,
+                        ))
+                    else:
+                        result.edges.append(self._create_edge(
+                            source=class_node,
+                            target=base_node,
+                            relationship=RelationshipType.INHERITS,
+                        ))
 
         # Step 9 — Add CALLS edges from function call targets
         # ── Scoped, collision-safe call resolution ───────────────────────────

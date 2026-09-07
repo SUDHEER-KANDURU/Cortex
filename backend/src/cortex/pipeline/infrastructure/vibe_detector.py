@@ -7,7 +7,6 @@ from enum import Enum
 from cortex.pipeline.infrastructure.ast_parser import (
     ParsedFile,
     ParsedFunction,
-    ParsedClass,
 )
 import re
 import structlog
@@ -343,6 +342,18 @@ class VibeDetector:
                     fix="Add a docstring explaining what this function does.",
                 ))
 
+    # Regexes that identify hardcoded secrets/config in raw source text.
+    # Kept as a class attribute to document intent: once ParsedFile carries raw
+    # file content, _detect_hardcoded_values should match these against it.
+    _HARDCODED_SECRET_PATTERNS: tuple[tuple[str, str], ...] = (
+        (r'password\s*=\s*["\'][^"\']+["\']', "hardcoded password"),
+        (r'secret\s*=\s*["\'][^"\']+["\']', "hardcoded secret"),
+        (r'api_key\s*=\s*["\'][^"\']+["\']', "hardcoded API key"),
+        (r'token\s*=\s*["\'][^"\']+["\']', "hardcoded token"),
+        (r'http://localhost:\d+', "hardcoded localhost URL"),
+        (r'127\.0\.0\.1', "hardcoded IP address"),
+    )
+
     def _detect_hardcoded_values(
         self,
         parsed_file: ParsedFile,
@@ -350,42 +361,31 @@ class VibeDetector:
         all_fns: list[ParsedFunction],
     ) -> None:
         """Detect hardcoded strings that look like secrets or config.
-        AI frequently hardcodes passwords, URLs, and API keys."""
-        suspicious_patterns = [
-            (r'password\s*=\s*["\'][^"\']+["\']', "hardcoded password"),
-            (r'secret\s*=\s*["\'][^"\']+["\']', "hardcoded secret"),
-            (r'api_key\s*=\s*["\'][^"\']+["\']', "hardcoded API key"),
-            (r'token\s*=\s*["\'][^"\']+["\']', "hardcoded token"),
-            (r'http://localhost:\d+', "hardcoded localhost URL"),
-            (r'127\.0\.0\.1', "hardcoded IP address"),
-        ]
 
+        Intent: scan raw source text for the secret/config patterns in
+        ``_HARDCODED_SECRET_PATTERNS``. That requires the raw file content,
+        which ``ParsedFile`` does not currently store
+        (``file_contents_available()`` is always False), so this check is a
+        no-op today and produces no flags.
+
+        The previous implementation looped over the patterns but ignored them,
+        instead matching function *names* — which (a) never ran because of the
+        early return above it and (b) would have emitted duplicate flags (one
+        per pattern) had it run. That dead/duplicating logic has been removed.
+        When raw content is stored on ``ParsedFile``, replace the guard below
+        with a real per-pattern ``re.search`` over the file content.
+        """
         if not parsed_file.file_contents_available():
+            # Raw content unavailable — nothing to scan, so no flags are
+            # emitted. This is the current runtime behaviour for every file.
             return
 
-        for pattern, description in suspicious_patterns:
-            # We check via function names as a proxy
-            # (full content analysis requires content storage)
-            for fn in all_fns:
-                if any(
-                    kw in fn.name.lower()
-                    for kw in ["password", "secret", "token", "key"]
-                ):
-                    report.flags.append(VibeFlag(
-                        pattern=VibePattern.HARDCODED_VALUES,
-                        severity="high",
-                        file_path=parsed_file.path,
-                        line=fn.line_start,
-                        message=(
-                            f"Function `{fn.name}` may handle sensitive "
-                            f"data. Check for hardcoded secrets."
-                        ),
-                        fix=(
-                            "Use environment variables via os.getenv() "
-                            "or a config class. Never hardcode secrets."
-                        ),
-                    ))
-                    break
+        # NOTE: intentionally not implemented against raw content yet, because
+        # ParsedFile does not carry the source text. When it does, iterate
+        # self._HARDCODED_SECRET_PATTERNS and re.search each against the file
+        # content, emitting one HARDCODED_VALUES flag per distinct match. Kept
+        # as an explicit gap rather than a misleading function-name heuristic.
+        return
 
     def _detect_inconsistent_naming(
         self,

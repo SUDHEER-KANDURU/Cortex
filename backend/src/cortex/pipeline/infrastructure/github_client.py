@@ -20,7 +20,26 @@ logger = structlog.get_logger()
 # analysis degrades to partial Coverage instead of failing (Req 10.3).
 MAX_ANALYSIS_FILES = 2000
 
+# Per-file byte-size ceiling. Files larger than this (typically minified
+# bundles, generated code, or vendored blobs) are skipped and recorded as
+# coverage gaps rather than parsed — a single huge file can otherwise dominate
+# parse time and memory without contributing meaningful structure (P2-1).
+MAX_FILE_BYTES = 1_000_000  # 1 MB
+
+# Extensions Cortex ACTUALLY parses into structure (Python via ast; the rest
+# via tree-sitter). Files with these extensions produce real symbols/edges.
+# Kept in lockstep with the parser registry's supported languages.
+PARSED_EXTENSIONS = {
+    ".py", ".pyi",
+    ".js", ".jsx", ".mjs", ".cjs",
+    ".ts", ".tsx",
+    ".java", ".go", ".rs", ".cs", ".rb",
+}
+
 # Shared set of extensions considered "code" for fetching and classification.
+# NOTE: many of these are RECOGNIZED but NOT structurally parsed (only the
+# PARSED_EXTENSIONS above are). Coverage reporting distinguishes the two so we
+# never claim structural understanding we don't have (P1-1).
 CODE_EXTENSIONS = {
     ".py", ".java", ".ts", ".tsx", ".js", ".jsx",
     ".go", ".rs", ".cpp", ".c", ".cs", ".rb",
@@ -258,16 +277,34 @@ class GitHubClient:
         """
         tree = await self.get_file_tree(owner, repo)
 
+        code_candidates = [
+            n for n in tree
+            if n.is_file() and n.extension() in CODE_EXTENSIONS
+        ]
+        # Per-file size gate: oversized files (minified/generated/vendored) are
+        # not parsed — they are recorded as skipped gaps (P2-1).
+        oversized = [n for n in code_candidates if n.size > MAX_FILE_BYTES]
+        within_size = [n for n in code_candidates if n.size <= MAX_FILE_BYTES]
+
+        # Rank so files Cortex can STRUCTURALLY parse are analyzed first when the
+        # file cap bites, ahead of recognized-but-unparsed files (P1-1). Within
+        # each group, largest-first with a path tiebreak keeps ordering
+        # deterministic.
         ranked_code = sorted(
-            [
-                n for n in tree
-                if n.is_file() and n.extension() in CODE_EXTENSIONS
-            ],
-            key=lambda n: (-n.size, n.path),  # largest first; path tiebreak = deterministic
+            within_size,
+            key=lambda n: (
+                n.extension() not in PARSED_EXTENSIONS,  # parsed languages first
+                -n.size,
+                n.path,
+            ),
         )
         code_nodes = ranked_code[:max_files]
-        # Files past the cap are not fetched but are remembered as gaps.
-        self.last_skipped_files = [n.path for n in ranked_code[max_files:]]
+        # Files past the cap OR over the size limit are not fetched but are
+        # remembered as coverage gaps (deterministic order).
+        self.last_skipped_files = (
+            [n.path for n in ranked_code[max_files:]]
+            + sorted(n.path for n in oversized)
+        )
 
         # Fallback: if no code files matched, fetch config/markup files so the
         # pipeline has something to analyze rather than failing outright.
