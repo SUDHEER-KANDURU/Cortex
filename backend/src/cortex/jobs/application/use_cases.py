@@ -27,6 +27,48 @@ class JobService(AbstractJobService):
     def __init__(self, repository: AbstractJobRepository) -> None:
         self._repo = repository
 
+    def _is_stale_running(self, job: Job) -> bool:
+        """True if a RUNNING job hasn't advanced for longer than the watchdog
+        window — meaning its in-process background task almost certainly died
+        and the job would otherwise stay 'running' forever."""
+        if job.status != JobStatus.RUNNING:
+            return False
+        from cortex.config import get_settings
+        timeout = get_settings().job_stale_running_seconds
+        updated = job.updated_at
+        if updated is None:
+            return False
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+        age = (_now() - updated).total_seconds()
+        return age > timeout
+
+    async def _reap_if_stale(self, job: Job) -> Job:
+        """Auto-fail a single job if its RUNNING state has gone stale."""
+        if not self._is_stale_running(job):
+            return job
+        try:
+            updated = await self._repo.update_status(
+                job_id=job.id,
+                status=JobStatus.FAILED,
+                error_message=(
+                    "Analysis stopped unexpectedly (no progress within the "
+                    "expected time). Please retry."
+                ),
+            )
+            logger.warning("job_reaped_stale_running", job_id=job.id)
+            return updated
+        except Exception as e:  # pragma: no cover - defensive
+            logger.warning("job_reap_failed", job_id=job.id, error=str(e))
+            return job
+
+    async def _reap_stale_list(self, jobs: list[Job]) -> list[Job]:
+        """Sweep a list of jobs, auto-failing any stale RUNNING ones."""
+        result: list[Job] = []
+        for job in jobs:
+            result.append(await self._reap_if_stale(job))
+        return result
+
     async def submit(
         self,
         repo_url: str,
@@ -75,23 +117,29 @@ class JobService(AbstractJobService):
             raise NotFoundError(f"Job not found: {job_id}")
         if owner_id is not None and job.user_id is not None and job.user_id != owner_id:
             raise NotFoundError(f"Job not found: {job_id}")
-        return job
+        # Watchdog: if this job has been "running" with no progress past the
+        # timeout, its background task died — auto-fail it so the UI stops
+        # polling a job that will never finish.
+        return await self._reap_if_stale(job)
 
     async def list_all(self, user_id: str | None = None) -> list[Job]:
         """Return all jobs, newest first, optionally scoped to a user."""
-        return await self._repo.get_all(user_id=user_id)
+        jobs = await self._repo.get_all(user_id=user_id)
+        return await self._reap_stale_list(jobs)
 
     async def list_by_status(
         self, status: JobStatus, user_id: str | None = None
     ) -> list[Job]:
         """Return jobs filtered by status, optionally scoped to a user."""
-        return await self._repo.get_by_status(status, user_id=user_id)
+        jobs = await self._repo.get_by_status(status, user_id=user_id)
+        return await self._reap_stale_list(jobs)
 
     async def list_by_repo(
         self, repo_url: str, user_id: str | None = None
     ) -> list[Job]:
         """Return all jobs for a specific repository, optionally scoped to a user."""
-        return await self._repo.get_by_repo_url(repo_url, user_id=user_id)
+        jobs = await self._repo.get_by_repo_url(repo_url, user_id=user_id)
+        return await self._reap_stale_list(jobs)
 
     async def cancel(self, job_id: str, owner_id: str | None = None) -> Job:
         """Cancel a pending or running job."""
@@ -148,6 +196,14 @@ class JobService(AbstractJobService):
 
         logger.info("job_running", job_id=job_id)
         return updated
+
+    async def update_progress(self, job_id: str, stage: str, percent: int) -> None:
+        """Record live pipeline progress. Best-effort — never raises so a
+        progress write can't abort an in-flight analysis."""
+        try:
+            await self._repo.update_progress(job_id, stage, percent)
+        except Exception as e:  # pragma: no cover - defensive
+            logger.warning("job_progress_update_failed", job_id=job_id, error=str(e))
 
     async def mark_completed(self, job_id: str) -> Job:
         """Called by the pipeline when processing succeeds."""

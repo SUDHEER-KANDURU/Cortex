@@ -27,6 +27,8 @@ class JobResponse(BaseModel):
     artifact_type: ArtifactType
     error_message: str | None = None
     options: dict[str, str] | None = None
+    progress_stage: str | None = None
+    progress_percent: int = 0
     created_at: datetime
     updated_at: datetime
     is_terminal: bool = False
@@ -43,6 +45,8 @@ class JobResponse(BaseModel):
             artifact_type=job.artifact_type,
             error_message=job.error_message,
             options=job.options,
+            progress_stage=job.progress_stage,
+            progress_percent=job.progress_percent,
             created_at=job.created_at,
             updated_at=job.updated_at,
             is_terminal=job.is_terminal(),

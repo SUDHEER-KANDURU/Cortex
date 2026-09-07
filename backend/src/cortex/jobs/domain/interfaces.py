@@ -60,6 +60,14 @@ class AbstractJobRepository(ABC):
         ...
 
     @abstractmethod
+    async def update_progress(
+        self, job_id: str, stage: str, percent: int
+    ) -> None:
+        """Persist live pipeline progress (stage label + 0–100 percent).
+        Best-effort: implementations must not raise on failure."""
+        ...
+
+    @abstractmethod
     async def delete(self, job_id: str) -> None:
         """Hard delete a job and all its associated artifacts.
         Raises NotFoundError if job doesn't exist."""
@@ -87,8 +95,9 @@ class AbstractJobService(ABC):
         options: dict[str, str] | None = None,
         user_id: str | None = None,
     ) -> Job:
-        """Validate the request, create a Job entity, persist it,
-        and dispatch it to the Celery worker queue."""
+        """Validate the request, create a Job entity, persist it, and start the
+        analysis pipeline. The pipeline currently runs in-process via FastAPI
+        background tasks (no external worker/broker required)."""
         ...
 
     @abstractmethod

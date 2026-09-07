@@ -24,6 +24,8 @@ def _model_to_entity(model: JobModel) -> Job:
         error_message=model.error_message,
         options=model.options,
         user_id=model.user_id,
+        progress_stage=model.progress_stage,
+        progress_percent=model.progress_percent or 0,
         created_at=model.created_at,
         updated_at=model.updated_at,
     )
@@ -38,6 +40,8 @@ def _entity_to_model(job: Job) -> JobModel:
         error_message=job.error_message,
         options=job.options,
         user_id=job.user_id,
+        progress_stage=job.progress_stage,
+        progress_percent=job.progress_percent,
         created_at=job.created_at,
         updated_at=job.updated_at,
     )
@@ -156,6 +160,31 @@ class PostgresJobRepository(AbstractJobRepository):
             except Exception as e:
                 await session.rollback()
                 raise InfrastructureError(f"Failed to update job {job_id}: {e}")
+
+    async def update_progress(
+        self, job_id: str, stage: str, percent: int
+    ) -> None:
+        """Persist live progress for a running job.
+
+        Best-effort: progress is a UX signal, not a state transition, so a
+        failure here must never abort the pipeline. Clamps percent to 0–100.
+        """
+        percent = max(0, min(100, int(percent)))
+        async with self._session_factory() as session:
+            try:
+                await session.execute(
+                    update(JobModel)
+                    .where(JobModel.id == job_id)
+                    .values(
+                        progress_stage=stage,
+                        progress_percent=percent,
+                        updated_at=datetime.now(timezone.utc),
+                    )
+                )
+                await session.commit()
+            except Exception as e:
+                await session.rollback()
+                logger.warning("job_progress_update_failed", job_id=job_id, error=str(e))
 
     async def delete(self, job_id: str) -> None:
         async with self._session_factory() as session:

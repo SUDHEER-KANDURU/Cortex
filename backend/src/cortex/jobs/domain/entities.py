@@ -47,6 +47,12 @@ class Job:
     error_message: str | None = None
     options: dict[str, str] | None = None
     user_id: str | None = None  # Owner of the job — scopes list/get to a single account.
+    # Live pipeline progress (P1-6): the human-readable stage currently running
+    # (e.g. "Parsing source (2/5)") and a 0–100 percent estimate. These are
+    # written by the orchestrator as each stage runs so the client can show
+    # real progress instead of an opaque "running".
+    progress_stage: str | None = None
+    progress_percent: int = 0
     created_at: datetime = field(default_factory=_now)
     updated_at: datetime = field(default_factory=_now)
 

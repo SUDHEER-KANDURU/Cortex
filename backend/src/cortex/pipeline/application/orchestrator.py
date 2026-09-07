@@ -7,11 +7,30 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from collections.abc import Awaitable, Callable
 from cortex.jobs.domain.entities import Job, ArtifactType
 from cortex.pipeline.domain.interfaces import AbstractPipelineStage
 from cortex.artifacts.domain.entities import ArtifactContentType
 from shared.exceptions import CortexError
 import structlog
+
+#: Async callback ``(stage_label, percent)`` used to report live progress.
+ProgressReporter = Callable[[str, int], Awaitable[None]]
+
+#: Human-readable labels per pipeline stage class, for client-facing progress.
+_STAGE_LABELS: dict[str, str] = {
+    "GitHubFetchStage": "Fetching repository",
+    "ASTParseStage": "Parsing source",
+    "VibeDetectStage": "Analyzing code quality",
+    "GraphBuildStage": "Building knowledge graph",
+    "ArtifactGenerateStage": "Generating artifact",
+}
+
+
+def _humanize_stage(stage_name: str, position: int, total: int) -> str:
+    """Return a friendly progress label like 'Parsing source (2/5)'."""
+    label = _STAGE_LABELS.get(stage_name, stage_name)
+    return f"{label} ({position}/{total})"
 
 if TYPE_CHECKING:
     from cortex.pipeline.domain.entities import Coverage
@@ -89,9 +108,19 @@ class PipelineOrchestrator:
     def __init__(self, stages: list[AbstractPipelineStage]) -> None:
         self._stages = stages
 
-    async def run(self, job: Job) -> PipelineContext:
+    async def run(
+        self,
+        job: Job,
+        progress: "ProgressReporter | None" = None,
+    ) -> PipelineContext:
         """Execute all pipeline stages for a job.
-        Returns the final context with all results populated."""
+        Returns the final context with all results populated.
+
+        ``progress`` is an optional async callback ``(stage_label, percent)``
+        invoked as each stage starts and once on completion, so callers can
+        surface live progress to the client (P1-6). It is best-effort: a
+        failing progress callback never aborts the pipeline.
+        """
 
         context = PipelineContext(
             job=job,
@@ -99,16 +128,29 @@ class PipelineOrchestrator:
             artifact_type=job.artifact_type,
         )
 
+        total = len(self._stages)
         logger.info(
             "pipeline_started",
             job_id=job.id,
             repo_url=job.repo_url,
             artifact_type=job.artifact_type.value,
-            stage_count=len(self._stages),
+            stage_count=total,
         )
 
-        for stage in self._stages:
+        async def _report(stage_label: str, percent: int) -> None:
+            if progress is None:
+                return
+            try:
+                await progress(stage_label, percent)
+            except Exception as e:  # pragma: no cover - progress is best-effort
+                logger.debug("pipeline_progress_report_failed", error=str(e))
+
+        for index, stage in enumerate(self._stages):
             stage_name = stage.__class__.__name__
+
+            # Percent reflects stages STARTED so the bar advances as work begins.
+            pct = int(index / total * 100) if total else 0
+            await _report(_humanize_stage(stage_name, index + 1, total), pct)
 
             logger.info(
                 "pipeline_stage_started",
@@ -142,6 +184,8 @@ class PipelineOrchestrator:
                 error_msg = f"Unexpected error in {stage_name}: {str(e)}"
                 context.mark_error(error_msg)
                 raise PipelineError(error_msg) from e
+
+        await _report("Analysis complete", 100)
 
         logger.info(
             "pipeline_completed",
