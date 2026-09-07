@@ -17,10 +17,10 @@ Design principles:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from collections import defaultdict
 
-from cortex.graph.domain.entities import GraphNode, GraphEdge, NodeType, RelationshipType
+from cortex.graph.domain.entities import GraphNode, NodeType, RelationshipType
 from cortex.pipeline.infrastructure.graph_builder import GraphBuildResult
 
 
@@ -90,8 +90,27 @@ class ArchitectureDiagramGenerator:
         )
         lines.append("")
 
-        # Build module dependency model
+        # Build module dependency model. Cap the number of module boxes so the
+        # system diagram stays a readable overview — the most significant
+        # modules (by classes + endpoints + files) are kept; the rest are
+        # summarised in prose rather than drawn, so this never degrades into a
+        # every-node dump.
         mod_nodes, mod_edges = self._build_module_graph(graph, modules)
+        _MAX_SYSTEM_MODULES = 18
+        hidden_module_count = 0
+        if len(mod_nodes) > _MAX_SYSTEM_MODULES:
+            def _significance(m: ModuleDiagramNode) -> tuple[int, int, int]:
+                return (m.endpoint_count, m.class_count, m.file_count)
+            mod_nodes_sorted = sorted(mod_nodes, key=_significance, reverse=True)
+            kept = mod_nodes_sorted[:_MAX_SYSTEM_MODULES]
+            hidden_module_count = len(mod_nodes) - len(kept)
+            mod_nodes = kept
+            # Keep only edges between modules that survived the cap.
+            kept_names = {m.name for m in kept}
+            mod_edges = [
+                e for e in mod_edges
+                if e.source in kept_names and e.target in kept_names
+            ]
 
         if mod_nodes:
             # Generate system-level Mermaid
@@ -112,6 +131,13 @@ class ArchitectureDiagramGenerator:
                     f"{mod.class_count} | {mod.endpoint_count} | {mod.complexity} |"
                 )
             lines.append("")
+            if hidden_module_count:
+                lines.append(
+                    f"_Showing the {_MAX_SYSTEM_MODULES} most significant modules. "
+                    f"{hidden_module_count} smaller module(s) are omitted from the "
+                    f"overview to keep it readable._"
+                )
+                lines.append("")
 
         # ── Level 2: Layer Architecture ──────────────────────────────────────
         lines.append("## Layer Architecture")
@@ -187,21 +213,132 @@ class ArchitectureDiagramGenerator:
                     )
                 lines.append("")
 
-        # ── Detailed Mermaid (existing generator for file-level) ─────────────
-        lines.append("## Detailed Dependency Graph")
+        # ── Layer Flow: how the architecture actually works ──────────────────
+        # This replaces the old file-by-file "detailed dependency graph" (which
+        # dumped every source file and produced spaghetti). An architecture
+        # diagram must explain HOW THE SYSTEM WORKS — the layers and the
+        # direction of dependency between them — not enumerate files.
+        lines.append("## How the Architecture Works")
         lines.append("")
         lines.append(
-            "File-level dependency graph with layer grouping. "
-            "For interactive exploration, use the Architecture Graph view."
+            "This is the dependency flow between architectural layers — the shape of "
+            "the whole system in one picture. Each box is a layer (a group of modules "
+            "with the same responsibility). Arrows show the direction of dependency: "
+            "an arrow from **Presentation** to **Application** means requests enter at "
+            "the top and flow down toward the data layer. A healthy architecture keeps "
+            "these arrows pointing one way (downward)."
         )
         lines.append("")
 
-        # Use the existing MermaidGenerator for the detailed view
-        from cortex.pipeline.infrastructure.artifact_generator import MermaidGenerator
-        detailed_mermaid = MermaidGenerator().generate(graph, repo_name)
-        lines.append("```mermaid")
-        lines.append(detailed_mermaid)
-        lines.append("```")
+        layer_flow = self._render_layer_flow_mermaid(mod_nodes, mod_edges)
+        if layer_flow:
+            lines.append("```mermaid")
+            lines.append(layer_flow)
+            lines.append("```")
+            lines.append("")
+            lines.append(
+                "_Solid arrows follow the intended top-to-bottom flow. "
+                "Red dashed arrows are dependencies that point the wrong way "
+                "(a lower layer reaching back up) — these are the couplings worth "
+                "reviewing first._"
+            )
+            lines.append("")
+
+        return "\n".join(lines)
+
+    # ── Layer-flow rendering ──────────────────────────────────────────────────
+
+    #: Canonical top-to-bottom ordering of layers for the flow diagram.
+    _FLOW_LAYER_ORDER = [
+        "Presentation", "Frontend", "Application", "Domain",
+        "Infrastructure", "Shared", "Other",
+    ]
+
+    _FLOW_LAYER_RANK = {
+        "Presentation": 0, "Frontend": 0,
+        "Application": 1,
+        "Domain": 2,
+        "Infrastructure": 3,
+        "Shared": 4,
+        "Testing": 5,
+        "Other": 3,
+    }
+
+    def _render_layer_flow_mermaid(
+        self,
+        mod_nodes: list[ModuleDiagramNode],
+        mod_edges: list[ModuleDiagramEdge],
+    ) -> str:
+        """Render a LAYER-level flow diagram (not files, not every module).
+
+        Nodes are architectural layers; a single arrow between two layers
+        aggregates every module dependency that crosses that layer boundary.
+        Backward-pointing edges (a deeper layer depending on a shallower one)
+        are highlighted so the reader immediately sees where the intended flow
+        is broken. This answers "how does this system work?" at a glance.
+        """
+        if not mod_nodes:
+            return ""
+
+        name_to_layer = {m.name: m.layer for m in mod_nodes}
+        present_layers = [
+            layer for layer in self._FLOW_LAYER_ORDER
+            if any(m.layer == layer for m in mod_nodes)
+        ]
+        if not present_layers:
+            return ""
+
+        # Aggregate module edges to layer→layer edges, dropping self-loops.
+        forward: dict[tuple[str, str], int] = defaultdict(int)
+        backward: dict[tuple[str, str], int] = defaultdict(int)
+        for edge in mod_edges:
+            src_layer = name_to_layer.get(edge.source, "Other")
+            tgt_layer = name_to_layer.get(edge.target, "Other")
+            if src_layer == tgt_layer:
+                continue
+            src_rank = self._FLOW_LAYER_RANK.get(src_layer, 3)
+            tgt_rank = self._FLOW_LAYER_RANK.get(tgt_layer, 3)
+            # Shared/Testing are allowed to be depended on from anywhere; never
+            # treat crossing into/out of them as a violation.
+            is_upward = (
+                src_rank > tgt_rank
+                and src_layer not in ("Shared", "Testing")
+                and tgt_layer not in ("Shared", "Testing")
+            )
+            key = (src_layer, tgt_layer)
+            (backward if is_upward else forward)[key] += edge.weight
+
+        lines: list[str] = ["graph TB"]
+        for layer in present_layers:
+            module_count = sum(1 for m in mod_nodes if m.layer == layer)
+            safe = self._safe_id(layer)
+            lines.append(
+                f'    {safe}["{layer}<br/>{module_count} module'
+                f'{"s" if module_count != 1 else ""}"]'
+            )
+
+        for (src, tgt), weight in sorted(
+            forward.items(), key=lambda kv: kv[1], reverse=True
+        ):
+            s, t = self._safe_id(src), self._safe_id(tgt)
+            lines.append(f"    {s} -->|{weight}| {t}")
+
+        # Backward (violating) edges rendered distinctly so they stand out.
+        for (src, tgt), weight in sorted(
+            backward.items(), key=lambda kv: kv[1], reverse=True
+        ):
+            s, t = self._safe_id(src), self._safe_id(tgt)
+            lines.append(f"    {s} -.->|{weight} ⚠| {t}")
+
+        # Style: mark the backward edges red if there are any.
+        if backward:
+            # Link indexes for backward edges are the last N links.
+            total_links = len(forward) + len(backward)
+            start = total_links - len(backward)
+            for i in range(start, total_links):
+                lines.append(
+                    f"    linkStyle {i} stroke:#e5484d,stroke-width:2px"
+                )
 
         return "\n".join(lines)
 
@@ -216,7 +353,6 @@ class ArchitectureDiagramGenerator:
                 contains_children[edge.source_id].append(edge.target_id)
 
         node_to_module: dict[str, str] = {}
-        module_ids = {m.id for m in modules}
 
         def assign(mod_id: str) -> None:
             for child_id in contains_children.get(mod_id, []):
@@ -305,11 +441,21 @@ class ArchitectureDiagramGenerator:
         return result
 
     def _classify_layer(self, path: str) -> str:
-        """Classify a module path into an architectural layer."""
-        path_lower = path.lower()
-        for layer, keywords in _LAYER_KEYWORDS.items():
-            for kw in keywords:
-                if kw in path_lower:
+        """Classify a module path into an architectural layer.
+
+        Matches on whole PATH SEGMENTS, most-specific (deepest) segment first,
+        so a module like ``api/domain`` is classified by its ``domain`` segment
+        rather than being swallowed by a broad ``api`` keyword appearing higher
+        in the path. Substring matching over the full path is intentionally
+        avoided — it made every ``api/*`` module look like Presentation.
+        """
+        segments = [s for s in path.lower().replace("\\", "/").split("/") if s]
+        # Walk deepest → shallowest: the closest segment to the module wins.
+        for segment in reversed(segments):
+            base = segment.split(".")[0]  # strip a file extension if present
+            for layer, keywords in _LAYER_KEYWORDS.items():
+                # Exact-or-singular/plural segment match (e.g. "entity"/"entities").
+                if base in keywords or (base.rstrip("s") in [k.rstrip("s") for k in keywords]):
                     return layer
         return "Other"
 
