@@ -42,6 +42,11 @@ export async function getChatHistory(sessionId: string): Promise<ChatHistoryResp
   return data;
 }
 
+/** Delete a chat session and all its messages. DELETE /chat/session/:id */
+export async function deleteSession(sessionId: string): Promise<void> {
+  await apiClient.delete(`/chat/session/${sessionId}`);
+}
+
 /** Stream a chat response via SSE. Returns an AbortController for cancellation. */
 export function streamChat(
   jobId: string,

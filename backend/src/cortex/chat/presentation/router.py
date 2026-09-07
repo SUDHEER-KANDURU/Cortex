@@ -164,3 +164,22 @@ async def get_history(
             for m in session.messages
         ],
     }
+
+
+@router.delete(
+    "/session/{session_id}",
+    status_code=204,
+    summary="Delete a chat session",
+    description=(
+        "Permanently deletes a chat session and all of its messages. "
+        "Only the owner of the session may delete it."
+    ),
+)
+async def delete_session(
+    session_id: str,
+    user: User = Depends(get_current_user),
+) -> None:
+    """Delete a chat session. 404 if it doesn't exist or isn't owned by the caller."""
+    deleted = await _service.delete_session(session_id, owner_id=user.id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Session not found")

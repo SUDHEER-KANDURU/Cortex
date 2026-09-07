@@ -93,6 +93,33 @@ class ChatService:
             return None
         return session
 
+    async def delete_session(
+        self, session_id: str, owner_id: str | None = None
+    ) -> bool:
+        """Delete a chat session (and its messages), enforcing ownership.
+
+        Returns True if a session was deleted. Returns False if the session
+        does not exist OR is owned by a different user — so one account can
+        never delete (or probe the existence of) another account's chat.
+        """
+        session = await self._repo.get_session(session_id)
+        if session is None:
+            return False
+        if (
+            owner_id is not None
+            and session.user_id is not None
+            and session.user_id != owner_id
+        ):
+            return False
+        deleted = await self._repo.delete_session(session_id)
+        if deleted:
+            logger.info(
+                "chat_session_deleted",
+                session_id=session_id,
+                user_id=owner_id,
+            )
+        return deleted
+
     async def get_or_create_session(
         self, job_id: str, session_id: str | None = None, user_id: str | None = None
     ) -> ChatSession:
@@ -169,18 +196,49 @@ class ChatService:
                     "Refine this into a clear reply to the question, keeping all facts."
                 ),
             })
+            # Buffer the NIM reply BEFORE streaming so we can apply the same
+            # anti-fabrication grounding guard that refine() uses. Streaming
+            # token-by-token would let a hallucinated file/symbol reach the user
+            # irretrievably; buffering lets us reject an ungrounded refinement
+            # and fall back to Cortex's trusted draft (P1-5). Cortex's draft is
+            # the authoritative source, so this never loses correct information.
             nim_failed = False
+            nim_chunks: list[str] = []
             async for chunk in self._nim.stream(messages):
                 # NIMClient yields a canned error string on total failure — detect
                 # it and fall back to the trustworthy Cortex draft instead.
                 if chunk.startswith("Sorry — I couldn't connect"):
                     nim_failed = True
                     break
-                full_response.append(chunk)
-                yield chunk
-            if nim_failed or not "".join(full_response).strip():
-                full_response = []
+                nim_chunks.append(chunk)
+
+            nim_text = "".join(nim_chunks).strip()
+
+            # Grounding guard: reject a refinement that introduces file paths or
+            # dotted symbols absent from Cortex's draft + code context.
+            invented: list[str] = []
+            if nim_text:
+                from cortex.chat.infrastructure.nim_client import (
+                    find_invented_entities,
+                )
+                invented = find_invented_entities(
+                    nim_text, cortex_draft + "\n" + context
+                )
+                if invented:
+                    logger.warning(
+                        "chat_nim_invented_entities_fallback",
+                        session_id=session.id,
+                        invented=invented[:8],
+                    )
+
+            if nim_failed or not nim_text or invented:
+                # Fall back to Cortex's grounded draft, streamed word-by-word.
                 for word in cortex_draft.split(" "):
+                    full_response.append(word + " ")
+                    yield word + " "
+            else:
+                # Trusted, grounded NIM refinement — stream it now.
+                for word in nim_text.split(" "):
                     full_response.append(word + " ")
                     yield word + " "
         else:

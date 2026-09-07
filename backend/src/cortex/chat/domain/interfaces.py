@@ -30,3 +30,9 @@ class AbstractChatRepository(ABC):
         """Return all sessions for a given job (metadata only, no messages loaded),
         newest first. Used to show conversation history for a repo analysis."""
         ...
+
+    @abstractmethod
+    async def delete_session(self, session_id: str) -> bool:
+        """Delete a chat session and all of its messages.
+        Returns True if a session was deleted, False if it did not exist."""
+        ...

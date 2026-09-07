@@ -118,3 +118,29 @@ class PostgresChatRepository(AbstractChatRepository):
                 )
                 for m in result.scalars().all()
             ]
+
+    async def delete_session(self, session_id: str) -> bool:
+        """Delete a session and its messages. Deleting the ORM object triggers
+        the ``delete-orphan`` cascade on ``messages`` so no orphan rows remain
+        even on SQLite (where DB-level FK cascades are off by default).
+        Returns True if a row was deleted, False if the session didn't exist.
+        """
+        async with self._session_factory() as db:
+            try:
+                result = await db.execute(
+                    select(ChatSessionModel)
+                    .options(selectinload(ChatSessionModel.messages))
+                    .where(ChatSessionModel.id == session_id)
+                )
+                model = result.scalar_one_or_none()
+                if model is None:
+                    return False
+                await db.delete(model)
+                await db.commit()
+                logger.info("chat_session_deleted", session_id=session_id)
+                return True
+            except Exception as e:
+                await db.rollback()
+                raise InfrastructureError(
+                    f"Failed to delete chat session {session_id}: {e}"
+                ) from e

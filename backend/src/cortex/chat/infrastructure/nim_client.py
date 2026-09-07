@@ -270,3 +270,14 @@ def _invented_entities(refined: str, source: str) -> list[str]:
             continue
         invented.append(tok)
     return invented
+
+
+def find_invented_entities(text: str, source: str) -> list[str]:
+    """Public grounding guard: file/symbol-like tokens in ``text`` that are not
+    traceable to ``source`` (Cortex's draft + code context).
+
+    Exposed so callers outside the refine() path — notably the streaming chat
+    path — can apply the SAME anti-fabrication check to a completed NIM reply
+    before trusting it (P1-5).
+    """
+    return _invented_entities(text, source)
