@@ -101,7 +101,7 @@ const DashboardNavbar = React.memo(function DashboardNavbar({ onMenuClick, showM
     <>
     <header style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200,
-      display: 'flex', justifyContent: 'center', padding: '14px 24px', pointerEvents: 'none',
+      display: 'flex', justifyContent: 'center', padding: showMenuButton ? '10px 12px' : '14px 24px', pointerEvents: 'none',
     }}>
       <nav aria-label="Dashboard navigation" style={{
         pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 4,
@@ -111,10 +111,10 @@ const DashboardNavbar = React.memo(function DashboardNavbar({ onMenuClick, showM
         WebkitBackdropFilter: 'blur(50px) saturate(200%) brightness(1.04)',
         border: '0.5px solid rgba(255,255,255,0.90)',
         boxShadow:
-          '0 4px 24px rgba(80,60,20,0.09), 0 1px 6px rgba(80,60,20,0.05),' +
-          'inset 0 1px 0 rgba(255,255,255,0.98),' +
-          'inset 0 -1px 0 rgba(255,255,255,0.55),' +
-          'inset 0 0 0 0.5px rgba(255,255,255,0.65)',
+          '0 4px 24px rgba(0,0,0,0.36), 0 1px 6px rgba(0,0,0,0.28),' +
+          'inset 0 1.5px 1px rgba(255,255,255,0.42),' +
+          'inset 0 -1.5px 1px rgba(255,255,255,0.13),' +
+          'inset 0 0 0 1px rgba(255,255,255,0.14)',
       }}>
         {/* Mobile/tablet menu toggle — opens the sidebar drawer */}
         {showMenuButton && (
@@ -125,7 +125,7 @@ const DashboardNavbar = React.memo(function DashboardNavbar({ onMenuClick, showM
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 34, height: 34, borderRadius: 12, flexShrink: 0,
-              background: 'rgba(255,255,255,0.20)', border: `0.5px solid ${bdr}`,
+              background: 'rgba(255,255,255,0.07)', border: `1px solid ${bdr}`,
               cursor: 'pointer', color: 'var(--text-secondary)',
               transition: 'background 0.2s ease',
             }}
@@ -149,9 +149,12 @@ const DashboardNavbar = React.memo(function DashboardNavbar({ onMenuClick, showM
           </span>
           <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--text)', fontFamily: 'var(--font-sans)' }}>Cortex</span>
         </Link>
-        {/* Center pill */}
+        {/* Center pill — hidden on compact widths where the hamburger, logo
+            and avatar already fill the bar, to avoid crowding on phones. */}
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', background: 'rgba(255,255,255,0.22)', border: `0.5px solid ${bdr}`, borderRadius: 100, padding: '4px 14px' }}>Dashboard</span>
+          {!showMenuButton && (
+            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', background: 'rgba(255,255,255,0.07)', border: `1px solid ${bdr}`, borderRadius: 100, padding: '4px 14px' }}>Dashboard</span>
+          )}
         </div>
         {/* Right — user profile & logout */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, position: 'relative' }} ref={menuRef}>
@@ -203,15 +206,15 @@ const DashboardNavbar = React.memo(function DashboardNavbar({ onMenuClick, showM
             <div style={{
               position: 'absolute', top: '100%', right: 0, marginTop: 8,
               width: 240, borderRadius: 14, overflow: 'hidden',
-              background: 'rgba(255,255,255,0.95)',
+              background: 'rgba(38,25,15,0.92)',
               backdropFilter: 'blur(40px)',
               WebkitBackdropFilter: 'blur(40px)',
-              border: '0.5px solid rgba(0,0,0,0.08)',
-              boxShadow: '0 12px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
+              border: '1px solid rgba(255,255,255,0.13)',
+              boxShadow: '0 26px 60px rgba(0,0,0,0.52), inset 0 1.5px 1px rgba(255,255,255,0.30)',
               zIndex: 300,
             }}>
               {/* User info */}
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.10)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{
                     width: 34, height: 34, borderRadius: '50%',
@@ -243,7 +246,7 @@ const DashboardNavbar = React.memo(function DashboardNavbar({ onMenuClick, showM
                     fontSize: 13, fontWeight: 500, color: 'var(--text)',
                     transition: 'background 0.15s',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                 >
                   <Settings style={{ width: 14, height: 14 }} />
@@ -304,9 +307,12 @@ const DashboardNavbar = React.memo(function DashboardNavbar({ onMenuClick, showM
         <div
           onClick={e => e.stopPropagation()}
           style={{
-            background: '#fff', borderRadius: 20, padding: '32px 28px',
+            background: 'var(--glass-modal)', borderRadius: 20, padding: '32px 28px',
+            backdropFilter: 'blur(48px) saturate(160%)',
+            WebkitBackdropFilter: 'blur(48px) saturate(160%)',
+            border: '1px solid rgba(255,255,255,0.14)',
             width: 'calc(100% - 48px)', maxWidth: 400,
-            boxShadow: '0 24px 80px rgba(0,0,0,0.22), 0 4px 12px rgba(0,0,0,0.08)',
+            boxShadow: '0 30px 70px rgba(0,0,0,0.55), inset 0 1.5px 1px rgba(255,255,255,0.32)',
             display: 'flex', flexDirection: 'column', gap: 18,
           }}
         >
@@ -318,15 +324,15 @@ const DashboardNavbar = React.memo(function DashboardNavbar({ onMenuClick, showM
             }}>
               <AlertCircle style={{ width: 20, height: 20, color: '#dc2626' }} />
             </div>
-            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#111' }}>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--text)' }}>
               Delete your account?
             </h3>
           </div>
           <p style={{ margin: 0, fontSize: 13, color: '#666', lineHeight: 1.6 }}>
-            This action is <strong style={{ color: '#111' }}>permanent</strong> and cannot be undone. All your data, jobs, and artifacts will be removed.
+            This action is <strong style={{ color: 'var(--text)' }}>permanent</strong> and cannot be undone. All your data, jobs, and artifacts will be removed.
           </p>
           <div style={{
-            background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10,
+            background: 'var(--danger-dim)', border: '1px solid var(--danger)', borderRadius: 10,
             padding: '12px 14px',
           }}>
             <p style={{ margin: 0, fontSize: 12, color: '#7f1d1d', lineHeight: 1.5 }}>
@@ -361,11 +367,11 @@ const DashboardNavbar = React.memo(function DashboardNavbar({ onMenuClick, showM
               onClick={() => { setShowDeleteConfirm(false); setDeleteError(''); }}
               style={{
                 padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                border: '1px solid #e5e7eb', background: '#fff', color: '#555',
+                border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)',
                 cursor: 'pointer', transition: 'background 0.15s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#f9fafb'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.11)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
             >
               Cancel
             </button>
@@ -428,12 +434,12 @@ function SidebarForm({ onJobSubmitted }: SidebarFormProps) {
   const bdr = 'rgba(255,255,255,0.45)';
   const inputStyle: React.CSSProperties = {
     width: '100%', borderRadius: 14, padding: '10px 12px', fontSize: 13,
-    background: 'rgba(255,255,255,0.68)',
+    background: 'rgba(255,255,255,0.05)',
     color: 'var(--text)',
     border: `0.5px solid ${bdr}`, outline: 'none',
     transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
     fontFamily: 'var(--font-sans)', boxSizing: 'border-box' as const,
-    boxShadow: 'inset 0 1px 3px rgba(255,255,255,0.55)',
+    boxShadow: 'inset 0 1.5px 1px rgba(255,255,255,0.32)',
   };
 
   return (
@@ -473,11 +479,11 @@ function SidebarForm({ onJobSubmitted }: SidebarFormProps) {
         <Select.Portal>
           <Select.Content position="popper" sideOffset={6} style={{
             width: 'var(--radix-select-trigger-width)',
-            background: 'rgba(255,255,255,0.88)',
+            background: 'rgba(38,25,15,0.90)',
             backdropFilter: 'blur(40px) saturate(200%)',
             WebkitBackdropFilter: 'blur(40px) saturate(200%)',
-            border: `0.5px solid rgba(255,255,255,0.60)`, borderRadius: 16,
-            boxShadow: '0 8px 40px rgba(80,60,20,0.12), inset 0 2px 8px rgba(255,255,255,0.65)',
+            border: `1px solid rgba(255,255,255,0.13)`, borderRadius: 16,
+            boxShadow: '0 26px 60px rgba(0,0,0,0.52), inset 0 1.5px 1px rgba(255,255,255,0.30)',
             padding: 4, zIndex: 9999, overflow: 'hidden',
             animation: 'dash-select-in 0.15s cubic-bezier(0.16,1,0.3,1)',
           }}>
@@ -490,9 +496,9 @@ function SidebarForm({ onJobSubmitted }: SidebarFormProps) {
                   transition: 'background 0.15s ease, color 0.15s ease',
                   fontFamily: 'var(--font-sans)', userSelect: 'none',
                 }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.35)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.10)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
-                  onFocus={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.35)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
+                  onFocus={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.10)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
                   onBlur={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
                 >
                   <Select.ItemText>{ARTIFACT_TYPE_LABELS[t]}</Select.ItemText>
@@ -602,8 +608,8 @@ const JobRow = React.memo(function JobRow({ job, isSelected, onClick, onDelete, 
           style={{
             width: '100%', textAlign: 'left', cursor: 'pointer', borderRadius: 14,
             padding: '10px 12px', border: 'none',
-            background: isSelected ? '#1E2A38' : hovered ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0)',
-            borderLeft: `2px solid ${isSelected ? '#1E2A38' : 'rgba(0,0,0,0)'}`,
+            background: isSelected ? 'var(--primary)' : hovered ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0)',
+            borderLeft: `2px solid ${isSelected ? 'var(--primary)' : 'rgba(0,0,0,0)'}`,
             boxSizing: 'border-box',
             // Slide left when cursor is in the right zone, or always on touch
             transform: showDelete ? 'translateX(-32px)' : 'translateX(0)',
@@ -618,11 +624,11 @@ const JobRow = React.memo(function JobRow({ job, isSelected, onClick, onDelete, 
                   boxShadow: isRunning ? `0 0 6px ${dotColor}` : 'none',
                   animation: isRunning ? 'pulse-dot 1.8s ease-in-out infinite' : 'none',
                 }} aria-hidden="true" />
-                <span style={{ fontSize: 13, fontWeight: 600, color: isSelected ? '#ffffff' : 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: isSelected ? 'var(--on-primary)' : 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {short}
                 </span>
               </div>
-              <p style={{ fontSize: 11, color: isSelected ? 'rgba(255,255,255,0.60)' : 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
+              <p style={{ fontSize: 11, color: isSelected ? 'rgba(27,17,8,0.70)' : 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
                 {owner} · {ARTIFACT_TYPE_LABELS[job.artifact_type]}
               </p>
             </div>
@@ -705,15 +711,15 @@ const Sidebar = React.memo(function Sidebar({ jobs, jobsLoading, jobsError, sele
   const bdr = 'rgba(255,255,255,0.45)';
   return (
     <aside aria-label="Repository sidebar" style={{
-      background: 'rgba(255,255,255,0.72)',
+      background: 'rgba(30,20,12,0.58)',
       backdropFilter: 'blur(18px) saturate(160%)',
       WebkitBackdropFilter: 'blur(18px) saturate(160%)',
       isolation: 'isolate',
-      border: '0.5px solid rgba(255,255,255,0.88)',
+      border: '1px solid rgba(255,255,255,0.13)',
       boxShadow:
-        '0 8px 40px rgba(80,60,20,0.09),' +
-        'inset 0 1px 0 rgba(255,255,255,0.98),' +
-        'inset 0 0 0 0.5px rgba(255,255,255,0.65)',
+        '0 8px 40px rgba(0,0,0,0.36),' +
+        'inset 0 1.5px 1px rgba(255,255,255,0.42),' +
+        'inset 0 0 0 1px rgba(255,255,255,0.14)',
       // Compact (drawer): fill the container. Desktop: fixed 300px column.
       width: compact ? '100%' : 300,
       minWidth: compact ? 0 : 300,
@@ -731,7 +737,7 @@ const Sidebar = React.memo(function Sidebar({ jobs, jobsLoading, jobsError, sele
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 width: 32, height: 32, borderRadius: 10, border: 'none',
-                background: 'rgba(0,0,0,0.04)', cursor: 'pointer', color: 'var(--text-secondary)',
+                background: 'rgba(255,255,255,0.07)', cursor: 'pointer', color: 'var(--text-secondary)',
               }}
             >
               <XCircle style={{ width: 16, height: 16 }} />
@@ -746,7 +752,7 @@ const Sidebar = React.memo(function Sidebar({ jobs, jobsLoading, jobsError, sele
         {jobsError && <p style={{ fontSize: 12, color: 'var(--danger)', padding: '8px 4px' }}>Could not load jobs</p>}
         {!jobsLoading && jobs.length === 0 && !jobsError && (
           <div style={{ textAlign: 'center', padding: '32px 16px' }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255,255,255,0.25)', border: '0.5px solid rgba(255,255,255,0.50)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
               <Code2 style={{ width: 16, height: 16, color: 'var(--text-muted)' }} />
             </div>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>No jobs yet</p>
@@ -839,7 +845,7 @@ function EmptyState() {
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
         {['Architecture Diagram', 'Learning Path', 'Interview Prep', 'Knowledge Graph'].map(label => (
-          <span key={label} style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', padding: '5px 14px', borderRadius: 100, background: 'rgba(255,255,255,0.25)', border: '0.5px solid rgba(255,255,255,0.50)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{label}</span>
+          <span key={label} style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', padding: '5px 14px', borderRadius: 100, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{label}</span>
         ))}
       </div>
     </motion.div>
@@ -851,6 +857,7 @@ function PanelHeader({ activeJob }: { activeJob: Job }) {
   const repoName = extractShortName(activeJob.repo_url);
   const repoFull = extractRepoName(activeJob.repo_url);
   const bdr = 'rgba(255,255,255,0.45)';
+  const isCompact = useIsCompact();
   const statusIcon = {
     completed: <CheckCircle2 style={{ width: 14, height: 14, color: 'var(--success)' }} />,
     running:   <ButtonSpinner size={14} />,
@@ -860,7 +867,7 @@ function PanelHeader({ activeJob }: { activeJob: Job }) {
   }[activeJob.status] ?? null;
 
   return (
-    <div style={{ padding: '16px 24px', borderBottom: `0.5px solid ${bdr}`, background: 'rgba(0,0,0,0)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexShrink: 0 }}>
+    <div style={{ padding: isCompact ? '14px 16px' : '16px 24px', borderBottom: `0.5px solid ${bdr}`, background: 'rgba(0,0,0,0)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: isCompact ? 10 : 16, flexShrink: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
         <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'var(--primary-dim)', border: '0.5px solid rgba(255,255,255,0.60)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <GitBranch style={{ width: 15, height: 15, color: 'var(--primary)' }} />
@@ -1015,6 +1022,7 @@ interface RightPanelProps {
 }
 
 const RightPanel = React.memo(function RightPanel({ activeJob, artifacts, artifactsLoading, artifactsError, onJobRetried }: RightPanelProps) {
+  const isCompact = useIsCompact();
   const [activeTab, setActiveTab] = useState<'artifact' | 'insights' | 'chat' | 'overview' | 'blast-radius' | 'navigate'>('overview');
   const [navigateTargetId, setNavigateTargetId] = useState<string | undefined>(undefined);
   const { retriedJob, isRetrying, error: retryError, retry } = useRetryJob();
@@ -1057,7 +1065,7 @@ const RightPanel = React.memo(function RightPanel({ activeJob, artifacts, artifa
           narrow screens so all six tabs stay reachable without overflow. */}
       {isCompleted && (
         <div className="scrollbar-hide" style={{
-          display: 'flex', gap: 2, padding: '0 24px',
+          display: 'flex', gap: 2, padding: isCompact ? '0 12px' : '0 24px',
           borderBottom: `0.5px solid ${bdr}`,
           background: 'rgba(0,0,0,0)',
           flexShrink: 0,
@@ -1103,7 +1111,7 @@ const RightPanel = React.memo(function RightPanel({ activeJob, artifacts, artifa
         </div>
       )}
 
-      <div className="dash-scroll" style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+      <div className="dash-scroll" style={{ flex: 1, overflowY: 'auto', padding: isCompact ? 14 : 24 }}>
 
         {/* Pending */}
         {activeJob.status === 'pending' && (
@@ -1210,12 +1218,12 @@ const RightPanel = React.memo(function RightPanel({ activeJob, artifacts, artifa
                 artifacts.map(artifact => (
                   <div key={artifact.id} style={{
                     borderRadius: 'var(--radius-lg)', overflow: 'hidden',
-                    background: 'rgba(255,255,255,0.30)',
-                    border: `0.5px solid rgba(255,255,255,0.50)`,
-                    boxShadow: '0 2px 8px rgba(80,60,20,0.06), inset 0 1px 3px rgba(255,255,255,0.60)',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: `1px solid rgba(255,255,255,0.12)`,
+                    boxShadow: '0 10px 26px rgba(0,0,0,0.32), inset 0 1.5px 1px rgba(255,255,255,0.30)',
                     transition: 'background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
                   }}>
-                    <div style={{ padding: '12px 18px', borderBottom: `0.5px solid rgba(255,255,255,0.45)`, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ padding: isCompact ? '10px 12px' : '12px 18px', borderBottom: `0.5px solid rgba(255,255,255,0.45)`, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--primary)', padding: '3px 10px', borderRadius: 100, background: 'var(--primary-dim)', border: '0.5px solid rgba(255,255,255,0.60)', fontFamily: 'var(--font-mono)' }}>
                         {artifact.content_type}
                       </span>
@@ -1223,7 +1231,7 @@ const RightPanel = React.memo(function RightPanel({ activeJob, artifacts, artifa
                         {artifact.id}
                       </span>
                     </div>
-                    <div style={{ padding: '16px 18px' }}>
+                    <div style={{ padding: isCompact ? '12px' : '16px 18px', minWidth: 0 }}>
                       <ArtifactViewer artifact={artifact} />
                     </div>
                   </div>
@@ -1336,19 +1344,38 @@ export default function DashboardPage() {
   const handleJobSelected = useCallback((job: Job) => { setSelectedJob(job); setDrawerOpen(false); }, []);
 
   const handleJobDeleted = useCallback((id: string) => {
-    // Optimistically remove from UI immediately
+    // Optimistically remove from UI immediately for instant feedback.
     setHiddenJobIds(prev => new Set([...prev, id]));
     setSelectedJob(prev => prev?.id === id ? null : prev);
-    // Fire-and-forget real DB delete — if it fails the job reappears on refresh
-    // which is acceptable; the optimistic removal already gave instant feedback
-    deleteJob(id).catch(() => {
-      // Restore if delete failed
-      setHiddenJobIds(prev => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
+
+    // Perform the real DB delete. On success we must also (a) drop it from the
+    // canonical `jobs` array and (b) invalidate the cached jobs list, otherwise
+    // the deleted job reappears when the user navigates away and returns: the
+    // hiddenJobIds set is transient component state, and the session cache /
+    // background refetch would re-serve the still-present row. On failure we
+    // restore the row so the UI reflects reality.
+    deleteJob(id)
+      .then(() => {
+        // Remove from the source-of-truth list so it can't come back.
+        setJobs(prev => prev.filter(j => j.id !== id));
+        // Drop the stale cached list; next listJobs() writes a fresh one.
+        sessionCache.invalidatePrefix('jobs');
+        sessionCache.invalidatePrefix(`job:${id}`);
+        // The row is really gone now — no need to keep hiding it.
+        setHiddenJobIds(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      })
+      .catch(() => {
+        // Delete failed — un-hide so the user sees it's still there.
+        setHiddenJobIds(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
       });
-    });
   }, []);
 
   // Show full-screen loader until: (a) client is hydrated AND (b) first data fetch done.
@@ -1367,11 +1394,11 @@ export default function DashboardPage() {
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20,
           padding: '36px 32px',
-          background: 'rgba(255,255,255,0.78)',
-          border: '0.5px solid rgba(255,255,255,0.92)',
+          background: 'rgba(30,20,12,0.62)',
+          border: '1px solid rgba(255,255,255,0.14)',
           boxShadow:
-            '0 16px 60px rgba(80,60,20,0.10),' +
-            'inset 0 1px 0 rgba(255,255,255,0.98),' +
+            '0 16px 60px rgba(0,0,0,0.38),' +
+            'inset 0 1.5px 1px rgba(255,255,255,0.42),' +
             'inset 0 0 0 0.5px rgba(255,255,255,0.70)',
           backdropFilter: 'blur(40px) saturate(200%)',
           WebkitBackdropFilter: 'blur(40px) saturate(200%)',
@@ -1460,15 +1487,15 @@ export default function DashboardPage() {
           <main className="dash-content" style={{
             // Background is already ~68% opaque, so a lighter blur reads the same
             // but avoids re-blurring the backdrop on every inner scroll frame.
-            background: 'rgba(255,255,255,0.72)',
+            background: 'rgba(30,20,12,0.58)',
             backdropFilter: 'blur(18px) saturate(160%)',
             WebkitBackdropFilter: 'blur(18px) saturate(160%)',
             isolation: 'isolate',
-            border: '0.5px solid rgba(255,255,255,0.88)',
+            border: '1px solid rgba(255,255,255,0.13)',
             boxShadow:
-              '0 8px 40px rgba(80,60,20,0.09),' +
-              'inset 0 1px 0 rgba(255,255,255,0.98),' +
-              'inset 0 0 0 0.5px rgba(255,255,255,0.65)',
+              '0 8px 40px rgba(0,0,0,0.36),' +
+              'inset 0 1.5px 1px rgba(255,255,255,0.42),' +
+              'inset 0 0 0 1px rgba(255,255,255,0.14)',
             flex: 1, borderRadius: 20, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0,
           }}>
             <RightPanel activeJob={activeJob}
