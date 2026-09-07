@@ -18,18 +18,19 @@ export default function Navbar() {
         padding: '14px 24px', pointerEvents: 'none',
       }}
     >
+      {/* backdrop-filter lives in .cx-nav-glass rather than inline so the
+          refraction upgrade in globals.css can win the cascade */}
       <nav
         aria-label="Main navigation"
+        className="cx-nav-glass"
         style={{
           pointerEvents: 'auto',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           width: '100%', maxWidth: 840,
           padding: '7px 10px',
           borderRadius: 9999,
-          background: 'var(--glass-nav, rgba(10,13,22,0.72))',
-          backdropFilter: 'blur(44px) saturate(220%)',
-          WebkitBackdropFilter: 'blur(44px) saturate(220%)',
-          border: '1px solid var(--border, rgba(255,255,255,0.07))',
+          background: 'var(--glass-nav, rgba(255,255,255,0.075))',
+          border: '1px solid var(--border, rgba(255,255,255,0.16))',
           boxShadow: 'var(--shadow-nav)',
           transition: 'background 0.3s ease, border-color 0.3s ease',
         }}

@@ -27,19 +27,19 @@ const MOBILE_OVERLAY_VARIANTS = {
 
 // ── Static liquid glass tokens — light only ──────────────────────────────
 const glass = {
-  bg:         "rgba(255, 255, 255, 0.22)",
-  border:     "rgba(255, 255, 255, 0.55)",
+  bg:         "rgba(255, 255, 255, 0.075)",
+  border:     "rgba(255, 255, 255, 0.15)",
   shadow:
-    "0 8px 40px rgba(80,60,20,0.14)," +
-    "0 2px 8px rgba(80,60,20,0.07)," +
-    "inset 0 1px 0 rgba(255,255,255,0.80)," +
-    "inset 0 -1px 0 rgba(255,255,255,0.25)," +
-    "inset 0 0 0 0.5px rgba(255,255,255,0.45)",
-  reflection: "linear-gradient(180deg,rgba(255,255,255,0.65) 0%,rgba(255,255,255,0) 100%)",
-  glare:      "rgba(245,195,58,0.22)",
-  iconColor:  "rgba(60,54,48,0.60)",
-  iconActive: "#0F1923",
-  divider:    "rgba(255,255,255,0.45)",
+    "0 18px 40px rgba(0,0,0,0.40)," +
+    "0 3px 10px rgba(0,0,0,0.26)," +
+    "inset 0 1.5px 1px rgba(255,255,255,0.68)," +
+    "inset 0 -1.5px 1px rgba(255,255,255,0.20)," +
+    "inset 0 0 0 1px rgba(255,255,255,0.15)",
+  reflection: "linear-gradient(180deg,rgba(255,255,255,0.18) 0%,rgba(255,255,255,0) 100%)",
+  glare:      "rgba(217,160,84,0.20)",
+  iconColor:  "rgba(245,239,231,0.62)",
+  iconActive: "#F5EFE7",
+  divider:    "rgba(255,255,255,0.14)",
 }
 
 export function PortfolioHeader() {
@@ -103,6 +103,7 @@ export function PortfolioHeader() {
           ref={navRef}
           aria-label="Main navigation"
           onMouseMove={onMouseMove}
+          className="cx-nav-glass"
           style={{
             pointerEvents:        "auto",
             position:             "relative",
@@ -111,10 +112,8 @@ export function PortfolioHeader() {
             padding:              "8px 12px",
             borderRadius:         "28px",
             background:           glass.bg,
-            backdropFilter:       "blur(60px) saturate(240%) brightness(1.06)",
-            WebkitBackdropFilter: "blur(60px) saturate(240%) brightness(1.06)",
             boxShadow:            glass.shadow,
-            border:               `0.5px solid ${glass.border}`,
+            border:               `1px solid ${glass.border}`,
             overflow:             "visible",
           }}
         >
@@ -152,18 +151,18 @@ export function PortfolioHeader() {
               borderRadius: "18px", textDecoration: "none",
               transition: "background 0.2s ease",
             }}
-            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.35)")}
+            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.09)")}
             onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
           >
             <span style={{
               width: 26, height: 26, borderRadius: "8px",
-              background: "rgba(30,42,56,0.12)",
+              background: "rgba(255,255,255,0.08)",
               display: "inline-flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0,
-              border: "0.5px solid rgba(30,42,56,0.18)",
-              boxShadow: "inset 0 1px 3px rgba(255,255,255,0.40)",
+              border: "1px solid rgba(255,255,255,0.16)",
+              boxShadow: "inset 0 1.5px 1px rgba(255,255,255,0.34)",
             }}>
-              <LayoutDashboard style={{ width: 12, height: 12, color: "#1E2A38" }} />
+              <LayoutDashboard style={{ width: 12, height: 12, color: "var(--primary)" }} />
             </span>
             <span style={{
               fontFamily: "var(--font-display,'Syne',sans-serif)",
@@ -188,15 +187,17 @@ export function PortfolioHeader() {
                   href={href}
                   role="listitem"
                   onClick={e => handleNavClick(e, href, id)}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = "var(--text)" }}
+                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = "var(--text-muted)" }}
                   style={{
                     position: "relative",
                     display: "flex", alignItems: "center",
                     padding: "0 16px",
                     height: "40px",
                     borderRadius: "16px",
-                    fontSize: "14px", fontWeight: isActive ? 700 : 450,
+                    fontSize: "14px", fontWeight: isActive ? 700 : 500,
                     letterSpacing: "0.3px",
-                    color: isActive ? "#0F1923" : "rgba(60,54,48,0.60)",
+                    color: isActive ? "var(--text)" : "var(--text-muted)",
                     textDecoration: "none",
                     whiteSpace: "nowrap",
                     fontFamily: "var(--font-sans,'Inter',system-ui,sans-serif)",
@@ -210,9 +211,9 @@ export function PortfolioHeader() {
                       style={{
                         position: "absolute", inset: 0,
                         borderRadius: "16px",
-                        background: "rgba(30,42,56,0.12)",
-                        border: "1px solid rgba(30,42,56,0.20)",
-                        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.60)",
+                        background: "rgba(255,255,255,0.08)",
+                        border: "1px solid rgba(255,255,255,0.16)",
+                        boxShadow: "inset 0 1.5px 1px rgba(255,255,255,0.40)",
                         zIndex: -1,
                       }}
                       transition={SPRING.gentle}
@@ -224,9 +225,9 @@ export function PortfolioHeader() {
                       style={{
                         position: "absolute", inset: 0,
                         borderRadius: "16px",
-                        background: "rgba(30,42,56,0.12)",
-                        border: "1px solid rgba(30,42,56,0.20)",
-                        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.60)",
+                        background: "rgba(255,255,255,0.08)",
+                        border: "1px solid rgba(255,255,255,0.16)",
+                        boxShadow: "inset 0 1.5px 1px rgba(255,255,255,0.40)",
                         zIndex: -1,
                       }}
                       aria-hidden
@@ -240,7 +241,7 @@ export function PortfolioHeader() {
                         position: "absolute", bottom: 4, left: "50%",
                         translateX: "-50%",
                         width: 5, height: 5, borderRadius: "50%",
-                        background: "#1E2A38",
+                        background: "var(--primary)",
                         zIndex: 2,
                       }}
                       transition={SPRING.gentle}
@@ -270,8 +271,8 @@ export function PortfolioHeader() {
               style={{
                 display: "inline-flex", alignItems: "center", justifyContent: "center",
                 padding: "8px 18px", borderRadius: "18px",
-                background: "#1E2A38",
-                color: "#FFFFFF",
+                background: "var(--primary)",
+                color: "var(--on-primary)",
                 fontSize: "13px", fontWeight: 600,
                 textDecoration: "none", letterSpacing: "-0.01em",
                 border: "1px solid rgba(255,255,255,0.10)",
@@ -294,7 +295,7 @@ export function PortfolioHeader() {
             whileTap={prefersReduced ? {} : { scale: 0.92 }}
             style={{
               marginLeft: "4px", width: 36, height: 36, borderRadius: "12px",
-              background: "rgba(255,255,255,0.20)",
+              background: "rgba(255,255,255,0.05)",
               border: `0.5px solid rgba(255,255,255,0.40)`,
               cursor: "pointer", color: glass.iconColor,
               zIndex: 3, position: "relative", flexShrink: 0,
@@ -323,10 +324,10 @@ export function PortfolioHeader() {
             exit="exit"
             className="fixed inset-0 z-[300] md:hidden flex flex-col"
             style={{
-              background: "rgba(240,238,235,0.92)",
+              background: "rgba(26,18,10,0.94)",
               backdropFilter: "blur(50px) saturate(200%) brightness(1.06)",
               WebkitBackdropFilter: "blur(50px) saturate(200%) brightness(1.06)",
-              borderBottom: "0.5px solid rgba(255,255,255,0.55)",
+              borderBottom: "1px solid rgba(255,255,255,0.13)",
             }}
           >
             <div className="flex items-center justify-between px-5 pt-5 pb-3">
@@ -343,11 +344,11 @@ export function PortfolioHeader() {
                 whileTap={prefersReduced ? {} : { scale: 0.88 }}
                 style={{
                   width: 32, height: 32, borderRadius: "50%",
-                  background: "rgba(255,255,255,0.35)",
-                  border: `0.5px solid rgba(255,255,255,0.55)`,
+                  background: "rgba(255,255,255,0.08)",
+                  border: `1px solid rgba(255,255,255,0.16)`,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   cursor: "pointer",
-                  boxShadow: "inset 0 1px 3px rgba(255,255,255,0.65)",
+                  boxShadow: "inset 0 1.5px 1px rgba(255,255,255,0.42)",
                 }}
               >
                 <X style={{ width: 13, height: 13, color: "var(--text)" }} />
@@ -372,13 +373,13 @@ export function PortfolioHeader() {
                         padding: "13px 16px", borderRadius: "16px",
                         fontSize: "16px", fontWeight: isActive ? 600 : 400,
                         color: isActive ? "var(--primary)" : "var(--text-secondary)",
-                        background: isActive ? "rgba(255,255,255,0.40)" : "transparent",
-                        border: `0.5px solid ${isActive ? "rgba(255,255,255,0.60)" : "rgba(255,255,255,0.35)"}`,
+                        background: isActive ? "rgba(255,255,255,0.10)" : "transparent",
+                        border: `1px solid ${isActive ? "rgba(255,255,255,0.20)" : "rgba(255,255,255,0.10)"}`,
                         fontFamily: "var(--font-sans,'Inter',sans-serif)",
                         textDecoration: "none",
                         transition: "all 0.2s ease",
                         boxShadow: isActive
-                          ? "inset 0 1px 4px rgba(255,255,255,0.70)"
+                          ? "inset 0 1.5px 1px rgba(255,255,255,0.45)"
                           : "none",
                       }}
                     >
@@ -401,8 +402,8 @@ export function PortfolioHeader() {
                     display: "flex", alignItems: "center", justifyContent: "center",
                     width: "100%", padding: "14px",
                     fontSize: "15px", fontWeight: 600, borderRadius: "16px",
-                    background: "#1E2A38",
-                    color: "#FFFFFF",
+                    background: "var(--primary)",
+                    color: "var(--on-primary)",
                     textDecoration: "none",
                     border: "1px solid rgba(255,255,255,0.10)",
                     boxShadow: "0 4px 16px rgba(0,0,0,0.20)",

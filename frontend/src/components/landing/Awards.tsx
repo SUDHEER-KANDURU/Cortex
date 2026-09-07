@@ -70,7 +70,7 @@ export function PortfolioAwards() {
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                   {/* Badge — tall enough for multi-word labels */}
                   <motion.div
-                    className="cx-stat-card group-hover:!bg-[#1E2A38] group-hover:!border-[#1E2A38] flex-shrink-0 rounded-xl flex items-center justify-center"
+                    className="cx-stat-card group-hover:!bg-[var(--primary)] group-hover:!border-[var(--primary)] flex-shrink-0 rounded-xl flex items-center justify-center"
                     style={{ backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", minWidth: 48, padding: "6px 8px" }}
                     whileHover={prefersReduced ? {} : { scale: 1.05, transition: SPRING.snappy }}
                   >
@@ -91,7 +91,7 @@ export function PortfolioAwards() {
                     <div className="cx-text-muted text-xs">{item.metricLabel}</div>
                   </div>
                   <motion.div
-                    className="cx-arrow-circle group-hover:!bg-[#1E2A38] group-hover:!border-[#1E2A38] w-8 h-8 rounded-full flex items-center justify-center"
+                    className="cx-arrow-circle group-hover:!bg-[var(--primary)] group-hover:!border-[var(--primary)] w-8 h-8 rounded-full flex items-center justify-center"
                     whileHover={prefersReduced ? {} : { scale: 1.12, transition: SPRING.snappy }}
                   >
                     <ArrowUpRight className="w-3.5 h-3.5 transition-all duration-200 group-hover:!text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />

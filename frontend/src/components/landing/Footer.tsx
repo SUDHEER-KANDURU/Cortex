@@ -23,9 +23,7 @@ export function PortfolioFooter() {
   return (
     <footer style={{
       borderTop: "1px solid var(--cx-card-border)",
-      background: "rgba(255,255,255,0.06)",
-      backdropFilter: "saturate(200%) blur(24px)",
-      WebkitBackdropFilter: "saturate(200%) blur(24px)",
+      background: "var(--cx-section-bg)",
     }}>
       <div className="max-w-[1280px] mx-auto px-6 md:px-12 py-16 md:py-24">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8">
@@ -47,8 +45,8 @@ export function PortfolioFooter() {
                   style={{ backdropFilter: "blur(12px) saturate(180%)", WebkitBackdropFilter: "blur(12px) saturate(180%)" }}
                   onMouseEnter={e => {
                     const el = e.currentTarget as HTMLElement
-                    el.style.background = "var(--cx-text)"
-                    const icon = el.querySelector("svg"); if (icon) (icon as SVGElement).style.color = "#fff"
+                    el.style.background = "var(--primary)"
+                    const icon = el.querySelector("svg"); if (icon) (icon as SVGElement).style.color = "var(--on-primary)"
                   }}
                   onMouseLeave={e => {
                     const el = e.currentTarget as HTMLElement

@@ -21,16 +21,25 @@ export interface MermaidDiagramProps { definition: string }
 // ── Clamp ─────────────────────────────────────────────────────────────────────
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-// ── Mermaid config — light only ───────────────────────────────────────────────
+// ── Mermaid config — dark, warm-toned ─────────────────────────────────────────
 function mermaidConfig() {
   return {
-    theme: 'neutral',
+    theme: 'dark',
     themeVariables: {
-      background:          '#FFFFFF',
-      primaryColor:        '#F0EEE8',
-      primaryTextColor:    '#1A1814',
-      lineColor:           '#A1A1AA',
-      edgeLabelBackground: '#F4F2EE',
+      background:            'transparent',
+      primaryColor:          '#33230f',
+      primaryBorderColor:    '#a87a3e',
+      primaryTextColor:      '#F5EFE7',
+      secondaryColor:        '#2a1c0e',
+      tertiaryColor:         '#241708',
+      mainBkg:               '#33230f',
+      nodeBorder:            '#a87a3e',
+      lineColor:             '#b09268',
+      textColor:             '#F5EFE7',
+      edgeLabelBackground:   '#241708',
+      clusterBkg:            'rgba(255,255,255,0.04)',
+      clusterBorder:         'rgba(255,255,255,0.14)',
+      fontFamily:            "var(--font-mono, 'JetBrains Mono', monospace)",
     },
     flowchart: { nodeSpacing: 60, rankSpacing: 80, htmlLabels: true, curve: 'basis' },
     securityLevel: 'loose',
@@ -39,11 +48,13 @@ function mermaidConfig() {
 
 function svgLineCss(): string {
   return `
-  .edgePath path, .edgePath .path { stroke: #A1A1AA !important; stroke-width: 1.8px !important; }
-  .edgeLabel { background: #F4F2EE !important; color: #1A1814 !important; }
-  marker path { fill: #A1A1AA !important; }
+  .edgePath path, .edgePath .path { stroke: #b09268 !important; stroke-width: 1.8px !important; }
+  .edgeLabel { background: #241708 !important; color: #F5EFE7 !important; }
+  .edgeLabel rect { fill: #241708 !important; }
+  marker path { fill: #b09268 !important; }
   .node rect, .node polygon, .node circle, .node ellipse { stroke-width: 1.5px !important; }
-  .label { color: #1A1814 !important; fill: #1A1814 !important; }
+  .label { color: #F5EFE7 !important; fill: #F5EFE7 !important; }
+  .cluster rect { fill: rgba(255,255,255,0.04) !important; stroke: rgba(255,255,255,0.14) !important; }
 `;
 }
 
@@ -234,6 +245,76 @@ export default function MermaidDiagram({ definition }: MermaidDiagramProps) {
     isDragging.current = false;
   }, []);
 
+  // ── Touch pan & pinch-zoom ──────────────────────────────────────────────
+  // Single finger drags to pan; two fingers pinch to zoom around the midpoint.
+  // Registered as a non-passive listener so we can preventDefault and stop the
+  // page from scrolling while the user manipulates the diagram.
+  const pinch = useRef<{ dist: number; cx: number; cy: number } | null>(null);
+  useEffect(() => {
+    const el = wrap.current;
+    if (!el) return;
+
+    const dist = (a: Touch, b: Touch) =>
+      Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        isDragging.current = true;
+        setTr(cur => {
+          drag.current = { sx: e.touches[0].clientX, sy: e.touches[0].clientY, tx: cur.x, ty: cur.y };
+          return cur;
+        });
+      } else if (e.touches.length === 2) {
+        drag.current = null;
+        pinch.current = {
+          dist: dist(e.touches[0], e.touches[1]),
+          cx: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+          cy: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+        };
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && pinch.current) {
+        e.preventDefault();
+        const r = el.getBoundingClientRect();
+        const newDist = dist(e.touches[0], e.touches[1]);
+        const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left;
+        const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top;
+        const factor = newDist / (pinch.current.dist || newDist);
+        pinch.current.dist = newDist;
+        setTr(p => {
+          const ns = clamp(p.s * factor, 0.05, 8);
+          const ratio = ns / p.s;
+          return { s: ns, x: cx - (cx - p.x) * ratio, y: cy - (cy - p.y) * ratio };
+        });
+      } else if (e.touches.length === 1 && drag.current) {
+        e.preventDefault();
+        const d = drag.current;
+        setTr(p => ({ ...p, x: d.tx + e.touches[0].clientX - d.sx, y: d.ty + e.touches[0].clientY - d.sy }));
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0) {
+        drag.current = null;
+        isDragging.current = false;
+      }
+      if (e.touches.length < 2) pinch.current = null;
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, []);
+
   // ── Zoom buttons ──────────────────────────────────────────────────────────
   const zoom = useCallback((f: number) => {
     const w = wrap.current;
@@ -265,7 +346,7 @@ export default function MermaidDiagram({ definition }: MermaidDiagramProps) {
       const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       bg.setAttribute('width', '100%');
       bg.setAttribute('height', '100%');
-      bg.setAttribute('fill', '#FFFFFF');
+      bg.setAttribute('fill', '#1A1208');
       clone.insertBefore(bg, clone.firstChild);
 
       const svgStr = new XMLSerializer().serializeToString(clone);
@@ -299,14 +380,14 @@ export default function MermaidDiagram({ definition }: MermaidDiagramProps) {
     : {
         display: 'flex', flexDirection: 'column',
         width: '100%', borderRadius: 16,
-        border: '0.5px solid rgba(255,255,255,0.52)',
-        background: 'rgba(255,255,255,0.25)',
-        backdropFilter: 'blur(30px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(30px) saturate(180%)',
+        border: '1px solid rgba(255,255,255,0.13)',
+        background: 'rgba(255,255,255,0.05)',
+        backdropFilter: 'blur(30px) saturate(155%)',
+        WebkitBackdropFilter: 'blur(30px) saturate(155%)',
         boxShadow:
-          '0 4px 24px rgba(80,60,20,0.09),' +
-          'inset 0 2px 6px rgba(255,255,255,0.65),' +
-          'inset 0 -5px 16px rgba(255,255,255,0.70)',
+          '0 14px 34px rgba(0,0,0,0.36),' +
+          'inset 0 1.5px 1px rgba(255,255,255,0.32),' +
+          'inset 0 -1.5px 1px rgba(255,255,255,0.12)',
       };
 
   return (
@@ -359,9 +440,12 @@ export default function MermaidDiagram({ definition }: MermaidDiagramProps) {
           position: 'relative', width: '100%',
           height: canvasHeight,
           overflow: 'hidden',
-          background: '#FAFAF8',
+          background: 'rgba(255,255,255,0.05)',
           cursor: isDragging.current ? 'grabbing' : 'grab',
           userSelect: 'none',
+          // Let our touch handlers own the gestures (pan + pinch) instead of
+          // the browser scrolling/zooming the page.
+          touchAction: 'none',
           flex: fullscreen ? 1 : undefined,
         }}
       >
@@ -398,9 +482,14 @@ export default function MermaidDiagram({ definition }: MermaidDiagramProps) {
         </div>
 
         {ready && (
-          <div style={{ position: 'absolute', bottom: 10, right: 14, fontSize: 10, color: '#94a3b8', pointerEvents: 'none' }}>
-            Ctrl + Scroll to zoom · Drag to pan
-          </div>
+          <>
+            <div className="mermaid-hint-desktop" style={{ position: 'absolute', bottom: 10, right: 14, fontSize: 10, color: '#94a3b8', pointerEvents: 'none' }}>
+              Ctrl + Scroll to zoom · Drag to pan
+            </div>
+            <div className="mermaid-hint-touch" style={{ position: 'absolute', bottom: 10, right: 14, fontSize: 10, color: '#94a3b8', pointerEvents: 'none' }}>
+              Pinch to zoom · Drag to pan
+            </div>
+          </>
         )}
       </div>
 

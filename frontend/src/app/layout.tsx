@@ -3,7 +3,7 @@ import { AuthProvider } from '@/lib/auth/auth-context';
 import './globals.css';
 
 export const viewport: Viewport = {
-  themeColor: '#F0EEEB',
+  themeColor: '#150E08',
 };
 
 export const metadata: Metadata = {
@@ -34,19 +34,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body
         className="min-h-screen antialiased"
-        style={{ color: 'var(--text, #1A1814)', background: '#F0EEEB' }}
+        style={{ color: 'var(--text, #F5EFE7)', background: '#150E08' }}
         suppressHydrationWarning
       >
-        {/* ── Flux warm ambient background ── */}
-        <div className="flux-bg" aria-hidden="true">
-          <div className="flux-blob flux-blob-1" />
-          <div className="flux-blob flux-blob-2" />
-          <div className="flux-blob flux-blob-3" />
-          <div className="flux-blob flux-blob-4" />
+        {/* ── Deep brown ambient background ── */}
+        {/* Lean set of static blurred washes: four corner anchors + three
+            roaming pockets. Down from twelve layers to limit compositor cost
+            from the `screen` blend + large blur. */}
+        <div className="cx-ambient" aria-hidden="true">
+          <div className="cx-orb cx-orb-lg cx-orb-1" />
+          <div className="cx-orb cx-orb-lg cx-orb-2" />
+          <div className="cx-orb cx-orb-lg cx-orb-3" />
+          <div className="cx-orb cx-orb-lg cx-orb-4" />
+          <div className="cx-orb cx-orb-sm cx-orb-5" />
+          <div className="cx-orb cx-orb-sm cx-orb-6" />
+          <div className="cx-orb cx-orb-sm cx-orb-9" />
         </div>
+        <div className="cx-scrim" aria-hidden="true" />
 
-        {/* All page content sits above the blobs */}
-        <div className="flux-content">
+        {/* All page content sits above the ambient mesh */}
+        <div className="cx-content">
           <AuthProvider>
             {children}
           </AuthProvider>

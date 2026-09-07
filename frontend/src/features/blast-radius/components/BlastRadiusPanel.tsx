@@ -67,8 +67,8 @@ export default function BlastRadiusPanel({ jobId, nodes }: BlastRadiusPanelProps
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px',
-        borderRadius: 12, background: 'rgba(255,255,255,0.35)',
-        border: '0.5px solid rgba(255,255,255,0.55)',
+        borderRadius: 12, background: 'rgba(255,255,255,0.07)',
+        border: '1px solid rgba(255,255,255,0.14)',
       }}>
         <Zap style={{ width: 16, height: 16, color: 'var(--primary)' }} />
         <div>
@@ -84,12 +84,12 @@ export default function BlastRadiusPanel({ jobId, nodes }: BlastRadiusPanelProps
       {/* Node Selector */}
       <div style={{
         padding: '12px 14px', borderRadius: 12,
-        background: 'rgba(255,255,255,0.3)', border: '0.5px solid rgba(255,255,255,0.5)',
+        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.13)',
       }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8,
           padding: '6px 10px', borderRadius: 8,
-          background: 'rgba(255,255,255,0.4)', border: '0.5px solid rgba(255,255,255,0.5)',
+          background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.13)',
           marginBottom: 10,
         }}>
           <Search style={{ width: 12, height: 12, color: 'var(--text-muted)' }} />
@@ -115,10 +115,10 @@ export default function BlastRadiusPanel({ jobId, nodes }: BlastRadiusPanelProps
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
                 background: selectedNode?.id === node.id ? 'var(--primary-dim)' : 'transparent',
-                border: selectedNode?.id === node.id ? '0.5px solid rgba(255,255,255,0.5)' : '0.5px solid transparent',
+                border: selectedNode?.id === node.id ? '1px solid rgba(255,255,255,0.13)' : '0.5px solid transparent',
                 textAlign: 'left', width: '100%', transition: 'all 0.1s ease',
               }}
-              onMouseEnter={(e) => { if (selectedNode?.id !== node.id) e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
+              onMouseEnter={(e) => { if (selectedNode?.id !== node.id) e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; }}
               onMouseLeave={(e) => { if (selectedNode?.id !== node.id) e.currentTarget.style.background = 'transparent'; }}
             >
               <NodeTypeIcon type={node.node_type} />
@@ -197,7 +197,7 @@ export default function BlastRadiusPanel({ jobId, nodes }: BlastRadiusPanelProps
           {result.impact_paths.length > 0 && (
             <div style={{
               padding: '12px 14px', borderRadius: 10,
-              background: 'rgba(255,255,255,0.3)', border: '0.5px solid rgba(255,255,255,0.5)',
+              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.13)',
             }}>
               <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 8px' }}>
                 Impact Paths
@@ -236,7 +236,7 @@ export default function BlastRadiusPanel({ jobId, nodes }: BlastRadiusPanelProps
           {result.affected_modules.length > 0 && (
             <div style={{
               padding: '10px 14px', borderRadius: 10,
-              background: 'rgba(255,255,255,0.3)', border: '0.5px solid rgba(255,255,255,0.5)',
+              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.13)',
             }}>
               <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 6px' }}>
                 Affected Modules
@@ -281,7 +281,7 @@ function ImpactStat({ label, value }: { label: string; value: number }) {
   return (
     <div style={{
       padding: '10px 12px', borderRadius: 8, textAlign: 'center',
-      background: 'rgba(255,255,255,0.3)', border: '0.5px solid rgba(255,255,255,0.5)',
+      background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.13)',
     }}>
       <p style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', margin: 0 }}>{value}</p>
       <p style={{ fontSize: 9, color: 'var(--text-muted)', margin: 0, fontWeight: 600 }}>{label}</p>
@@ -293,7 +293,7 @@ function DependentList({ title, nodes }: { title: string; nodes: BlastRadiusNode
   return (
     <div style={{
       padding: '10px 14px', borderRadius: 10,
-      background: 'rgba(255,255,255,0.3)', border: '0.5px solid rgba(255,255,255,0.5)',
+      background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.13)',
     }}>
       <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 6px' }}>
         {title} ({nodes.length})
@@ -303,7 +303,7 @@ function DependentList({ title, nodes }: { title: string; nodes: BlastRadiusNode
           <div key={node.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{
               fontSize: 8, padding: '1px 4px', borderRadius: 3,
-              background: 'rgba(255,255,255,0.3)', color: 'var(--text-muted)',
+              background: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)',
               fontWeight: 600, fontFamily: 'var(--font-mono)',
             }}>
               {node.node_type}

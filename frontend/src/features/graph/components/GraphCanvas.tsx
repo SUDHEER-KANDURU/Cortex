@@ -23,49 +23,50 @@ import type { GraphNode, GraphEdge } from '@/types';
 import { NODE_TYPE_COLORS } from '@/features/graph/graph.types';
 import NavigateButton from '@/components/shared/NavigateButton';
 import { emitNavigate } from '@/lib/navigate-events';
+import { useIsCompact } from '@/lib/utils/useBreakpoint';
 
 export interface GraphCanvasProps {
   nodes: GraphNode[];
   edges: GraphEdge[];
 }
 
-// ── Static light-only tokens ──────────────────────────────────────────────────
+// ── Static dark-glass tokens ──────────────────────────────────────────────────
 const T = {
   canvasBg:        'transparent',
-  dotColor:        'rgba(80,60,20,0.08)',
-  edgeStroke:      'rgba(80,60,20,0.18)',
-  edgeLabelFill:   '#4A4640',
-  containerBorder: 'rgba(255,255,255,0.45)',
-  nodeText:        '#1A1814',
-  panelBg:         'rgba(255,255,255,0.50)',
-  panelBorder:     'rgba(255,255,255,0.55)',
-  panelText:       '#1A1814',
-  panelMuted:      '#4A4640',
-  panelPropBg:     'rgba(255,255,255,0.35)',
-  panelPropBorder: 'rgba(255,255,255,0.50)',
-  closeBtnHover:   'rgba(255,255,255,0.40)',
-  minimapBg:       'rgba(255,255,255,0.30)',
-  minimapBorder:   'rgba(255,255,255,0.45)',
-  minimapMask:     'rgba(240,238,235,0.55)',
-  controlBtn:      'rgba(255,255,255,0.50)',
-  controlBtnBorder:'rgba(255,255,255,0.55)',
-  controlBtnText:  '#4A4640',
+  dotColor:        'rgba(255,255,255,0.10)',
+  edgeStroke:      'rgba(255,255,255,0.26)',
+  edgeLabelFill:   'rgba(245,239,231,0.76)',
+  containerBorder: 'rgba(255,255,255,0.13)',
+  nodeText:        '#F5EFE7',
+  panelBg:         'rgba(30,20,12,0.72)',
+  panelBorder:     'rgba(255,255,255,0.14)',
+  panelText:       '#F5EFE7',
+  panelMuted:      'rgba(245,239,231,0.60)',
+  panelPropBg:     'rgba(255,255,255,0.05)',
+  panelPropBorder: 'rgba(255,255,255,0.12)',
+  closeBtnHover:   'rgba(255,255,255,0.12)',
+  minimapBg:       'rgba(20,13,8,0.72)',
+  minimapBorder:   'rgba(255,255,255,0.13)',
+  minimapMask:     'rgba(10,6,4,0.62)',
+  controlBtn:      'rgba(255,255,255,0.08)',
+  controlBtnBorder:'rgba(255,255,255,0.14)',
+  controlBtnText:  'rgba(245,239,231,0.82)',
 };
 
 // ── Node factory ──────────────────────────────────────────────────────────────
 function toFlowNode(node: GraphNode, index: number): Node<GraphNode> {
-  const color = NODE_TYPE_COLORS[node.node_type] ?? '#1E2A38';
+  const color = NODE_TYPE_COLORS[node.node_type] ?? '#D9A054';
   const delayMs = Math.min(index * 18, 600);
   return {
     id: node.id,
     position: { x: (index % 5) * 220, y: Math.floor(index / 5) * 120 },
     data: node,
     style: {
-      background: `${color}22`,
-      border: `0.5px solid ${color}`,
+      background: `${color}2E`,
+      border: `1px solid ${color}`,
       borderRadius: '10px',
       padding: '8px 12px',
-      color: '#1A1814',
+      color: T.nodeText,
       fontSize: '12px',
       fontFamily: 'ui-monospace, monospace',
       minWidth: '120px',
@@ -74,8 +75,8 @@ function toFlowNode(node: GraphNode, index: number): Node<GraphNode> {
       animationDelay: `${delayMs}ms`,
       backdropFilter: 'blur(12px)',
       boxShadow:
-        '0 2px 8px rgba(80,60,20,0.08),' +
-        'inset 0 1px 3px rgba(255,255,255,0.55)',
+        '0 6px 16px rgba(0,0,0,0.34),' +
+        'inset 0 1.5px 1px rgba(255,255,255,0.30)',
     },
   };
 }
@@ -98,7 +99,7 @@ function NodeDetailPanel({ node, onClose }: {
   node: GraphNode;
   onClose: () => void;
 }) {
-  const color = NODE_TYPE_COLORS[node.node_type] ?? '#1E2A38';
+  const color = NODE_TYPE_COLORS[node.node_type] ?? '#D9A054';
   return (
     <aside
       aria-label={`Node details: ${node.label}`}
@@ -112,8 +113,8 @@ function NodeDetailPanel({ node, onClose }: {
         borderLeft: `0.5px solid ${T.panelBorder}`,
         padding: '16px',
         boxShadow:
-          '-4px 0 20px rgba(80,60,20,0.08),' +
-          'inset 0 1px 3px rgba(255,255,255,0.55)',
+          '-8px 0 30px rgba(0,0,0,0.42),' +
+          'inset 0 1.5px 1px rgba(255,255,255,0.30)',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -182,6 +183,7 @@ function NodeDetailPanel({ node, onClose }: {
 // ── Main canvas ───────────────────────────────────────────────────────────────
 export default function GraphCanvas({ nodes: rawNodes, edges: rawEdges }: GraphCanvasProps) {
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const isCompact = useIsCompact();
 
   const initialNodes = useMemo(() => rawNodes.map((n, i) => toFlowNode(n, i)), [rawNodes]);
   const initialEdges = useMemo(() => rawEdges.map(e => toFlowEdge(e)), [rawEdges]);
@@ -199,10 +201,10 @@ export default function GraphCanvas({ nodes: rawNodes, edges: rawEdges }: GraphC
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         height: 256, borderRadius: 16,
         border: `0.5px solid ${T.containerBorder}`,
-        background: 'rgba(255,255,255,0.20)',
+        background: 'rgba(255,255,255,0.05)',
         backdropFilter: 'blur(20px) saturate(160%)',
         WebkitBackdropFilter: 'blur(20px) saturate(160%)',
-        boxShadow: 'inset 0 2px 6px rgba(255,255,255,0.60)',
+        boxShadow: 'inset 0 1.5px 1px rgba(255,255,255,0.30)',
       }}>
         <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No graph data available for this job.</p>
       </div>
@@ -214,13 +216,13 @@ export default function GraphCanvas({ nodes: rawNodes, edges: rawEdges }: GraphC
       position: 'relative', height: 'clamp(400px, 65vh, 600px)', width: '100%',
       overflow: 'hidden', borderRadius: 16,
       border: `0.5px solid ${T.containerBorder}`,
-      background: 'rgba(255,255,255,0.15)',
+      background: 'rgba(255,255,255,0.05)',
       backdropFilter: 'blur(20px) saturate(160%)',
       WebkitBackdropFilter: 'blur(20px) saturate(160%)',
       boxShadow:
-        '0 4px 24px rgba(80,60,20,0.08),' +
-        'inset 0 2px 6px rgba(255,255,255,0.55),' +
-        'inset 0 -4px 14px rgba(255,255,255,0.60)',
+        '0 14px 34px rgba(0,0,0,0.36),' +
+        'inset 0 1.5px 1px rgba(255,255,255,0.32),' +
+        'inset 0 -1.5px 1px rgba(255,255,255,0.12)',
     }}>
       <ReactFlow
         nodes={nodes}
@@ -236,7 +238,13 @@ export default function GraphCanvas({ nodes: rawNodes, edges: rawEdges }: GraphC
         style={{ background: 'transparent' }}
         zoomOnScroll={false}
         zoomActivationKeyCode="Control"
-        panOnScroll={true}
+        /* Desktop: pan on scroll, zoom with Ctrl (unchanged).
+           Touch/compact: don't trap page scroll — pan by dragging the canvas
+           and zoom by pinching, so the surrounding page still scrolls. */
+        panOnScroll={!isCompact}
+        panOnDrag={isCompact ? true : undefined}
+        zoomOnPinch={true}
+        preventScrolling={!isCompact}
       >
         <Background
           variant={BackgroundVariant.Dots}
@@ -250,7 +258,7 @@ export default function GraphCanvas({ nodes: rawNodes, edges: rawEdges }: GraphC
           '--xy-controls-button-color': T.controlBtnText,
         } as React.CSSProperties} />
         <MiniMap
-          nodeColor={node => NODE_TYPE_COLORS[(node as Node<GraphNode>).data?.node_type] ?? '#1E2A38'}
+          nodeColor={node => NODE_TYPE_COLORS[(node as Node<GraphNode>).data?.node_type] ?? '#D9A054'}
           style={{
             background: T.minimapBg,
             border: `0.5px solid ${T.minimapBorder}`,

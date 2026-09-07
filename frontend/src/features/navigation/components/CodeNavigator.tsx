@@ -73,12 +73,12 @@ export default function CodeNavigator({ jobId, nodes }: CodeNavigatorProps) {
         maxHeight: isCompact ? 260 : undefined,
         display: 'flex', flexDirection: 'column',
         padding: '12px', borderRadius: 12,
-        background: 'rgba(255,255,255,0.3)', border: '0.5px solid rgba(255,255,255,0.5)',
+        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.13)',
       }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px',
-          borderRadius: 8, background: 'rgba(255,255,255,0.4)',
-          border: '0.5px solid rgba(255,255,255,0.5)', marginBottom: 10,
+          borderRadius: 8, background: 'rgba(255,255,255,0.08)',
+          border: '1px solid rgba(255,255,255,0.13)', marginBottom: 10,
         }}>
           <Search style={{ width: 11, height: 11, color: 'var(--text-muted)' }} />
           <input
@@ -105,7 +105,7 @@ export default function CodeNavigator({ jobId, nodes }: CodeNavigatorProps) {
                 background: selectedNode?.id === node.id ? 'var(--primary-dim)' : 'transparent',
                 border: 'none', textAlign: 'left', transition: 'background 0.1s',
               }}
-              onMouseEnter={(e) => { if (selectedNode?.id !== node.id) e.currentTarget.style.background = 'rgba(255,255,255,0.25)'; }}
+              onMouseEnter={(e) => { if (selectedNode?.id !== node.id) e.currentTarget.style.background = 'rgba(255,255,255,0.10)'; }}
               onMouseLeave={(e) => { if (selectedNode?.id !== node.id) e.currentTarget.style.background = 'transparent'; }}
             >
               <NodeIcon type={node.node_type} />
@@ -169,7 +169,7 @@ function NodeDetailView({ detail, onNavigate }: { detail: NodeDetailData; onNavi
       {/* Header */}
       <div style={{
         padding: '14px 16px', borderRadius: 12,
-        background: 'rgba(255,255,255,0.35)', border: '0.5px solid rgba(255,255,255,0.55)',
+        background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <NodeIcon type={detail.node_type} size={16} />
@@ -231,7 +231,7 @@ function NodeDetailView({ detail, onNavigate }: { detail: NodeDetailData; onNavi
       {detail.contains.length > 0 && (
         <div style={{
           padding: '10px 14px', borderRadius: 10,
-          background: 'rgba(255,255,255,0.3)', border: '0.5px solid rgba(255,255,255,0.5)',
+          background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.13)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
             <FolderTree style={{ width: 12, height: 12, color: 'var(--primary)' }} />
@@ -250,7 +250,7 @@ function NodeDetailView({ detail, onNavigate }: { detail: NodeDetailData; onNavi
                   borderRadius: 6, background: 'transparent', border: 'none',
                   cursor: 'pointer', textAlign: 'left', transition: 'background 0.1s',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.3)'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.10)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
               >
                 <NodeIcon type={child.type} />
@@ -279,7 +279,7 @@ function ConnectionSection({ title, subtitle, icon, connections, onNavigate }: {
   return (
     <div style={{
       padding: '10px 14px', borderRadius: 10,
-      background: 'rgba(255,255,255,0.3)', border: '0.5px solid rgba(255,255,255,0.5)',
+      background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.13)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
         {icon}
@@ -301,14 +301,14 @@ function ConnectionSection({ title, subtitle, icon, connections, onNavigate }: {
               borderRadius: 6, background: 'transparent', border: 'none',
               cursor: 'pointer', textAlign: 'left', width: '100%', transition: 'background 0.1s',
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.3)'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.10)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
           >
             <NodeIcon type={conn.type} />
             <span style={{ fontSize: 11, color: 'var(--text)', fontFamily: 'var(--font-mono)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {conn.label}
             </span>
-            <span style={{ fontSize: 9, color: 'var(--text-muted)', padding: '1px 5px', borderRadius: 4, background: 'rgba(255,255,255,0.3)' }}>
+            <span style={{ fontSize: 9, color: 'var(--text-muted)', padding: '1px 5px', borderRadius: 4, background: 'rgba(255,255,255,0.06)' }}>
               {conn.relationship}
             </span>
             <ChevronRight style={{ width: 10, height: 10, color: 'var(--text-muted)' }} />
@@ -358,7 +358,7 @@ function ArchitecturalRole({ detail }: { detail: NodeDetailData }) {
   return (
     <div style={{
       padding: '10px 14px', borderRadius: 10,
-      background: 'var(--primary-dim)', border: '0.5px solid rgba(255,255,255,0.4)',
+      background: 'var(--primary-dim)', border: '1px solid rgba(255,255,255,0.12)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <BookOpen style={{ width: 12, height: 12, color: 'var(--primary)' }} />
@@ -411,7 +411,7 @@ function MetricChip({ icon, label, value, warn }: {
     <div style={{
       display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px',
       borderRadius: 8,
-      background: warn ? 'rgba(249,115,22,0.05)' : 'rgba(255,255,255,0.3)',
+      background: warn ? 'rgba(249,115,22,0.10)' : 'rgba(255,255,255,0.06)',
       border: `0.5px solid ${warn ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.5)'}`,
     }}>
       <span style={{ color: warn ? '#f97316' : 'var(--text-muted)' }}>{icon}</span>

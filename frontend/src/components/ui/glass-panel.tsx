@@ -51,8 +51,9 @@ const GlassPanel = React.forwardRef<HTMLDivElement, GlassPanelProps>(
       },
       nav: {
         background: 'var(--glass-nav)',
-        backdropFilter: 'blur(44px) saturate(200%)',
-        WebkitBackdropFilter: 'blur(44px) saturate(200%)',
+        // backdrop-filter deliberately omitted: the `.cx-nav-glass` class below
+        // supplies it, which lets the refraction upgrade in globals.css win the
+        // cascade (an inline filter would override it).
         boxShadow: 'var(--shadow-nav)',
       },
     };
@@ -66,7 +67,7 @@ const GlassPanel = React.forwardRef<HTMLDivElement, GlassPanelProps>(
           border: noBorder ? 'none' : '1px solid var(--border)',
           ...style,
         }}
-        className={cn('overflow-hidden', className)}
+        className={cn('overflow-hidden', variant === 'nav' && 'cx-nav-glass', className)}
         {...props}
       />
     );

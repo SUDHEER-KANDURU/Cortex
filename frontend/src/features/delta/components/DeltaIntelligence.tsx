@@ -55,7 +55,7 @@ export default function DeltaIntelligence({ jobId }: DeltaIntelligenceProps) {
     return (
       <div style={{
         padding: '14px 16px', borderRadius: 12,
-        background: 'rgba(255,255,255,0.3)', border: '0.5px solid rgba(255,255,255,0.5)',
+        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.13)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <Clock style={{ width: 14, height: 14, color: 'var(--text-muted)' }} />
@@ -81,7 +81,7 @@ export default function DeltaIntelligence({ jobId }: DeltaIntelligenceProps) {
         </span>
         <span style={{
           fontSize: 9, padding: '2px 8px', borderRadius: 10,
-          background: 'rgba(255,255,255,0.3)', color: 'var(--text-muted)',
+          background: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)',
           fontWeight: 600, marginLeft: 'auto',
         }}>
           Analysis #{delta.analysis_count}
@@ -137,7 +137,7 @@ export default function DeltaIntelligence({ jobId }: DeltaIntelligenceProps) {
       {delta.structural_changes.length > 0 && (
         <div style={{
           padding: '10px 14px', borderRadius: 10,
-          background: 'rgba(255,255,255,0.3)', border: '0.5px solid rgba(255,255,255,0.5)',
+          background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.13)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
             <GitBranch style={{ width: 12, height: 12, color: 'var(--text-muted)' }} />
@@ -157,7 +157,7 @@ export default function DeltaIntelligence({ jobId }: DeltaIntelligenceProps) {
       {delta.dimension_changes.length > 0 && (
         <div style={{
           padding: '10px 14px', borderRadius: 10,
-          background: 'rgba(255,255,255,0.3)', border: '0.5px solid rgba(255,255,255,0.5)',
+          background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.13)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
             <Activity style={{ width: 12, height: 12, color: 'var(--text-muted)' }} />
@@ -181,7 +181,7 @@ function ScoreChangeCard({ change, isOverall }: { change: ScoreChange; isOverall
   const colors = {
     improved: { bg: 'rgba(34,197,94,0.05)', border: 'rgba(34,197,94,0.2)', text: '#22c55e', icon: TrendingUp },
     degraded: { bg: 'rgba(239,68,68,0.05)', border: 'rgba(239,68,68,0.2)', text: '#ef4444', icon: TrendingDown },
-    stable: { bg: 'rgba(255,255,255,0.3)', border: 'rgba(255,255,255,0.5)', text: 'var(--text-muted)', icon: Minus },
+    stable: { bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.13)', text: 'var(--text-muted)', icon: Minus },
   };
   const c = colors[change.direction];
   const Icon = c.icon;

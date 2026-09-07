@@ -84,21 +84,21 @@ export default function ChatPanel({ jobId, repoName }: ChatPanelProps) {
     <div style={{
       display: 'flex', flexDirection: 'column', height: '100%',
       borderRadius: 16, overflow: 'hidden',
-      background: 'rgba(255,255,255,0.45)',
-      backdropFilter: 'blur(30px) saturate(170%)',
-      WebkitBackdropFilter: 'blur(30px) saturate(170%)',
-      border: '0.5px solid rgba(255,255,255,0.65)',
-      boxShadow: '0 4px 24px rgba(80,60,20,0.06), inset 0 1px 3px rgba(255,255,255,0.6)',
+      background: 'rgba(30,20,12,0.58)',
+      backdropFilter: 'blur(30px) saturate(155%)',
+      WebkitBackdropFilter: 'blur(30px) saturate(155%)',
+      border: '1px solid rgba(255,255,255,0.13)',
+      boxShadow: '0 16px 40px rgba(0,0,0,0.40), inset 0 1.5px 1px rgba(255,255,255,0.30)',
     }}>
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px',
-        borderBottom: '0.5px solid rgba(255,255,255,0.5)',
-        background: 'rgba(255,255,255,0.3)',
+        borderBottom: '1px solid rgba(255,255,255,0.12)',
+        background: 'rgba(255,255,255,0.04)',
       }}>
         <div style={{
           width: 28, height: 28, borderRadius: 8,
-          background: 'var(--primary-dim)', border: '0.5px solid rgba(255,255,255,0.5)',
+          background: 'var(--primary-dim)', border: '1px solid rgba(255,255,255,0.14)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <MessageSquare style={{ width: 14, height: 14, color: 'var(--primary)' }} />
@@ -136,7 +136,7 @@ export default function ChatPanel({ jobId, repoName }: ChatPanelProps) {
           }}>
             <div style={{
               width: 48, height: 48, borderRadius: 14,
-              background: 'rgba(255,255,255,0.35)', border: '0.5px solid rgba(255,255,255,0.55)',
+              background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <Sparkles style={{ width: 22, height: 22, color: 'var(--primary)' }} />
@@ -163,16 +163,16 @@ export default function ChatPanel({ jobId, repoName }: ChatPanelProps) {
                   style={{
                     display: 'flex', alignItems: 'flex-start', gap: 8,
                     padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
-                    background: 'rgba(255,255,255,0.3)', border: '0.5px solid rgba(255,255,255,0.5)',
+                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
                     textAlign: 'left', transition: 'all 0.15s ease',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.5)';
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.7)';
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.11)';
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.22)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.3)';
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)';
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
                   }}
                 >
                   <span style={{ color: 'var(--primary)', flexShrink: 0, marginTop: 1 }}>
@@ -218,13 +218,13 @@ export default function ChatPanel({ jobId, repoName }: ChatPanelProps) {
 
       {/* Input area */}
       <div style={{
-        padding: '12px 16px', borderTop: '0.5px solid rgba(255,255,255,0.5)',
-        background: 'rgba(255,255,255,0.3)',
+        padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.12)',
+        background: 'rgba(255,255,255,0.04)',
       }}>
         <div style={{
           display: 'flex', alignItems: 'flex-end', gap: 8,
           padding: '8px 12px', borderRadius: 12,
-          background: 'rgba(255,255,255,0.5)', border: '0.5px solid rgba(255,255,255,0.6)',
+          background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
         }}>
           <textarea
             ref={inputRef}
@@ -264,9 +264,9 @@ export default function ChatPanel({ jobId, repoName }: ChatPanelProps) {
               style={{
                 width: 32, height: 32, borderRadius: 8, cursor: input.trim() ? 'pointer' : 'default',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: input.trim() ? 'var(--primary)' : 'rgba(255,255,255,0.3)',
-                border: input.trim() ? 'none' : '0.5px solid rgba(255,255,255,0.5)',
-                color: input.trim() ? '#fff' : 'var(--text-muted)',
+                background: input.trim() ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                border: input.trim() ? 'none' : '1px solid rgba(255,255,255,0.12)',
+                color: input.trim() ? 'var(--on-primary)' : 'var(--text-muted)',
                 transition: 'all 0.15s ease', flexShrink: 0,
                 opacity: input.trim() ? 1 : 0.5,
               }}

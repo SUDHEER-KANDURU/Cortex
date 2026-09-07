@@ -438,24 +438,24 @@ function LogPanel({ lines }: LogPanelProps) {
       transition={{ duration: 0.5, delay: 0.2, ease: EASE_OUT }}
       style={{
         width: '100%', maxWidth: 500,
-        background: 'rgba(255,255,255,0.28)',
+        background: 'rgba(255,255,255,0.06)',
         backdropFilter: 'blur(20px) saturate(160%)',
         WebkitBackdropFilter: 'blur(20px) saturate(160%)',
-        border: '0.5px solid rgba(255,255,255,0.50)',
+        border: '1px solid rgba(255,255,255,0.13)',
         borderRadius: 'var(--radius-md)',
         fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: 1.9,
         overflow: 'hidden',
         boxShadow:
-          '0 4px 20px rgba(80,60,20,0.08),' +
-          'inset 0 2px 6px rgba(255,255,255,0.60),' +
-          'inset 0 -4px 12px rgba(255,255,255,0.55)',
+          '0 4px 20px rgba(0,0,0,0.34),' +
+          'inset 0 1.5px 1px rgba(255,255,255,0.32),' +
+          'inset 0 -1.5px 1px rgba(255,255,255,0.12)',
       }}
     >
       {/* Terminal header bar — liquid glass */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6,
-        padding: '8px 14px', borderBottom: '0.5px solid rgba(255,255,255,0.45)',
-        background: 'rgba(255,255,255,0.15)',
+        padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.12)',
+        background: 'rgba(255,255,255,0.05)',
       }}>
         {['rgba(185,64,64,0.55)', 'rgba(172,122,42,0.55)', 'rgba(78,155,111,0.55)'].map((c, i) => (
           <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: c }} aria-hidden="true" />

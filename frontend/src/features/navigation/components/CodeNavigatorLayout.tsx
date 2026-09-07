@@ -187,7 +187,7 @@ export default function CodeNavigatorLayout({
           maxHeight: isCompact ? 240 : undefined,
           display: 'flex', flexDirection: 'column',
           padding: '10px', borderRadius: 12,
-          background: 'rgba(255,255,255,0.3)', border: '0.5px solid rgba(255,255,255,0.5)',
+          background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.13)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 6px 10px' }}>

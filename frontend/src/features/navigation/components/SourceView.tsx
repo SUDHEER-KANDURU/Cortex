@@ -57,7 +57,7 @@ function LineBadges({ annotation }: { annotation: LineAnnotation }) {
             display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 700,
             padding: '1px 5px', borderRadius: 4, fontFamily: 'var(--font-mono)',
             color: 'var(--primary)', background: 'var(--primary-dim)',
-            border: '0.5px solid rgba(255,255,255,0.4)',
+            border: '1px solid rgba(255,255,255,0.12)',
           }}
         >
           <Globe style={{ width: 9, height: 9 }} aria-hidden="true" />
@@ -72,8 +72,8 @@ function LineBadges({ annotation }: { annotation: LineAnnotation }) {
             display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 700,
             padding: '1px 5px', borderRadius: 4, fontFamily: 'var(--font-mono)',
             color: complexityWarn ? '#f97316' : 'var(--text-muted)',
-            background: complexityWarn ? 'rgba(249,115,22,0.10)' : 'rgba(255,255,255,0.30)',
-            border: `0.5px solid ${complexityWarn ? 'rgba(249,115,22,0.30)' : 'rgba(255,255,255,0.45)'}`,
+            background: complexityWarn ? 'rgba(249,115,22,0.14)' : 'rgba(255,255,255,0.06)',
+            border: `1px solid ${complexityWarn ? 'rgba(249,115,22,0.34)' : 'rgba(255,255,255,0.12)'}`,
           }}
         >
           <Activity style={{ width: 9, height: 9 }} aria-hidden="true" />
@@ -87,8 +87,8 @@ function LineBadges({ annotation }: { annotation: LineAnnotation }) {
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 700,
             padding: '1px 5px', borderRadius: 4, fontFamily: 'var(--font-mono)',
-            color: 'var(--text-muted)', background: 'rgba(255,255,255,0.30)',
-            border: '0.5px solid rgba(255,255,255,0.45)',
+            color: 'var(--text-muted)', background: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.12)',
           }}
         >
           <ArrowDownRight style={{ width: 9, height: 9 }} aria-hidden="true" />
@@ -123,13 +123,13 @@ export default function SourceView({
       style={{
         display: 'flex', flexDirection: 'column', height: '100%', minHeight: 240,
         borderRadius: 12, overflow: 'hidden',
-        background: 'rgba(255,255,255,0.35)', border: '0.5px solid rgba(255,255,255,0.55)',
+        background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)',
       }}
     >
       {/* Header — open file path */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px',
-        borderBottom: '0.5px solid rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.3)',
+        borderBottom: '1px solid rgba(255,255,255,0.13)', background: 'rgba(255,255,255,0.06)',
       }}>
         <FileCode2 style={{ width: 13, height: 13, color: 'var(--primary)' }} />
         <span

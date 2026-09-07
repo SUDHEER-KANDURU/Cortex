@@ -21,12 +21,15 @@ export interface GraphDataState {
   error: string | null;
 }
 
-/** Color mapping from node type to Tailwind/hex color */
+/** Color mapping from node type to hex color.
+ *  Tuned to stay legible against the dark ambient background: each hue is
+ *  lightened relative to its Tailwind base so node borders and labels keep
+ *  enough contrast, while remaining distinct from one another. */
 export const NODE_TYPE_COLORS: Record<string, string> = {
-  Repository: '#7c3aed', // purple-700
-  Module:     '#2563eb', // blue-600
-  File:       '#16a34a', // green-600
-  Function:   '#ca8a04', // yellow-600
-  Class:      '#ea580c', // orange-600
-  Pattern:    '#dc2626', // red-600
+  Repository: '#a78bfa', // violet-400
+  Module:     '#60a5fa', // blue-400
+  File:       '#4ade80', // green-400
+  Function:   '#e8b84a', // amber
+  Class:      '#fb923c', // orange-400
+  Pattern:    '#f87171', // red-400
 };

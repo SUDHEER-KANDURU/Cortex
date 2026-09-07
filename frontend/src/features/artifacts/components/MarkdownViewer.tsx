@@ -20,32 +20,65 @@ export default function MarkdownViewer({ content }: MarkdownViewerProps) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          // Intercept code blocks — render mermaid ones as diagrams
+          // Intercept code blocks — render mermaid ones as diagrams.
+          // IMPORTANT: react-markdown routes BOTH inline `code` and fenced
+          // ```code``` blocks through this component. Inline code must stay
+          // inline — forcing display:block on it makes every backtick-wrapped
+          // word (e.g. `backend`, `routes` in a comma list) collapse onto its
+          // own full-width line with large gaps. We detect fenced blocks via
+          // the `language-*` class or an embedded newline; everything else is
+          // treated as inline.
           code({ className, children, ...props }) {
             const match = /language-(\w+)/.exec(className || '');
             const lang = match?.[1];
             const codeString = String(children).replace(/\n$/, '');
+            const isBlock = Boolean(lang) || codeString.includes('\n');
 
             if (lang === 'mermaid') {
               return <MermaidDiagram definition={codeString} />;
             }
 
-            // Regular code block
+            // Inline code — stays in the text flow, no block layout.
+            if (!isBlock) {
+              return (
+                <code
+                  className={className}
+                  style={{
+                    display: 'inline',
+                    padding: '1px 6px',
+                    borderRadius: 6,
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface)',
+                    fontSize: '0.9em',
+                    fontFamily: 'var(--font-mono)',
+                    wordBreak: 'break-word',
+                    lineHeight: 'inherit',
+                  }}
+                  {...props}
+                >
+                  {children}
+                </code>
+              );
+            }
+
+            // Fenced code block — full-width, horizontally scrollable.
             return (
               <code
                 className={className}
                 style={{
                   display: 'block',
-                  overflow: 'auto',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
+                  overflowX: 'auto',
+                  whiteSpace: 'pre',
+                  wordBreak: 'normal',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--border)',
                   background: 'var(--surface)',
-                  padding: '16px 18px',
+                  padding: '14px 16px',
                   fontSize: 13,
                   lineHeight: 1.75,
                   fontFamily: 'var(--font-mono)',
+                  WebkitOverflowScrolling: 'touch',
+                  maxWidth: '100%',
                 }}
                 {...props}
               >
@@ -116,12 +149,26 @@ export default function MarkdownViewer({ content }: MarkdownViewerProps) {
               </blockquote>
             );
           },
-          // Style tables
+          // Style tables — wrapped in a horizontally scrollable container so
+          // wide tables (Module Summary, Key Components) scroll on their own
+          // instead of squishing columns or overflowing the page on mobile.
           table({ children }) {
             return (
-              <div style={{ overflowX: 'auto', margin: '12px 0', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+              <div
+                className="md-table-scroll"
+                style={{
+                  overflowX: 'auto',
+                  WebkitOverflowScrolling: 'touch',
+                  margin: '12px 0',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border)',
+                  maxWidth: '100%',
+                }}
+              >
                 <table style={{
-                  width: '100%', borderCollapse: 'collapse',
+                  // min-width keeps columns readable; the wrapper scrolls
+                  // horizontally rather than crushing them on narrow screens.
+                  width: '100%', minWidth: 440, borderCollapse: 'collapse',
                   fontSize: 12, fontFamily: 'var(--font-mono)',
                 }}>
                   {children}

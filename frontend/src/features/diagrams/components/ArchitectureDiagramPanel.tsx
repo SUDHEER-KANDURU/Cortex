@@ -33,7 +33,7 @@ export default function ArchitectureDiagramPanel({ jobId }: ArchitectureDiagramP
         alignItems: 'center',
         justifyContent: 'center',
         height: 400,
-        color: '#6B7280',
+        color: 'var(--text-muted)',
         fontSize: 14,
         fontFamily: 'Inter, system-ui, sans-serif',
       }}>
@@ -41,8 +41,8 @@ export default function ArchitectureDiagramPanel({ jobId }: ArchitectureDiagramP
           <div style={{
             width: 32,
             height: 32,
-            border: '3px solid #E5E7EB',
-            borderTopColor: '#3B82F6',
+            border: '3px solid rgba(255,255,255,0.14)',
+            borderTopColor: 'var(--primary)',
             borderRadius: '50%',
             animation: 'spin 0.8s linear infinite',
             margin: '0 auto 12px',
@@ -59,7 +59,7 @@ export default function ArchitectureDiagramPanel({ jobId }: ArchitectureDiagramP
       <div style={{
         padding: 24,
         color: '#991B1B',
-        background: '#FEF2F2',
+        background: 'rgba(248,113,113,0.14)',
         borderRadius: 8,
         fontSize: 13,
         fontFamily: 'Inter, system-ui, sans-serif',
@@ -73,7 +73,7 @@ export default function ArchitectureDiagramPanel({ jobId }: ArchitectureDiagramP
     return (
       <div style={{
         padding: 24,
-        color: '#6B7280',
+        color: 'var(--text-muted)',
         fontSize: 13,
         fontFamily: 'Inter, system-ui, sans-serif',
         textAlign: 'center',
@@ -87,10 +87,12 @@ export default function ArchitectureDiagramPanel({ jobId }: ArchitectureDiagramP
     <div style={{
       width: '100%',
       height: 'clamp(400px, 65vh, 600px)',
-      border: '1px solid #E5E7EB',
+      border: '1px solid rgba(255,255,255,0.13)',
       borderRadius: 12,
       overflow: 'hidden',
-      background: '#FFFFFF',
+      background: 'rgba(255,255,255,0.04)',
+      backdropFilter: 'blur(24px) saturate(150%)',
+      WebkitBackdropFilter: 'blur(24px) saturate(150%)',
     }}>
       <ArchitectureDiagram
         data={data}

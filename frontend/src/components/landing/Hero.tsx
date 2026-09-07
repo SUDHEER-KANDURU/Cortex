@@ -210,7 +210,7 @@ export function PortfolioHero() {
                     className="hero-cta-primary cta-shimmer inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold rounded-full"
                     style={{
                       background: "var(--primary)",
-                      color: "#FFFFFF",
+                      color: "var(--on-primary)",
                       boxShadow: "var(--shadow-sm)",
                     }}>
                     Analyze a Repository

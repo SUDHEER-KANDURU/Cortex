@@ -21,13 +21,13 @@ export interface AnimatedCortexLogoProps {
 }
 
 // ── Color palette ─────────────────────────────────────────────────────────────
-// Deep navy to steel-blue tones matching the new dark primary
+// Warm caramel through amber, sitting bright against the deep brown background
 const COLOR_STOPS = [
-  { r: 30,  g: 42,  b: 56  }, // #1E2A38 deep navy (brand primary)
-  { r: 42,  g: 62,  b: 84  }, // #2A3E54 navy-steel
-  { r: 58,  g: 84,  b: 112 }, // #3A5470 mid steel-blue
-  { r: 42,  g: 62,  b: 84  }, // #2A3E54 back to navy-steel
-  { r: 30,  g: 42,  b: 56  }, // loop back
+  { r: 217, g: 160, b: 84  }, // #D9A054 caramel (brand primary)
+  { r: 232, g: 184, b: 106 }, // #E8B86A light amber
+  { r: 245, g: 208, b: 140 }, // #F5D08C pale gold highlight
+  { r: 232, g: 184, b: 106 }, // #E8B86A back to light amber
+  { r: 217, g: 160, b: 84  }, // loop back
 ] as const;
 
 // Total animation duration for one full color cycle (ms)

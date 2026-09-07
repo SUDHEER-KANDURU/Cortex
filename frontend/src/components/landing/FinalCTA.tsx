@@ -142,7 +142,7 @@ export function PortfolioFinalCTA() {
                   className="group inline-flex items-center justify-center gap-2 px-9 py-4 text-base font-semibold rounded-full"
                   style={{
                     background:  "var(--primary)",
-                    color:       "#FFFFFF",
+                    color:       "var(--on-primary)",
                     boxShadow:   "var(--shadow-md)",
                   }}
                 >

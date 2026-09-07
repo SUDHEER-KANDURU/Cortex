@@ -25,11 +25,11 @@ function ArchitectureOutput({ active }: { active: boolean }) {
   }, [active])
 
   const boxes = [
-    { label: "api/",       x: 20,  y: 16,  fill: "#111" },
-    { label: "domain/",    x: 145, y: 16,  fill: "#333" },
-    { label: "infra/",     x: 20,  y: 86,  fill: "#555" },
-    { label: "shared/",    x: 145, y: 86,  fill: "#777" },
-    { label: "workers/",   x: 82,  y: 155, fill: "#999" },
+    { label: "api/",       x: 20,  y: 16,  fill: "#3A2412" },
+    { label: "domain/",    x: 145, y: 16,  fill: "#4A2E17" },
+    { label: "infra/",     x: 20,  y: 86,  fill: "#5A381C" },
+    { label: "shared/",    x: 145, y: 86,  fill: "#6A4221" },
+    { label: "workers/",   x: 82,  y: 155, fill: "#7A4C26" },
   ]
   const edges = [
     [0, 1], [0, 2], [1, 3], [2, 3], [2, 4], [3, 4], [0, 4],
@@ -109,7 +109,7 @@ function LearningPathOutput({ active }: { active: boolean }) {
             width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
             background: node.done ? "var(--primary)" : "var(--surface)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "8px", color: node.done ? "#FFFFFF" : "var(--text-muted)",
+            fontSize: "8px", color: node.done ? "var(--on-primary)" : "var(--text-muted)",
             fontFamily: "var(--font-mono)",
           }}>
             {node.done ? "✓" : (i + 1)}
@@ -342,7 +342,7 @@ function OnboardingGuideOutput({ active }: { active: boolean }) {
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: "9px", fontWeight: 800,
             background: i < step ? "var(--primary)" : "var(--border)",
-            color: i < step ? "#fff" : "var(--text-muted)",
+            color: i < step ? "var(--on-primary)" : "var(--text-muted)",
           }}>
             {s.icon}
           </span>

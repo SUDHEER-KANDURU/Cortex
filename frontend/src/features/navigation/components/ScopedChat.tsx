@@ -108,13 +108,13 @@ export default function ScopedChat({
       style={{
         display: 'flex', flexDirection: 'column', height: '100%', minHeight: 240,
         borderRadius: 12, overflow: 'hidden',
-        background: 'rgba(255,255,255,0.35)', border: '0.5px solid rgba(255,255,255,0.55)',
+        background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)',
       }}
     >
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px',
-        borderBottom: '0.5px solid rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.3)',
+        borderBottom: '1px solid rgba(255,255,255,0.13)', background: 'rgba(255,255,255,0.06)',
       }}>
         <MessageSquare style={{ width: 13, height: 13, color: 'var(--primary)' }} />
         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>Ask about this code</span>
@@ -168,7 +168,7 @@ export default function ScopedChat({
       {/* Composer */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px',
-        borderTop: '0.5px solid rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.3)',
+        borderTop: '1px solid rgba(255,255,255,0.13)', background: 'rgba(255,255,255,0.06)',
       }}>
         <input
           type="text"
@@ -179,8 +179,8 @@ export default function ScopedChat({
           onKeyDown={onKeyDown}
           placeholder={hasFile ? 'Ask about this code...' : 'Open a file first'}
           style={{
-            flex: 1, border: '0.5px solid rgba(255,255,255,0.5)', outline: 'none',
-            background: 'rgba(255,255,255,0.4)', borderRadius: 8, padding: '7px 10px',
+            flex: 1, border: '1px solid rgba(255,255,255,0.13)', outline: 'none',
+            background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '7px 10px',
             fontSize: 12, color: 'var(--text)', fontFamily: 'var(--font-sans)',
           }}
         />
@@ -191,7 +191,7 @@ export default function ScopedChat({
           disabled={!hasFile || isLoading}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600,
-            padding: '7px 12px', borderRadius: 8, border: '0.5px solid rgba(255,255,255,0.45)',
+            padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)',
             background: 'var(--primary-dim)', color: 'var(--primary)',
             cursor: !hasFile || isLoading ? 'not-allowed' : 'pointer',
             opacity: !hasFile || isLoading ? 0.6 : 1,

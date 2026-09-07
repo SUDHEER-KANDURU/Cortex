@@ -221,8 +221,8 @@ function NavigateToolbar({
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
-      borderBottom: '0.5px solid rgba(255,255,255,0.3)',
-      background: 'rgba(255,255,255,0.15)',
+      borderBottom: '1px solid rgba(255,255,255,0.10)',
+      background: 'rgba(255,255,255,0.05)',
     }}>
       {/* Back/Forward */}
       <button
@@ -318,15 +318,15 @@ function SearchPanel({
       width: fullWidth ? '100%' : 240,
       minWidth: fullWidth ? 0 : 240,
       flex: fullWidth ? 1 : undefined,
-      borderRight: fullWidth ? 'none' : '0.5px solid rgba(255,255,255,0.3)',
+      borderRight: fullWidth ? 'none' : '1px solid rgba(255,255,255,0.10)',
       display: 'flex', flexDirection: 'column', background: 'rgba(255,255,255,0.08)',
     }}>
       {/* Search input */}
       <div style={{ padding: '8px 10px' }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
-          borderRadius: 6, background: 'rgba(255,255,255,0.25)',
-          border: '0.5px solid rgba(255,255,255,0.35)',
+          borderRadius: 6, background: 'rgba(255,255,255,0.055)',
+          border: '1px solid rgba(255,255,255,0.11)',
         }}>
           <Search style={{ width: 11, height: 11, color: 'var(--text-muted)' }} />
           <input
@@ -360,7 +360,7 @@ function SearchPanel({
               textAlign: 'left', transition: 'background 0.1s',
               background: selectedId === node.id ? 'var(--primary-dim)' : 'transparent',
             }}
-            onMouseEnter={e => { if (selectedId !== node.id) e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
+            onMouseEnter={e => { if (selectedId !== node.id) e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; }}
             onMouseLeave={e => { if (selectedId !== node.id) e.currentTarget.style.background = 'transparent'; }}
           >
             <span style={{ fontSize: 11, width: 16, textAlign: 'center' }}>{nodeIcon(node.node_type)}</span>
@@ -420,7 +420,7 @@ function Breadcrumb({
               fontFamily: 'var(--font-mono)', fontWeight: i === items.length - 1 ? 600 : 400,
               transition: 'background 0.1s',
             }}
-            onMouseEnter={e => { if (i < items.length - 1) e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
+            onMouseEnter={e => { if (i < items.length - 1) e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; }}
             onMouseLeave={e => { if (i < items.length - 1) e.currentTarget.style.background = 'transparent'; }}
           >
             <span style={{ marginRight: 3 }}>{nodeIcon(item.node_type)}</span>
@@ -440,7 +440,7 @@ function EntityHeader({ data }: { data: NavigateResponse }) {
   return (
     <div style={{
       padding: '14px 16px', borderRadius: 10, marginBottom: 12,
-      background: 'rgba(255,255,255,0.3)', border: '0.5px solid rgba(255,255,255,0.45)',
+      background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
     }}>
       {/* Type badge */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -507,7 +507,7 @@ function ModeTabs({ mode, onSetMode }: { mode: NavigationMode; onSetMode: (m: Na
   return (
     <div style={{
       display: 'flex', gap: 2, marginBottom: 14, padding: '3px',
-      borderRadius: 8, background: 'rgba(255,255,255,0.15)',
+      borderRadius: 8, background: 'rgba(255,255,255,0.05)',
       border: '0.5px solid rgba(255,255,255,0.25)',
       overflowX: 'auto',
     }}>
@@ -835,7 +835,7 @@ function ConnectionSection({
   return (
     <div style={{
       padding: '10px 14px', borderRadius: 10,
-      background: 'rgba(255,255,255,0.25)', border: '0.5px solid rgba(255,255,255,0.4)',
+      background: 'rgba(255,255,255,0.055)', border: '1px solid rgba(255,255,255,0.12)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         {icon}
@@ -858,7 +858,7 @@ function ConnectionSection({
                 cursor: 'pointer', textAlign: 'left', width: '100%',
                 transition: 'background 0.1s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.25)'; }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.10)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
             >
               <span style={{ fontSize: 11, width: 16, textAlign: 'center', flexShrink: 0 }}>
@@ -873,7 +873,7 @@ function ConnectionSection({
               {/* Relationship badge */}
               <span style={{
                 fontSize: 8, padding: '1px 4px', borderRadius: 3,
-                background: 'rgba(255,255,255,0.3)',
+                background: 'rgba(255,255,255,0.06)',
                 color: 'var(--text-muted)', fontWeight: 500, flexShrink: 0,
               }}>
                 {node.relationship}
@@ -911,7 +911,7 @@ function CallPathSection({
   return (
     <div style={{
       padding: '10px 14px', borderRadius: 10,
-      background: 'rgba(255,255,255,0.25)', border: '0.5px solid rgba(255,255,255,0.4)',
+      background: 'rgba(255,255,255,0.055)', border: '1px solid rgba(255,255,255,0.12)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
         <GitBranch style={{ width: 13, height: 13, color: 'var(--primary)' }} />
@@ -936,7 +936,7 @@ function CallPathSection({
                   color: 'var(--text)', cursor: 'pointer', fontFamily: 'var(--font-mono)',
                   transition: 'background 0.1s',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.4)'; }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.11)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = ni === 0 ? 'var(--primary-dim)' : 'rgba(255,255,255,0.25)'; }}
               >
                 {nodeIcon(node.node_type)} {node.label}
@@ -955,7 +955,7 @@ function SourceSection({ source, snippet }: { source: NavigateResponse['source']
   return (
     <div style={{
       padding: '10px 14px', borderRadius: 10,
-      background: 'rgba(255,255,255,0.25)', border: '0.5px solid rgba(255,255,255,0.4)',
+      background: 'rgba(255,255,255,0.055)', border: '1px solid rgba(255,255,255,0.12)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
         <Code2 style={{ width: 13, height: 13, color: 'var(--primary)' }} />
@@ -1006,7 +1006,7 @@ function IssuesSection({ issues }: { issues: NavigateResponse['insights']['issue
   return (
     <div style={{
       padding: '10px 14px', borderRadius: 10,
-      background: 'rgba(255,255,255,0.25)', border: '0.5px solid rgba(255,255,255,0.4)',
+      background: 'rgba(255,255,255,0.055)', border: '1px solid rgba(255,255,255,0.12)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
         <AlertTriangle style={{ width: 13, height: 13, color: '#f97316' }} />
@@ -1017,7 +1017,7 @@ function IssuesSection({ issues }: { issues: NavigateResponse['insights']['issue
         {issues.map((issue, i) => (
           <div key={i} style={{
             padding: '6px 8px', borderRadius: 6,
-            background: 'rgba(255,255,255,0.2)', border: '0.5px solid rgba(255,255,255,0.3)',
+            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
               <span style={{
@@ -1108,7 +1108,7 @@ function MetricChip({ icon, label, value, warn }: { icon: React.ReactNode; label
     <div style={{
       display: 'flex', alignItems: 'center', gap: 4, padding: '3px 7px',
       borderRadius: 5, fontSize: 10,
-      background: warn ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.25)',
+      background: warn ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.06)',
       border: `0.5px solid ${warn ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.4)'}`,
       color: warn ? '#ef4444' : 'var(--text-muted)',
     }}>

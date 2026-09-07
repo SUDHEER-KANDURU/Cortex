@@ -53,7 +53,7 @@ function ArchitectureDemoVisual({ onStart }: { onStart?: (startFn: () => void) =
 
   // Layout: 1 root at top-center, 4 children in a row below
   // SVG viewBox: 0 0 280 130
-  const root     = { label: "cortex/", x: 140, y: 20,  w: 72, h: 24, fill: "#e4e4e7", textFill: "#111827" }
+  const root     = { label: "cortex/", x: 140, y: 20,  w: 72, h: 24, fill: "rgba(255,255,255,0.12)", textFill: "#F5EFE7" }
   const children = [
     { label: "api/",    x: 28,  y: 88, w: 58, h: 22, fill: "#3f3f46", textFill: "#e4e4e7" },
     { label: "domain/", x: 96,  y: 88, w: 66, h: 22, fill: "#3f3f46", textFill: "#e4e4e7" },
@@ -240,7 +240,7 @@ function VibeCodeVisual({ onStart }: { onStart?: (startFn: () => void) => void }
   const issues = [
     { line: "14", text: "Missing error handling", severity: "high", color: "#ef4444" },
     { line: "27", text: "Duplicate logic block",  severity: "med",  color: "#f59e0b" },
-    { line: "41", text: "Inconsistent naming",    severity: "low",  color: "#555"    },
+    { line: "41", text: "Inconsistent naming",    severity: "low",  color: "rgba(245,239,231,0.55)" },
   ]
 
   return (
@@ -451,11 +451,13 @@ function WorkCard({ work, index }: { work: Work; index: number }) {
             data-spotlight
             className="overflow-hidden rounded-2xl md:rounded-3xl"
             style={{
-              background: "rgba(240, 238, 235, 0.82)",
-              backdropFilter: "blur(32px) saturate(200%)",
-              WebkitBackdropFilter: "blur(32px) saturate(200%)",
-              border: "0.5px solid rgba(255,255,255,0.50)",
-              boxShadow: "0 4px 24px rgba(80,60,20,0.08), inset 0 1px 0 rgba(255,255,255,0.70)",
+              /* These cards are sticky and STACK on top of one another as you
+                 scroll, so the fill must be fully opaque — a translucent card
+                 would let the cards pinned behind it bleed through and the text
+                 would collide. A solid dark brown that sits in the page's tone. */
+              background: "#1a1109",
+              border: "1px solid rgba(255,255,255,0.12)",
+              boxShadow: "0 14px 34px rgba(0,0,0,0.42)",
             }}
             whileHover={prefersReduced ? {} : {
               y: -6,
@@ -466,9 +468,8 @@ function WorkCard({ work, index }: { work: Work; index: number }) {
             <div className="relative overflow-hidden"
               style={{
                 height: "200px",
-                borderBottom: "1px solid rgba(255,255,255,0.40)",
-                background: "rgba(240, 238, 235, 0.60)",
-                backdropFilter: "blur(8px)",
+                borderBottom: "1px solid rgba(255,255,255,0.10)",
+                background: "transparent",
               }}>
               <work.Visual onStart={handleRegisterStart} active={inView} />
               <div className="cx-pill" style={{
@@ -483,7 +484,7 @@ function WorkCard({ work, index }: { work: Work; index: number }) {
               </div>
             </div>
 
-            <div className="p-5 md:p-6" style={{ background: "rgba(240, 238, 235, 0.88)" }}>
+            <div className="p-5 md:p-6" style={{ background: "transparent" }}>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="cx-text text-lg md:text-xl font-semibold">{work.title}</h3>

@@ -34,21 +34,23 @@ interface ArchitectureDiagramProps {
 
 // ── Health Colors ────────────────────────────────────────────────────────────
 
+/* Tuned for the dark ambient background: translucent fills so the backdrop
+   shows through, with light borders and text that keep contrast on dark. */
 const HEALTH_COLORS = {
-  healthy: { bg: '#F0FDF4', border: '#22C55E', text: '#15803D' },
-  warning: { bg: '#FFFBEB', border: '#F59E0B', text: '#92400E' },
-  critical: { bg: '#FEF2F2', border: '#EF4444', text: '#991B1B' },
+  healthy: { bg: 'rgba(74, 222, 128, 0.12)', border: '#4ADE80', text: '#BBF7D0' },
+  warning: { bg: 'rgba(232, 184, 74, 0.14)', border: '#E8B84A', text: '#FDE9B8' },
+  critical: { bg: 'rgba(248, 113, 113, 0.14)', border: '#F87171', text: '#FECACA' },
 } as const;
 
 const TYPE_COLORS = {
-  module: { bg: '#EFF6FF', border: '#3B82F6', text: '#1E40AF' },
-  file: { bg: '#F5F3FF', border: '#8B5CF6', text: '#5B21B6' },
-  class: { bg: '#ECFDF5', border: '#10B981', text: '#065F46' },
-  function: { bg: '#FDF4FF', border: '#D946EF', text: '#86198F' },
-  external: { bg: '#F9FAFB', border: '#9CA3AF', text: '#4B5563' },
+  module: { bg: 'rgba(96, 165, 250, 0.13)', border: '#60A5FA', text: '#BFDBFE' },
+  file: { bg: 'rgba(167, 139, 250, 0.13)', border: '#A78BFA', text: '#DDD6FE' },
+  class: { bg: 'rgba(74, 222, 128, 0.12)', border: '#4ADE80', text: '#BBF7D0' },
+  function: { bg: 'rgba(232, 121, 249, 0.13)', border: '#E879F9', text: '#F5D0FE' },
+  external: { bg: 'rgba(255, 255, 255, 0.06)', border: 'rgba(255,255,255,0.34)', text: 'rgba(245,239,231,0.78)' },
 } as const;
 
-const CYCLE_BORDER = '#EF4444';
+const CYCLE_BORDER = '#F87171';
 
 // ── Dagre Layout ─────────────────────────────────────────────────────────────
 
@@ -137,8 +139,8 @@ function ModuleNode({ data }: { data: Record<string, unknown> }) {
         background: colors.bg,
         cursor: nodeData.onClick ? 'pointer' : 'default',
         boxShadow: nodeData.inCycle
-          ? `0 0 12px ${CYCLE_BORDER}40`
-          : '0 2px 8px rgba(0,0,0,0.06)',
+          ? `0 0 16px ${CYCLE_BORDER}55`
+          : '0 6px 16px rgba(0,0,0,0.34)',
         transition: 'box-shadow 0.2s, transform 0.15s',
         fontFamily: 'Inter, system-ui, sans-serif',
       }}
@@ -154,7 +156,7 @@ function ModuleNode({ data }: { data: Record<string, unknown> }) {
       }}>
         {nodeData.label}
       </div>
-      <div style={{ fontSize: 11, color: '#6B7280', lineHeight: 1.4 }}>
+      <div style={{ fontSize: 11, color: 'rgba(245,239,231,0.60)', lineHeight: 1.4 }}>
         {nodeData.nodeType === 'module' && (
           <>
             {nodeData.fileCount > 0 && <span>{nodeData.fileCount} files</span>}
@@ -177,8 +179,8 @@ function ModuleNode({ data }: { data: Record<string, unknown> }) {
           marginTop: 4,
           padding: '2px 6px',
           borderRadius: 4,
-          background: nodeData.health === 'critical' ? '#FEE2E2' : '#FEF3C7',
-          color: nodeData.health === 'critical' ? '#991B1B' : '#92400E',
+          background: nodeData.health === 'critical' ? 'rgba(248,113,113,0.16)' : 'rgba(232,184,74,0.16)',
+          color: nodeData.health === 'critical' ? '#FECACA' : '#FDE9B8',
         }}>
           {nodeData.healthReason}
         </div>
@@ -210,9 +212,9 @@ function Breadcrumb({
       padding: '8px 16px',
       fontSize: 13,
       fontFamily: 'Inter, system-ui, sans-serif',
-      color: '#4B5563',
-      borderBottom: '1px solid #E5E7EB',
-      background: '#FAFAFA',
+      color: 'rgba(245,239,231,0.72)',
+      borderBottom: '1px solid rgba(255,255,255,0.12)',
+      background: 'rgba(255,255,255,0.04)',
     }}>
       {items.map((item, i) => {
         const isLast = i === items.length - 1;
@@ -222,16 +224,16 @@ function Breadcrumb({
         };
         return (
           <React.Fragment key={i}>
-            {i > 0 && <span style={{ color: '#9CA3AF' }}>/</span>}
+            {i > 0 && <span style={{ color: 'rgba(245,239,231,0.42)' }}>/</span>}
             {isLast ? (
-              <span style={{ fontWeight: 600, color: '#111827' }}>{item.label}</span>
+              <span style={{ fontWeight: 600, color: '#F5EFE7' }}>{item.label}</span>
             ) : (
               <button
                 onClick={handleClick}
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#3B82F6',
+                  color: 'var(--primary)',
                   cursor: 'pointer',
                   padding: 0,
                   fontSize: 13,
@@ -259,18 +261,20 @@ function Legend() {
         position: 'absolute',
         bottom: 16,
         left: 16,
-        background: '#FFFFFF',
-        border: '1px solid #E5E7EB',
+        background: 'rgba(26, 18, 8, 0.86)',
+        backdropFilter: 'blur(24px) saturate(150%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(150%)',
+        border: '1px solid rgba(255,255,255,0.13)',
         borderRadius: 10,
         padding: '12px 16px',
         fontSize: 11,
         fontFamily: 'Inter, system-ui, sans-serif',
         zIndex: 10,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+        boxShadow: '0 14px 34px rgba(0,0,0,0.42)',
         maxWidth: 'min(220px, 60%)',
       }}
     >
-      <div style={{ fontWeight: 600, marginBottom: 8, color: '#111827', fontSize: 12 }}>
+      <div style={{ fontWeight: 600, marginBottom: 8, color: '#F5EFE7', fontSize: 12 }}>
         Legend
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -278,8 +282,8 @@ function Legend() {
         <LegendItem color="#F59E0B" label="Warning (god class / large module)" />
         <LegendItem color="#EF4444" label="Critical (circular dependency)" />
         <LegendItem color="#EF4444" dashed label="Cycle edge" />
-        <div style={{ borderTop: '1px solid #E5E7EB', margin: '4px 0' }} />
-        <div style={{ color: '#6B7280', lineHeight: 1.4 }}>
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.12)', margin: '4px 0' }} />
+        <div style={{ color: 'rgba(245,239,231,0.60)', lineHeight: 1.4 }}>
           Node size reflects file count. Click a node to drill down.
         </div>
       </div>
@@ -350,11 +354,11 @@ export default function ArchitectureDiagram({
       },
       labelStyle: {
         fontSize: 10,
-        fill: '#6B7280',
+        fill: 'rgba(245,239,231,0.70)',
         fontFamily: 'Inter, system-ui, sans-serif',
       },
       labelBgStyle: {
-        fill: '#FFFFFF',
+        fill: '#241708',
         fillOpacity: 0.9,
       },
       markerEnd: {
@@ -405,7 +409,7 @@ export default function ArchitectureDiagram({
           zoomActivationKeyCode="Control"
           panOnScroll={true}
         >
-          <Background color="#E5E7EB" gap={20} size={1} />
+          <Background color="rgba(255,255,255,0.12)" gap={20} size={1} />
           <Controls
             showInteractive={false}
             style={{ bottom: 16, right: 16 }}

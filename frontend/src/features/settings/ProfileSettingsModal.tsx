@@ -215,21 +215,24 @@ export function ProfileSettingsModal({ open, onClose }: ProfileSettingsModalProp
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             className="relative w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl overflow-hidden"
             style={{
-              background: '#FEFEFE', border: '1px solid rgba(0,0,0,0.08)',
-              boxShadow: '0 24px 48px -12px rgba(0,0,0,0.2)',
+              background: 'var(--glass-modal)',
+              backdropFilter: 'blur(48px) saturate(160%)',
+              WebkitBackdropFilter: 'blur(48px) saturate(160%)',
+              border: '1px solid rgba(255,255,255,0.14)',
+              boxShadow: '0 30px 70px rgba(0,0,0,0.55), inset 0 1.5px 1px rgba(255,255,255,0.34)',
             }}
             role="dialog" aria-modal="true"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-              <h2 className="text-lg font-bold" style={{ color: '#1A1814', fontFamily: 'var(--font-display)' }}>Account Settings</h2>
-              <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-black/5" style={{ color: '#6B6560' }} aria-label="Close">
+            <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+              <h2 className="text-lg font-bold" style={{ color: 'var(--text)', fontFamily: 'var(--font-display)' }}>Account Settings</h2>
+              <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-white/10" style={{ color: 'var(--text-muted)' }} aria-label="Close">
                 <X size={18} />
               </button>
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-1 px-6 pt-3 shrink-0" style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+            <div className="flex gap-1 px-6 pt-3 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
               {(['profile', 'security'] as const).map(t => (
                 <button
                   key={t} type="button" onClick={() => setTab(t)}
@@ -310,7 +313,7 @@ export function ProfileSettingsModal({ open, onClose }: ProfileSettingsModalProp
                   <button
                     type="submit" disabled={savingProfile}
                     className="w-full h-11 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
-                    style={{ background: '#1A1814', color: '#fff' }}
+                    style={{ background: 'var(--primary)', color: 'var(--on-primary)' }}
                   >
                     {savingProfile ? 'Saving...' : 'Save changes'}
                   </button>
@@ -340,7 +343,7 @@ export function ProfileSettingsModal({ open, onClose }: ProfileSettingsModalProp
                       <button
                         type="button" onClick={handleRequestOtp} disabled={pwSubmitting}
                         className="w-full h-11 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-50"
-                        style={{ background: '#1A1814', color: '#fff' }}
+                        style={{ background: 'var(--primary)', color: 'var(--on-primary)' }}
                       >
                         <KeyRound size={15} />
                         {pwSubmitting ? 'Sending...' : 'Send verification code'}
@@ -382,7 +385,7 @@ export function ProfileSettingsModal({ open, onClose }: ProfileSettingsModalProp
                       <button
                         type="submit" disabled={pwSubmitting}
                         className="w-full h-11 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
-                        style={{ background: '#1A1814', color: '#fff' }}
+                        style={{ background: 'var(--primary)', color: 'var(--on-primary)' }}
                       >
                         {pwSubmitting ? 'Changing...' : 'Change password'}
                       </button>

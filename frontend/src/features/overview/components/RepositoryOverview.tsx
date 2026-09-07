@@ -85,8 +85,8 @@ export default function RepositoryOverview({ jobId }: RepositoryOverviewProps) {
       {/* ── Header Section ────────────────────────────────────────────────── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 20, padding: '20px 24px',
-        borderRadius: 14, background: 'rgba(255,255,255,0.35)',
-        border: '0.5px solid rgba(255,255,255,0.55)',
+        borderRadius: 14, background: 'rgba(255,255,255,0.07)',
+        border: '1px solid rgba(255,255,255,0.14)',
         flexWrap: 'wrap',
       }}>
         {h && <ScoreRing score={h.overall_score} grade={h.overall_grade} />}

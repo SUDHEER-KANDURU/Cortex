@@ -88,8 +88,8 @@ export default function CoverageConfidence({
         gap: 10,
         padding: '12px 14px',
         borderRadius: 12,
-        background: 'rgba(255,255,255,0.30)',
-        border: '0.5px solid rgba(255,255,255,0.50)',
+        background: 'rgba(255,255,255,0.06)',
+        border: '1px solid rgba(255,255,255,0.13)',
       }}
     >
       {/* ── Confidence ─────────────────────────────────────────────────────── */}
@@ -104,7 +104,7 @@ export default function CoverageConfidence({
             minWidth: 120,
             height: 6,
             borderRadius: 3,
-            background: 'rgba(255,255,255,0.25)',
+            background: 'rgba(255,255,255,0.055)',
             overflow: 'hidden',
           }}
         >

@@ -21,7 +21,7 @@ const STEP_COLORS = {
   inactive: "var(--text-muted)",
   line:     "var(--border)",
   dot:      "var(--primary)",
-  dotText:  "#FFFFFF",
+  dotText:  "var(--on-primary)",
   border:   "var(--border)",
   panelBg:  "var(--cx-section-bg, rgba(15,17,23,0.60))",
   scanCurrent: "var(--text)",
@@ -145,7 +145,7 @@ function ASTVisual({ active }: { active: boolean }) {
             <g key={i} style={{ opacity: show ? 1 : 0, transition: "opacity 0.25s ease" }}>
               <rect x={n.x} y={n.y} width={56} height={22} rx={5} fill={fill} />
               <text x={n.x + 28} y={n.y + 14} textAnchor="middle"
-                fontSize="7.5" fontWeight="700" fill={show ? "#FFFFFF" : "var(--text-muted)"}
+                fontSize="7.5" fontWeight="700" fill={show ? "var(--on-primary)" : "var(--text-muted)"}
                 style={{ fontFamily: "var(--font-mono)" }}>
                 {n.label}
               </text>
@@ -859,9 +859,10 @@ export function PortfolioHowItWorks() {
         flexDirection: "column",
         justifyContent: "center",
         // This panel is sticky and full-height, so any backdrop-filter here is
-        // re-sampled on every frame of the pinned scroll animation. Use an
-        // opaque-ish tint instead of a live blur to keep the pin smooth.
-        background: "rgba(244,242,239,0.82)",
+        // re-sampled on every frame of the pinned scroll animation. Use a light
+        // translucent tint (no live blur) so the ambient glow shows through and
+        // this section matches the others, while keeping the pin smooth.
+        background: "var(--cx-section-bg)",
         paddingTop: "8px",
         paddingBottom: "8px",
       }}>
@@ -945,7 +946,7 @@ export function PortfolioHowItWorks() {
                         }}>
                           <span style={{
                             fontSize: "10px", fontWeight: 700,
-                            color: (isActive || isDone) ? (isActive ? "#FFFFFF" : "var(--text-secondary)") : "var(--text-muted)",
+                            color: (isActive || isDone) ? (isActive ? "var(--on-primary)" : "var(--text-secondary)") : "var(--text-muted)",
                             fontFamily: "var(--font-mono)",
                             transition: "color 0.3s ease",
                           }}>
@@ -1052,7 +1053,7 @@ export function PortfolioHowItWorks() {
                   }}>
                     <span style={{
                       fontSize: "10px", fontWeight: 700,
-                      color: i === activeStep ? "#FFFFFF" : "var(--text-muted)",
+                      color: i === activeStep ? "var(--on-primary)" : "var(--text-muted)",
                       fontFamily: "var(--font-mono)",
                     }}>{step.number}</span>
                   </div>

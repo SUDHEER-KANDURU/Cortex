@@ -778,7 +778,7 @@ export default function InsightsDashboard({ report }: Props) {
       }}>
         <ScoreRing score={report.overall_score} grade={report.overall_grade} />
 
-        <div style={{ flex: 1, minWidth: 200 }}>
+        <div style={{ flex: 1, minWidth: 160 }}>
           <h2 style={{
             fontSize: 18, fontWeight: 700,
             color: 'var(--text)', margin: '0 0 4px',
@@ -946,7 +946,7 @@ export default function InsightsDashboard({ report }: Props) {
       <div>
         <SectionLabel>Health Dimensions</SectionLabel>
         <motion.div
-          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: 10 }}
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 270px), 1fr))', gap: 10 }}
           variants={prefersReduced ? undefined : staggerFastContainer}
           initial={prefersReduced ? false : 'hidden'}
           animate="visible"

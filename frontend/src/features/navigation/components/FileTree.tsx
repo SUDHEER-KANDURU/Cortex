@@ -150,7 +150,7 @@ function TreeNode({ entry, depth, selectedFileId, onSelectFile }: {
           background: isSelected ? 'var(--primary-dim)' : 'transparent',
           transition: 'background 0.1s',
         }}
-        onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,0.25)'; }}
+        onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,0.10)'; }}
         onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
       >
         <FileText style={{ width: 11, height: 11, color: 'var(--text-muted)', flexShrink: 0 }} />
@@ -177,7 +177,7 @@ function TreeNode({ entry, depth, selectedFileId, onSelectFile }: {
           cursor: 'pointer', textAlign: 'left', border: 'none', background: 'transparent',
           transition: 'background 0.1s',
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.25)'; }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.10)'; }}
         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
       >
         {open

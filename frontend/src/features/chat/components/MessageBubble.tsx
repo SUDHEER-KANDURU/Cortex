@@ -272,8 +272,8 @@ export function MessageBubble({ message, onRegenerate }: MessageBubbleProps) {
       {/* Avatar */}
       <div style={{
         width: 26, height: 26, borderRadius: 8, flexShrink: 0,
-        background: isUser ? 'var(--primary-dim)' : 'rgba(255,255,255,0.35)',
-        border: `0.5px solid ${isUser ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.55)'}`,
+        background: isUser ? 'var(--primary-dim)' : 'rgba(255,255,255,0.07)',
+        border: `1px solid ${isUser ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.18)'}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         {isUser ? (
@@ -290,7 +290,7 @@ export function MessageBubble({ message, onRegenerate }: MessageBubbleProps) {
         background: isUser
           ? 'var(--primary-dim)'
           : 'rgba(255,255,255,0.35)',
-        border: `0.5px solid ${isUser ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.55)'}`,
+        border: `1px solid ${isUser ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.18)'}`,
       }}>
         {/* Streaming cursor */}
         {message.isStreaming && !message.content && (
@@ -319,7 +319,7 @@ export function MessageBubble({ message, onRegenerate }: MessageBubbleProps) {
         {!isUser && !message.isStreaming && message.content && (
           <div style={{
             display: 'flex', gap: 4, marginTop: 8, paddingTop: 6,
-            borderTop: '0.5px solid rgba(255,255,255,0.3)',
+            borderTop: '1px solid rgba(255,255,255,0.10)',
           }}>
             <button
               type="button"
@@ -327,11 +327,11 @@ export function MessageBubble({ message, onRegenerate }: MessageBubbleProps) {
               style={{
                 display: 'flex', alignItems: 'center', gap: 4,
                 padding: '3px 8px', borderRadius: 6, cursor: 'pointer',
-                background: 'rgba(255,255,255,0.2)', border: '0.5px solid rgba(255,255,255,0.4)',
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
                 fontSize: 10, color: 'var(--text-muted)', transition: 'all 0.15s ease',
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.4)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.11)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; }}
             >
               {copied ? <Check style={{ width: 10, height: 10 }} /> : <Copy style={{ width: 10, height: 10 }} />}
               {copied ? 'Copied' : 'Copy'}
@@ -343,11 +343,11 @@ export function MessageBubble({ message, onRegenerate }: MessageBubbleProps) {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 4,
                   padding: '3px 8px', borderRadius: 6, cursor: 'pointer',
-                  background: 'rgba(255,255,255,0.2)', border: '0.5px solid rgba(255,255,255,0.4)',
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
                   fontSize: 10, color: 'var(--text-muted)', transition: 'all 0.15s ease',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.4)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.11)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; }}
               >
                 <RefreshCw style={{ width: 10, height: 10 }} />
                 Regenerate
