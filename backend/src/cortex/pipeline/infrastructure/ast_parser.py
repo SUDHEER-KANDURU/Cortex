@@ -752,21 +752,171 @@ class ASTParser:
         files: list[tuple[str, str]],
     ) -> list[ParsedFile]:
         """Parse multiple files. Each tuple is (content, file_path).
-        Skips files that fail — never crashes the whole pipeline."""
-        results = []
+
+        Each file gets a hard per-file timeout so a single pathological file
+        (notably large/complex TSX that drives the tree-sitter grammar into a
+        near-unbounded parse) can never hang the whole analysis at the parse
+        stage — it is abandoned and recorded as a coverage gap. All parsing runs
+        in ONE persistent worker thread; on timeout the whole worker is torn
+        down and the remaining files are parsed by a fresh worker, so a runaway
+        C-level parse (which a plain thread cannot be interrupted out of) is left
+        behind on a dead daemon thread rather than blocking the pipeline.
+        Files that fail for any other reason are skipped — never crashes.
+        """
+        try:
+            from cortex.config import get_settings
+            timeout = float(get_settings().ast_parse_file_timeout_seconds)
+        except Exception:
+            timeout = 12.0
+
+        if timeout <= 0:
+            return self._parse_many_inprocess(files)
+
+        # Python files use the stdlib `ast` module — fast and safe, never hangs
+        # or segfaults — so parse them directly in-process. Only the tree-sitter
+        # languages (ts/tsx/js/…), which can spin or crash on pathological real
+        # inputs, are routed through the isolated, timeout-guarded worker. This
+        # keeps the common case fast: no process spawn for the many Python files.
+        py_exts = {".py", ".pyi"}
+        results_by_path: dict[str, ParsedFile] = {}
+        guarded: list[tuple[str, str]] = []
         for content, path in files:
-            try:
-                parsed = self.parse(content, path)
-                results.append(parsed)
-            except Exception as e:
-                logger.error(
-                    "ast_parse_unexpected_error",
-                    path=path,
-                    error=str(e),
-                )
-                results.append(ParsedFile(
-                    path=path,
-                    language=self.detect_language(path),
-                    parse_errors=[f"Unexpected error: {e}"],
-                ))
+            lowered = path.lower()
+            if any(lowered.endswith(ext) for ext in py_exts):
+                results_by_path[path] = self._parse_safe(content, path)
+            else:
+                guarded.append((content, path))
+
+        for parsed in self._parse_many_guarded(guarded, timeout):
+            results_by_path[parsed.path] = parsed
+
+        # Preserve original input order.
+        return [results_by_path[path] for _content, path in files]
+
+    def _parse_many_inprocess(
+        self, files: list[tuple[str, str]]
+    ) -> list[ParsedFile]:
+        results: list[ParsedFile] = []
+        for content, path in files:
+            results.append(self._parse_safe(content, path))
         return results
+
+    def _parse_safe(self, content: str, path: str) -> ParsedFile:
+        try:
+            return self.parse(content, path)
+        except Exception as e:
+            logger.error("ast_parse_unexpected_error", path=path, error=str(e))
+            return ParsedFile(
+                path=path,
+                language=self.detect_language(path),
+                parse_errors=[f"Unexpected error: {e}"],
+            )
+
+    def _parse_many_guarded(
+        self, files: list[tuple[str, str]], timeout: float
+    ) -> list[ParsedFile]:
+        """Parse files in a separate worker PROCESS, enforcing a per-file timeout
+        from the parent. This is process isolation on purpose: the tree-sitter C
+        grammars can, on certain real inputs, either spin in a GIL-holding native
+        loop (a thread timeout can't interrupt that) or outright segfault the
+        interpreter. Both must be survivable — one bad file can never hang or
+        crash the whole analysis.
+
+        The worker streams (index, ParsedFile) results back over a queue. If a
+        file exceeds the timeout OR the worker dies (segfault), the parent
+        records that file as a coverage gap and respawns a fresh worker to finish
+        the remaining files.
+        """
+        import multiprocessing as mp
+
+        try:
+            ctx = mp.get_context("spawn")
+        except Exception as e:
+            logger.warning("ast_parse_mp_unavailable", error=str(e))
+            return self._parse_many_inprocess(files)
+
+        results: list[ParsedFile | None] = [None] * len(files)
+        next_index = 0
+
+        while next_index < len(files):
+            in_q = ctx.Queue()
+            out_q = ctx.Queue()
+            proc = ctx.Process(target=_parse_worker_loop, args=(in_q, out_q), daemon=True)
+            try:
+                proc.start()
+            except Exception as e:
+                logger.warning("ast_parse_worker_spawn_failed", error=str(e))
+                # Fall back to in-process for whatever is left.
+                for i in range(next_index, len(files)):
+                    c, p = files[i]
+                    results[i] = self._parse_safe(c, p)
+                next_index = len(files)
+                break
+
+            # Feed all remaining files to this worker up front; read results in
+            # order with a per-file timeout.
+            for i in range(next_index, len(files)):
+                in_q.put((i, files[i][0], files[i][1]))
+            in_q.put(None)  # sentinel: no more work
+
+            worker_ok = True
+            while next_index < len(files) and worker_ok:
+                content, path = files[next_index]
+                try:
+                    idx, parsed = out_q.get(timeout=timeout)
+                    results[idx] = parsed
+                    next_index += 1
+                except Exception:
+                    # Timeout OR the worker crashed before delivering this file.
+                    reason = (
+                        "crashed (native fault)" if not proc.is_alive()
+                        else f"timed out after {timeout:.0f}s"
+                    )
+                    logger.error("ast_parse_skipped", path=path, reason=reason)
+                    results[next_index] = ParsedFile(
+                        path=path,
+                        language=self.detect_language(path),
+                        parse_errors=[
+                            f"Parse {reason}; file skipped and recorded as a "
+                            f"coverage gap."
+                        ],
+                    )
+                    next_index += 1
+                    worker_ok = False  # tear this worker down, respawn for rest
+
+            # Clean up this worker before (maybe) spawning the next one.
+            try:
+                if proc.is_alive():
+                    proc.kill()
+                proc.join(timeout=5)
+            except Exception:
+                pass
+
+        return [r if r is not None else ParsedFile(
+            path=files[i][1],
+            language=self.detect_language(files[i][1]),
+            parse_errors=["Parser produced no result; recorded as a coverage gap."],
+        ) for i, r in enumerate(results)]
+
+
+def _parse_worker_loop(in_q, out_q) -> None:  # pragma: no cover - runs in child
+    """Worker-process loop: parse (index, content, path) items and stream back
+    (index, ParsedFile). Runs in a spawned process so a hung or crashing parse
+    is isolated from the parent pipeline."""
+    import os as _os
+    _os.environ.setdefault("LOG_LEVEL", "ERROR")
+    parser = ASTParser()
+    while True:
+        item = in_q.get()
+        if item is None:
+            return
+        index, content, path = item
+        try:
+            parsed = parser.parse(content, path)
+        except Exception as e:
+            parsed = ParsedFile(
+                path=path,
+                language=parser.detect_language(path),
+                parse_errors=[f"Unexpected error: {e}"],
+            )
+        out_q.put((index, parsed))

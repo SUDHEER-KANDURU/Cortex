@@ -113,6 +113,16 @@ class Settings(BaseSettings):
     # single stage's expected quiet time while still failing dead jobs fast.
     job_stale_running_seconds: int = 300  # 5 minutes
 
+    # ── AST parse watchdog ─────────────────────────────────────────────────────
+    # Hard per-file timeout (seconds) for the AST/tree-sitter parser. Some real
+    # source files (notably large/complex TSX) can drive the tree-sitter grammar
+    # into pathological, effectively-unbounded parse times. Since Python threads
+    # cannot be force-killed, a single such file would otherwise hang the whole
+    # analysis at the "Parse AST" stage forever. parse_many() runs each file in a
+    # disposable worker process and abandons any file that exceeds this budget,
+    # recording it as a coverage gap so analysis always completes.
+    ast_parse_file_timeout_seconds: float = 12.0
+
 
 @lru_cache
 def get_settings() -> Settings:

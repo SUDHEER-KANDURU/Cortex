@@ -646,10 +646,20 @@ class TreeSitterParser(LanguageParser):
         names: list[str] = []
         # TS: decorator siblings precede the node. Java/C#: annotations are inside
         # a modifiers/attribute_list child.
+        # Bounded look-back: a definition never has more than a handful of
+        # decorators, and walking prev_named_sibling is an O(k) C-level cursor
+        # move each step — on a node with thousands of preceding siblings (large
+        # JSX trees) an unbounded walk becomes O(n^2) and can appear to hang.
         prev = node.prev_named_sibling
-        while prev is not None and prev.type in {"decorator", "attribute_list"}:
+        hops = 0
+        while (
+            prev is not None
+            and prev.type in {"decorator", "attribute_list"}
+            and hops < 16
+        ):
             names.extend(self._annotation_names(prev, source))
             prev = prev.prev_named_sibling
+            hops += 1
         for child in node.children:
             if child.type in {"modifiers", "attribute_list", "decorator"}:
                 names.extend(self._annotation_names(child, source))
@@ -674,10 +684,16 @@ class TreeSitterParser(LanguageParser):
         """
         texts: list[str] = []
         prev = node.prev_named_sibling
-        while prev is not None and prev.type in {"decorator", "attribute_list",
-                                                 "annotation", "marker_annotation"}:
+        hops = 0
+        while (
+            prev is not None
+            and prev.type in {"decorator", "attribute_list",
+                              "annotation", "marker_annotation"}
+            and hops < 16
+        ):
             texts.append(self._text(prev, source))
             prev = prev.prev_named_sibling
+            hops += 1
         for child in node.children:
             if child.type in {"modifiers", "attribute_list", "decorator"}:
                 for n in self._iter_all(child):
