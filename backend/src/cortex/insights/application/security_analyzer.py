@@ -18,7 +18,7 @@ and a fix_template (actionable recommendation).
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from cortex.graph.domain.entities import GraphNode, NodeType
 from cortex.pipeline.infrastructure.graph_builder import GraphBuildResult

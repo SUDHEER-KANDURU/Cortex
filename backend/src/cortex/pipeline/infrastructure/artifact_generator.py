@@ -1,7 +1,6 @@
 """Artifact generator — produces high quality artifacts from graph data.
 Each generator takes a GraphBuildResult and produces formatted content."""
 
-from dataclasses import dataclass
 from cortex.graph.domain.entities import NodeType, RelationshipType, GraphNode
 from cortex.pipeline.infrastructure.graph_builder import GraphBuildResult
 import structlog

@@ -854,7 +854,6 @@ def _build_module_interactions(
 ) -> dict[str, list[dict]]:
     """Build a map of inter-module interactions."""
     from collections import defaultdict
-    from cortex.graph.domain.entities import NodeType, RelationshipType
 
     interactions: dict[str, list[dict]] = defaultdict(list)
 

@@ -10,7 +10,7 @@ from cortex.graph.domain.interfaces import (
     AbstractGraphRepository,
     AbstractGraphService,
 )
-from shared.exceptions import NotFoundError, ValidationError
+from shared.exceptions import NotFoundError
 import structlog
 
 logger = structlog.get_logger()

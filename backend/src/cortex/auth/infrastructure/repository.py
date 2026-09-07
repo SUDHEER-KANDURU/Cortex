@@ -3,7 +3,6 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import select, update as sa_update
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from cortex.auth.domain.entities import EmailVerificationToken, PasswordResetToken, User
 from cortex.auth.domain.interfaces import (

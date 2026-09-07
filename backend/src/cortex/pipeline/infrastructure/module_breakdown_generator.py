@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from collections import defaultdict
 
-from cortex.graph.domain.entities import GraphNode, GraphEdge, NodeType, RelationshipType
+from cortex.graph.domain.entities import GraphNode, NodeType, RelationshipType
 from cortex.pipeline.infrastructure.graph_builder import GraphBuildResult
 
 
@@ -224,8 +224,6 @@ class ModuleBreakdownGenerator:
         for edge in graph.edges:
             if edge.relationship == RelationshipType.CONTAINS:
                 contains_from[edge.source_id].append(edge.target_id)
-
-        module_ids = {m.id for m in modules}
 
         def assign_module(mod_id: str) -> None:
             for child_id in contains_from.get(mod_id, []):

@@ -737,7 +737,7 @@ class ContextRetriever:
         for node in top_nodes:
             by_type[node.node_type.value].append(node)
 
-        for type_name, type_nodes in by_type.items():
+        for type_nodes in by_type.values():
             for node in type_nodes:
                 detail = self._format_node_detail(node)
                 lines.append(detail)

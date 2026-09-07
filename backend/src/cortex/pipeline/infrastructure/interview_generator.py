@@ -24,7 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from collections import defaultdict
 
-from cortex.graph.domain.entities import GraphNode, GraphEdge, NodeType, RelationshipType
+from cortex.graph.domain.entities import GraphEdge, NodeType, RelationshipType
 from cortex.pipeline.infrastructure.graph_builder import GraphBuildResult
 
 
@@ -281,7 +281,6 @@ class InterviewQuestionsGenerator:
             if edge.relationship == RelationshipType.CONTAINS:
                 contains[edge.target_id] = edge.source_id
 
-        module_ids = {m.id for m in modules}
         node_to_module: dict[str, str] = {}
 
         def assign(mod_id: str) -> None:
@@ -347,7 +346,6 @@ class InterviewQuestionsGenerator:
 
         # Find classes with deep inheritance
         inheritance_depth: dict[str, int] = {}
-        class_map = {c.id: c for c in classes}
 
         for cls in classes:
             depth = 0

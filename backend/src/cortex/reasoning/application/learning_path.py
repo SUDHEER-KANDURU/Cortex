@@ -12,7 +12,7 @@ from collections import defaultdict
 
 import structlog
 
-from cortex.graph.domain.entities import GraphNode, GraphEdge, NodeType, RelationshipType
+from cortex.graph.domain.entities import GraphNode, GraphEdge, RelationshipType
 from cortex.reasoning.domain.entities import (
     LearningDifficulty,
     LearningPath,

@@ -40,6 +40,8 @@ from cortex.insights.domain.severity import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from cortex.graph.domain.entities import GraphNode, GraphEdge
 
 logger = structlog.get_logger()
@@ -239,7 +241,6 @@ class InsightsEngine:
         # Filter classes and functions to source-file scope only
         src_classes   = [c for c in all_classes   if cls_to_file.get(c.id, "") in source_file_ids]
         src_functions = [f for f in all_functions if fn_to_file.get(f.id, "")  in source_file_ids]
-        test_functions= [f for f in all_functions if fn_to_file.get(f.id, "")  in test_file_ids]
 
         # ── Detect dominant language ──────────────────────────────────────────
         lang_counts: dict[str, int] = defaultdict(int)
@@ -273,7 +274,6 @@ class InsightsEngine:
             return dominant_lang
 
         # ── Build coverage object ─────────────────────────────────────────────
-        non_source = len(file_nodes) - len(source_files)
         coverage = AnalysisCoverage(
             total_files_in_repo=len(file_nodes),
             source_files=len(source_files),
@@ -444,7 +444,6 @@ class InsightsEngine:
         for fn in functions:
             lines       = _int(fn, "lines")
             raw_params  = _int(fn, "param_count")
-            is_method   = _bool(fn, "is_method")
             # strip self/cls — AST parser already does this but double-check
             eff_params  = max(0, raw_params)
 
@@ -905,7 +904,6 @@ class InsightsEngine:
             )
 
         source_ids = {f.id for f in source_files}
-        file_by_id = {f.id: f for f in source_files}
 
         high_fanout: list[tuple["GraphNode", int]] = []
         high_fanin:  list[tuple["GraphNode", int]] = []
@@ -1018,7 +1016,6 @@ class InsightsEngine:
         penalty = fanout_pct * 55 + fanin_pct * 25
         score   = max(0, min(100, int(100 - penalty)))
 
-        avg_ce = statistics.mean([v for _, v in high_fanout]) if high_fanout else 0.0
         # Confidence: proportion of source files that have import edge data
         files_with_edges = sum(
             1 for f in source_files
@@ -1144,7 +1141,6 @@ class InsightsEngine:
         n_files     = max(1, len(source_files))
         large_pct   = len(large_files) / n_files
         all_lines   = [_int(f, "lines") for f in source_files if _int(f, "lines") > 0]
-        avg_lines   = statistics.mean(all_lines)   if all_lines else 0.0
         med_lines   = statistics.median(all_lines) if all_lines else 0.0
         cls_per_file= len(src_classes) / n_files
 
@@ -1413,7 +1409,6 @@ class InsightsEngine:
 
         score = max(0, min(100, 100 - cycle_penalty - mod_penalty + abstraction_bonus))
         # Confidence: proportion of source files that have at least one import/contains edge
-        edge_count = len([e for e in edges if e.relationship in (RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON)])
         files_with_any_edge = sum(
             1 for f in source_files
             if edges_from.get(f.id) or edges_to.get(f.id)

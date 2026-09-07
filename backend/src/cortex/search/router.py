@@ -7,7 +7,7 @@ Searches across repository facts and graph nodes with BM25 ranking.
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
-from cortex.search.fts_engine import FTSEngine, SearchResult
+from cortex.search.fts_engine import FTSEngine
 import structlog
 
 logger = structlog.get_logger()

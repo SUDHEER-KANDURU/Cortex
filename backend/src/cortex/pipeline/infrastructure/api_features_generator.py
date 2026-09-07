@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from collections import defaultdict
 
-from cortex.graph.domain.entities import GraphNode, GraphEdge, NodeType, RelationshipType
+from cortex.graph.domain.entities import GraphNode, NodeType, RelationshipType
 from cortex.pipeline.infrastructure.graph_builder import GraphBuildResult
 
 

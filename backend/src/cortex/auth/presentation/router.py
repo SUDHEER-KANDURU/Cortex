@@ -187,7 +187,9 @@ async def resend_verification(
         return rate_limit_response(result)  # type: ignore[return-value]
 
     try:
-        token = await auth.resend_verification(email=body.email)
+        # Token is emailed + persisted inside the service; the return value
+        # is not needed here.
+        await auth.resend_verification(email=body.email)
         return MessageResponse(
             message="Verification code sent. Please check your inbox.",
         )
@@ -210,7 +212,9 @@ async def forgot_password(
     if not result.allowed:
         return rate_limit_response(result)  # type: ignore[return-value]
 
-    token = await auth.forgot_password(email=body.email)
+    # Token is emailed + persisted inside the service; the return value
+    # is not needed here.
+    await auth.forgot_password(email=body.email)
     # Always return success to not reveal if email exists
     return MessageResponse(
         message="If this email is registered, a reset code has been sent.",

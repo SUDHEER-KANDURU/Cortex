@@ -4,7 +4,6 @@ Supports: email verification, password reset, and generic notifications.
 Falls back gracefully when SMTP is not configured (logs a warning, doesn't crash).
 """
 
-import asyncio
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 

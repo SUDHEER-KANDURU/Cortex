@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from collections import defaultdict
 
-from cortex.graph.domain.entities import GraphNode, GraphEdge, NodeType, RelationshipType
+from cortex.graph.domain.entities import GraphNode, NodeType, RelationshipType
 from cortex.pipeline.infrastructure.graph_builder import GraphBuildResult
 from cortex.pipeline.infrastructure.vibe_detector import VibeReport
 
@@ -341,7 +341,6 @@ class CodeQualityGenerator:
                 contains_children[edge.source_id].append(edge.target_id)
 
         node_to_module: dict[str, str] = {}
-        module_ids = {m.id for m in modules}
 
         def assign(mod_id: str) -> None:
             for child_id in contains_children.get(mod_id, []):

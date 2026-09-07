@@ -381,7 +381,6 @@ class NavigateService:
     ) -> list[NavigateIssue]:
         """Find engineering issues related to this node using the InsightsEngine."""
         try:
-            job_sync = None
             # Use insights engine to compute issues
             engine = InsightsEngine()
             # We need the repo_url for the engine

@@ -8,7 +8,6 @@ from cortex.insights.presentation.models import InsightsReportResponse
 from cortex.graph.infrastructure.sqlite_repository import SQLiteGraphRepository
 from cortex.jobs.infrastructure.dependencies import job_repository
 from cortex.config import get_settings
-from shared.exceptions import NotFoundError
 import structlog
 
 logger = structlog.get_logger()
