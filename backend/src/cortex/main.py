@@ -25,6 +25,42 @@ from shared.rate_limit_middleware import RateLimitMiddleware
 
 _startup_logger = structlog.get_logger()
 
+#: The placeholder shipped in config defaults. Signing tokens with this key
+#: lets anyone forge a valid JWT for any user, so the app must refuse to start
+#: with it unless the operator has explicitly opted into insecure dev mode.
+_INSECURE_JWT_SECRET = "change-me-in-production"
+
+
+class InsecureConfigurationError(RuntimeError):
+    """Raised at startup when the app is configured with an unsafe default that
+    would create a critical security hole in a real deployment."""
+
+
+def _enforce_secure_secrets(settings) -> None:  # type: ignore[type-arg]
+    """Fail fast on configuration that is catastrophic in production.
+
+    The default ``jwt_secret`` is a public placeholder. If it reaches a
+    deployed environment, JWTs can be forged for any account (full takeover).
+    We refuse to boot with it unless ``allow_insecure_jwt_secret`` is True
+    (the developer-convenience default for local work).
+    """
+    if settings.jwt_secret == _INSECURE_JWT_SECRET:
+        if settings.allow_insecure_jwt_secret:
+            _startup_logger.warning(
+                "config_insecure_jwt_secret",
+                effect="Using the DEFAULT jwt_secret. Tokens can be forged. "
+                       "This is allowed only because ALLOW_INSECURE_JWT_SECRET "
+                       "is true. Set a strong JWT_SECRET and "
+                       "ALLOW_INSECURE_JWT_SECRET=false before deploying.",
+            )
+        else:
+            raise InsecureConfigurationError(
+                "Refusing to start: jwt_secret is the built-in default "
+                "'change-me-in-production'. Set a strong JWT_SECRET in the "
+                "environment. (For local development only, set "
+                "ALLOW_INSECURE_JWT_SECRET=true.)"
+            )
+
 
 def _warn_missing_secrets(settings) -> None:  # type: ignore[type-arg]
     """Emit structured warnings for configuration that will cause silent
@@ -83,6 +119,21 @@ def _ensure_user_id_columns(connection) -> None:  # type: ignore[no-untyped-def]
             )
             _startup_logger.info("migration_added_user_id_column", table=table)
 
+    # Additive migration for live job progress columns (P1-6) on pre-existing
+    # databases. Safe to run on every startup — skips columns already present.
+    if "jobs" in existing_tables:
+        job_columns = {col["name"] for col in inspector.get_columns("jobs")}
+        if "progress_stage" not in job_columns:
+            connection.execute(
+                text("ALTER TABLE jobs ADD COLUMN progress_stage VARCHAR(120)")
+            )
+            _startup_logger.info("migration_added_progress_stage_column", table="jobs")
+        if "progress_percent" not in job_columns:
+            connection.execute(
+                text("ALTER TABLE jobs ADD COLUMN progress_percent INTEGER DEFAULT 0")
+            )
+            _startup_logger.info("migration_added_progress_percent_column", table="jobs")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -93,6 +144,10 @@ async def lifespan(app: FastAPI):
     from cortex.schema.models import JobModel
 
     settings = get_settings()
+
+    # Fail fast on catastrophic misconfiguration (e.g. default JWT secret)
+    # BEFORE any tables are created or requests are served.
+    _enforce_secure_secrets(settings)
 
     # Use the shared engine singleton — avoids a separate pool just for startup.
     engine = get_engine(settings.database_url)
