@@ -1,6 +1,9 @@
 # Graph Data Model
 
-Neo4j 5.20 graph model for the Cortex code knowledge graph.
+The Cortex code knowledge graph model. The graph is stored in SQLite (nodes and
+edges tables in `cortex.db`) via `graph/infrastructure/sqlite_repository.py`; the
+node/edge model below is backend-agnostic and would map directly onto a property
+graph such as Neo4j if that backend is ever adopted.
 
 ## Node Labels
 

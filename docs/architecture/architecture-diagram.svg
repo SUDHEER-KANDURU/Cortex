@@ -1,5 +1,20 @@
+<!--
+  ⚠ STALE DIAGRAM — DO NOT TRUST THE TOPOLOGY BELOW.
+  This diagram depicts a Celery + Redis + Postgres + Neo4j + separate-worker
+  architecture that Cortex NO LONGER uses. The current runtime is:
+    FastAPI (single process) → asyncio BackgroundTasks pipeline → SQLite.
+  No Celery, no Redis queue, no Neo4j, no separate worker.
+  Authoritative sources: docs/architecture/system-overview.md and
+  docs/architecture/docker-topology.md.
+  This is a hand-authored SVG with no generator; it must be redrawn to match
+  the current architecture. See task note in the cleanup report.
+-->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2600 1380" width="2600" height="1380"
   font-family="'Segoe UI', Arial, sans-serif">
+<rect x="0" y="0" width="2600" height="34" fill="#7f1d1d"/>
+<text x="1300" y="22" text-anchor="middle" fill="#fecaca" font-size="15" font-weight="700">
+  ⚠ STALE — depicts an old Celery/Redis/Neo4j design. Current runtime = FastAPI + in-process BackgroundTasks + SQLite. See system-overview.md.
+</text>
 <defs>
   <marker id="arr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
     <polygon points="0 0,8 3,0 6" fill="#64748b"/>

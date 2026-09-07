@@ -4,11 +4,10 @@ Run through this checklist before declaring a local Cortex deployment functional
 
 ## Services
 
-- [ ] `docker compose ps` shows all 6 services as healthy
+- [ ] `docker compose ps` shows both services (`api`, `frontend`) as healthy
 - [ ] `http://localhost:3000` loads the Cortex dashboard
-- [ ] `http://localhost:8000/health` returns `{"status": "ok"}`
-- [ ] `http://localhost:8000/docs` loads the Swagger UI
-- [ ] `http://localhost:7474` loads the Neo4j Browser
+- [ ] `http://localhost:8000/api/v1/health` returns a healthy status
+- [ ] `http://localhost:8000/api/docs` loads the Swagger UI
 
 ## End-to-End Test
 

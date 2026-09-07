@@ -2,7 +2,7 @@
 
 **Engineering Reasoning Engine** — Understand Code. Learn Engineering.
 
-Cortex scans any GitHub repository, builds a Neo4j knowledge graph from AST-level analysis, and generates structured artifacts that explain your system — architecture diagrams, learning paths, interview prep, and more.
+Cortex scans any GitHub repository, builds a code knowledge graph from AST-level analysis (Python `ast` + tree-sitter), and generates structured artifacts that explain your system — architecture diagrams, learning paths, interview prep, and more. The graph is stored in SQLite by default (no external database required).
 
 ---
 
@@ -12,8 +12,8 @@ Cortex scans any GitHub repository, builds a Neo4j knowledge graph from AST-leve
 
 - **Repository Scanning** — Paste a GitHub URL; Cortex clones and indexes every file
 - **AST-Level Parsing** — Full abstract syntax tree analysis extracting functions, classes, imports, and call graphs (not text grep)
-- **Neo4j Knowledge Graph** — 241+ nodes and 387+ relationships mapped per average repo into a queryable graph
-- **Async Job Processing** — Background Celery workers handle large repos without blocking the UI, with real-time status polling
+- **Code Knowledge Graph** — nodes (repository, modules, files, classes, functions, endpoints) and typed relationships (CONTAINS, IMPORTS, CALLS, INHERITS, IMPLEMENTS, TESTS) built per repo into a queryable graph. Stored in SQLite today; the repository interface is Neo4j-ready for a future swap.
+- **Async Job Processing** — The analysis pipeline runs in-process via FastAPI background tasks (no external broker required), with real-time status **and stage progress** polling. A durable queue (Celery/Redis) is a planned option for horizontal scaling.
 
 ### Generated Artifacts (6 Types)
 
@@ -30,7 +30,7 @@ Cortex scans any GitHub repository, builds a Neo4j knowledge graph from AST-leve
 
 | Feature | Description |
 |---|---|
-| AI Chat | Conversational interface powered by NVIDIA NIM with rule-based fallback |
+| AI Chat | Conversational interface grounded in the knowledge graph. Cortex authors an evidence-backed answer deterministically; NVIDIA NIM (if configured) only refines the wording, and a grounding guard rejects any NIM-invented file/symbol. Fully functional with NIM off. |
 | Full-Text Search | FTS5-powered search across all analyzed artifacts and code |
 | Knowledge Graph Viewer | Interactive visualization and querying of code relationships |
 | Code Navigation | Jump-to-definition style navigation across the analyzed codebase |
@@ -58,10 +58,12 @@ Cortex scans any GitHub repository, builds a Neo4j knowledge graph from AST-leve
 | Layer | Technology |
 |---|---|
 | Frontend | Next.js 14 · TypeScript · Tailwind CSS · React Flow · Framer Motion |
-| Backend | Python 3.11 · FastAPI · Celery · Redis · structlog |
-| Databases | PostgreSQL 16 · Neo4j 5.20 · SQLite (FTS5) |
+| Backend | Python 3.11 · FastAPI · structlog · tree-sitter · Python `ast` |
+| Databases | SQLite (jobs, artifacts, graph, memory) · SQLite FTS5 (full-text search) |
+| Job processing | In-process FastAPI background tasks (default) |
 | Infrastructure | Docker · Docker Compose · GitHub Actions |
-| AI | NVIDIA NIM API (optional — falls back to rule-based analysis) |
+| AI | NVIDIA NIM API (**optional** — used only to refine wording; Cortex produces its own deterministic, evidence-grounded analysis and answers with NIM off) |
+| Planned / optional | Neo4j (graph), PostgreSQL (relational), Celery + Redis (durable queue) — the code is structured for these but they are **not** required or used by default |
 
 ---
 
@@ -101,9 +103,9 @@ cortex/
 | frontend | http://localhost:3000 | Next.js frontend |
 | api | http://localhost:8000 | FastAPI backend |
 | api docs | http://localhost:8000/api/docs | Swagger UI |
-| postgres | localhost:5432 | PostgreSQL database |
-| redis | localhost:6379 | Job queue / cache |
-| neo4j | http://localhost:7474 | Graph database browser |
+| postgres | localhost:5432 | PostgreSQL (optional; only if the compose profile enables it — default is SQLite) |
+| redis | localhost:6379 | Redis (reserved for a future durable queue; not used by the default pipeline) |
+| neo4j | http://localhost:7474 | Neo4j browser (reserved for a future graph backend; not used by default) |
 | worker | — | Background job processor |
 
 ### Docker commands
@@ -151,10 +153,10 @@ uvicorn src.cortex.main:app --reload --port 8000
 |---|---|
 | jobs | Job lifecycle — create, track status, cancel |
 | artifacts | Store and retrieve generated documentation artifacts |
-| graph | Build and query the Neo4j engineering knowledge graph |
-| pipeline | Orchestrate async repo analysis via Celery tasks |
+| graph | Build and query the engineering knowledge graph (SQLite-backed; Neo4j-ready interface) |
+| pipeline | Orchestrate repo analysis as an in-process staged pipeline (fetch → parse → vibe → graph → artifact) with live stage progress |
 | insights | Structural code analysis and metrics |
-| chat | AI-powered conversational interface (NIM API + fallback) |
+| chat | Conversational interface grounded in the graph; NIM refines wording only (optional) |
 | memory | Conversation context and memory management |
 | diagrams | Architecture and dependency diagram generation |
 | search | Full-text search across artifacts and code (FTS5) |
@@ -202,12 +204,14 @@ The `domain/` layer has zero outward dependencies. import-linter enforces this i
 
 | Variable | Required | Description |
 |---|---|---|
+| `JWT_SECRET` | **Yes (production)** | Signing key for auth tokens. The default is an insecure placeholder; the app refuses to start with it unless `ALLOW_INSECURE_JWT_SECRET=true` (dev only). |
+| `ALLOW_INSECURE_JWT_SECRET` | No | Set `true` for local dev to permit the default `JWT_SECRET`. Must be `false`/unset in production. |
 | `GITHUB_TOKEN` | Recommended | Raises GitHub API limit from 60 to 5000 req/hr |
-| `NIM_API_KEY` | Optional | Enables AI chat via NVIDIA NIM (falls back to rule-based without it) |
+| `NIM_API_KEY` | Optional | Enables NVIDIA NIM wording refinement for chat/explanations. Cortex works fully without it. |
 | `INTERNAL_SECRET` | Optional | Secures internal job completion endpoints |
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `NEO4J_URI` | Yes | Neo4j bolt connection URI |
-| `REDIS_URL` | Yes | Redis connection for Celery and caching |
+| `DATABASE_URL` | No | Database URL. Defaults to `sqlite+aiosqlite:///./cortex.db`. A PostgreSQL URL also works (SQLAlchemy async). |
+| `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` | No | Reserved for a future Neo4j graph backend. **Not used** by the current SQLite-backed graph. |
+| `REDIS_URL` | No | Reserved for a future Celery/Redis durable queue and shared rate limiting. **Not used** by the default in-process pipeline. |
 
 ---
 
@@ -216,8 +220,8 @@ The `domain/` layer has zero outward dependencies. import-linter enforces this i
 | Script | When to use |
 |---|---|
 | `setup-dev.sh` | First-time dev environment setup (install deps, copy env) |
-| `seed-db.sh` | Populate PostgreSQL with sample jobs and artifacts |
-| `seed-graph.sh` | Populate Neo4j with a sample code knowledge graph |
+| `seed-db.sh` | Populate the database with sample jobs and artifacts |
+| `seed-graph.sh` | Populate the knowledge graph with a sample code graph |
 | `lint-all.sh` | Run all linters (frontend ESLint + Prettier, backend ruff) |
 
 ```bash

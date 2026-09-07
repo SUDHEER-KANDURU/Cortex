@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Docker Desktop 4.x+ (or Docker Engine 24+ with Compose plugin)
-- 8 GB RAM recommended (Neo4j is memory-intensive)
+- ~2 GB RAM (Cortex runs FastAPI + a Next.js frontend on SQLite; no Neo4j/Postgres)
 
 ## First-Time Setup
 
@@ -40,9 +40,11 @@ docker compose down -v
 
 ## Accessing Services
 
-| Service    | URL                          |
-|------------|------------------------------|
-| Frontend   | http://localhost:3000        |
-| API        | http://localhost:8000        |
-| API Docs   | http://localhost:8000/docs   |
-| Neo4j Browser | http://localhost:7474     |
+| Service    | URL                              |
+|------------|----------------------------------|
+| Frontend   | http://localhost:3000            |
+| API        | http://localhost:8000            |
+| API Docs   | http://localhost:8000/api/docs   |
+
+There is no Neo4j/Postgres/Redis service in the default topology — Cortex uses
+SQLite in the `api` container.
