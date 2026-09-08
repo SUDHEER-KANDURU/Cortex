@@ -121,7 +121,7 @@ class Settings(BaseSettings):
     # analysis at the "Parse AST" stage forever. parse_many() runs each file in a
     # disposable worker process and abandons any file that exceeds this budget,
     # recording it as a coverage gap so analysis always completes.
-    ast_parse_file_timeout_seconds: float = 12.0
+    ast_parse_file_timeout_seconds: float = 1.5
 
 
 @lru_cache

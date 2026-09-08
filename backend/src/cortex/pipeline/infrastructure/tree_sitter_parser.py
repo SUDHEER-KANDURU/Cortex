@@ -56,6 +56,25 @@ def tree_sitter_available() -> bool:
     """Return True if the tree-sitter grammars can be loaded in this env."""
     return _get_ts_parser is not None
 
+
+#: Cache of tree-sitter Parser objects keyed by grammar name. Calling
+#: ``get_parser`` fresh for every file churns native parser/tree objects in
+#: tree_sitter_language_pack, which — on a batch of hundreds of files —
+#: intermittently drives the C layer into a hang or segfault. Reusing one
+#: Parser per grammar for the whole process is both correct and dramatically
+#: faster (each file then parses in ~1-15ms), and removes the need for any
+#: per-file timeout/subprocess isolation.
+_PARSER_CACHE: dict = {}
+
+
+def _cached_ts_parser(grammar: str):
+    """Return a process-wide cached tree-sitter Parser for ``grammar``."""
+    parser = _PARSER_CACHE.get(grammar)
+    if parser is None:
+        parser = _get_ts_parser(grammar)
+        _PARSER_CACHE[grammar] = parser
+    return parser
+
 # ── Per-language field-mapping table ──────────────────────────────────────────
 @dataclass(frozen=True)
 class LanguageSpec:
@@ -438,7 +457,7 @@ class TreeSitterParser(LanguageParser):
 
         ext = _file_extension(file_path)
         try:
-            parser = _get_ts_parser(_grammar_for_extension(ext, self._spec))
+            parser = _cached_ts_parser(_grammar_for_extension(ext, self._spec))
             source = content.encode("utf-8")
             tree = parser.parse(source)
         except Exception as exc:  # never raise (LanguageParser contract)

@@ -835,62 +835,78 @@ class ASTParser:
             logger.warning("ast_parse_mp_unavailable", error=str(e))
             return self._parse_many_inprocess(files)
 
-        results: list[ParsedFile | None] = [None] * len(files)
-        next_index = 0
+        total = len(files)
+        results: list[ParsedFile | None] = [None] * total
 
-        while next_index < len(files):
-            in_q = ctx.Queue()
-            out_q = ctx.Queue()
-            proc = ctx.Process(target=_parse_worker_loop, args=(in_q, out_q), daemon=True)
-            try:
-                proc.start()
-            except Exception as e:
-                logger.warning("ast_parse_worker_spawn_failed", error=str(e))
-                # Fall back to in-process for whatever is left.
-                for i in range(next_index, len(files)):
-                    c, p = files[i]
-                    results[i] = self._parse_safe(c, p)
-                next_index = len(files)
-                break
+        # ── Shared work queue across a small pool of parallel workers ─────────
+        # tree-sitter's native layer intermittently corrupts state / segfaults
+        # after parsing many files, so a worker WILL periodically die and must
+        # be respawned. Running several workers in parallel overlaps those
+        # per-worker stalls, so the wall-clock cost of the (unavoidable) stalls
+        # is divided by the pool size instead of paid serially.
+        import threading
 
-            # Feed all remaining files to this worker up front; read results in
-            # order with a per-file timeout.
-            for i in range(next_index, len(files)):
-                in_q.put((i, files[i][0], files[i][1]))
-            in_q.put(None)  # sentinel: no more work
+        pool_size = self._guarded_pool_size(total)
+        # Round-robin all file indices across the worker buckets.
+        buckets: list[list[int]] = [[] for _ in range(pool_size)]
+        for pos, idx in enumerate(range(total)):
+            buckets[pos % pool_size].append(idx)
 
-            worker_ok = True
-            while next_index < len(files) and worker_ok:
-                content, path = files[next_index]
+        def run_worker(indices: list[int]) -> None:
+            local_pending = list(indices)
+            while local_pending:
                 try:
-                    idx, parsed = out_q.get(timeout=timeout)
-                    results[idx] = parsed
-                    next_index += 1
-                except Exception:
-                    # Timeout OR the worker crashed before delivering this file.
-                    reason = (
-                        "crashed (native fault)" if not proc.is_alive()
-                        else f"timed out after {timeout:.0f}s"
-                    )
-                    logger.error("ast_parse_skipped", path=path, reason=reason)
-                    results[next_index] = ParsedFile(
-                        path=path,
-                        language=self.detect_language(path),
-                        parse_errors=[
-                            f"Parse {reason}; file skipped and recorded as a "
-                            f"coverage gap."
-                        ],
-                    )
-                    next_index += 1
-                    worker_ok = False  # tear this worker down, respawn for rest
+                    proc, in_q, out_q = self._spawn_parse_worker(ctx)
+                except Exception as e:
+                    logger.warning("ast_parse_worker_spawn_failed", error=str(e))
+                    # Spawn failed — parse this worker's share in-process.
+                    for i in local_pending:
+                        results[i] = self._parse_safe(files[i][0], files[i][1])
+                    return
+                for i in local_pending:
+                    in_q.put((i, files[i][0], files[i][1]))
+                in_q.put(None)
 
-            # Clean up this worker before (maybe) spawning the next one.
-            try:
-                if proc.is_alive():
-                    proc.kill()
-                proc.join(timeout=5)
-            except Exception:
-                pass
+                worker_ok = True
+                while local_pending and worker_ok:
+                    cur = local_pending[0]
+                    try:
+                        idx, parsed = out_q.get(timeout=timeout)
+                        results[idx] = parsed
+                        local_pending.pop(0)
+                    except Exception:
+                        reason = (
+                            "crashed (native fault)" if not proc.is_alive()
+                            else f"timed out after {timeout:.0f}s"
+                        )
+                        path = files[cur][1]
+                        logger.error("ast_parse_skipped", path=path, reason=reason)
+                        results[cur] = ParsedFile(
+                            path=path,
+                            language=self.detect_language(path),
+                            parse_errors=[
+                                f"Parse {reason}; file skipped and recorded "
+                                f"as a coverage gap."
+                            ],
+                        )
+                        local_pending.pop(0)
+                        worker_ok = False  # respawn for the rest of the bucket
+                try:
+                    if proc.is_alive():
+                        proc.kill()
+                    proc.join(timeout=5)
+                except Exception:
+                    pass
+
+        threads = []
+        for b in buckets:
+            if not b:
+                continue
+            t = threading.Thread(target=run_worker, args=(b,), daemon=True)
+            t.start()
+            threads.append(t)
+        for t in threads:
+            t.join()
 
         return [r if r is not None else ParsedFile(
             path=files[i][1],
@@ -898,25 +914,19 @@ class ASTParser:
             parse_errors=["Parser produced no result; recorded as a coverage gap."],
         ) for i, r in enumerate(results)]
 
+    @staticmethod
+    def _guarded_pool_size(file_count: int) -> int:
+        """Number of parallel parse workers. Bounded by CPU count and file
+        count so we never spawn more processes than there is work or hardware."""
+        import os as _os
+        cpu = _os.cpu_count() or 4
+        return max(1, min(4, cpu, file_count))
 
-def _parse_worker_loop(in_q, out_q) -> None:  # pragma: no cover - runs in child
-    """Worker-process loop: parse (index, content, path) items and stream back
-    (index, ParsedFile). Runs in a spawned process so a hung or crashing parse
-    is isolated from the parent pipeline."""
-    import os as _os
-    _os.environ.setdefault("LOG_LEVEL", "ERROR")
-    parser = ASTParser()
-    while True:
-        item = in_q.get()
-        if item is None:
-            return
-        index, content, path = item
-        try:
-            parsed = parser.parse(content, path)
-        except Exception as e:
-            parsed = ParsedFile(
-                path=path,
-                language=parser.detect_language(path),
-                parse_errors=[f"Unexpected error: {e}"],
-            )
-        out_q.put((index, parsed))
+    def _spawn_parse_worker(self, ctx):
+        """Start one worker process and return (proc, in_q, out_q)."""
+        from cortex.pipeline.infrastructure._parse_worker import parse_worker_loop
+        in_q = ctx.Queue()
+        out_q = ctx.Queue()
+        proc = ctx.Process(target=parse_worker_loop, args=(in_q, out_q), daemon=True)
+        proc.start()
+        return proc, in_q, out_q
