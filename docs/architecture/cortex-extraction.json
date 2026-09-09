@@ -1,0 +1,3882 @@
+{
+  "stats": {
+    "files_parsed": 142,
+    "raw_internal_edges": 370,
+    "components": 19,
+    "kept_edges": 24
+  },
+  "components": {
+    "artifacts": {
+      "role": "service",
+      "files": 10
+    },
+    "auth": {
+      "role": "service",
+      "files": 13
+    },
+    "chat": {
+      "role": "service",
+      "files": 13
+    },
+    "config": {
+      "role": "shared",
+      "files": 1
+    },
+    "db": {
+      "role": "datastore",
+      "files": 1
+    },
+    "diagrams": {
+      "role": "service",
+      "files": 2
+    },
+    "graph": {
+      "role": "service",
+      "files": 9
+    },
+    "health": {
+      "role": "service",
+      "files": 1
+    },
+    "insights": {
+      "role": "service",
+      "files": 16
+    },
+    "jobs": {
+      "role": "service",
+      "files": 7
+    },
+    "main": {
+      "role": "entrypoint",
+      "files": 1
+    },
+    "memory": {
+      "role": "service",
+      "files": 7
+    },
+    "navigate": {
+      "role": "service",
+      "files": 4
+    },
+    "overview": {
+      "role": "service",
+      "files": 3
+    },
+    "pipeline": {
+      "role": "service",
+      "files": 26
+    },
+    "reasoning": {
+      "role": "service",
+      "files": 15
+    },
+    "schema": {
+      "role": "service",
+      "files": 2
+    },
+    "search": {
+      "role": "service",
+      "files": 3
+    },
+    "shared": {
+      "role": "shared",
+      "files": 8
+    }
+  },
+  "raw_file_graph": [
+    {
+      "file": "cortex.artifacts.application",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.artifacts.application.use_cases",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.artifacts.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.artifacts.domain.interfaces",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.exceptions",
+          "kind": "internal"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.artifacts.domain",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.artifacts.domain.entities",
+      "language": "python",
+      "imports": [
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "datetime",
+          "kind": "external"
+        },
+        {
+          "target": "enum",
+          "kind": "external"
+        },
+        {
+          "target": "uuid",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.artifacts.domain.interfaces",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.artifacts.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "abc",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.artifacts.infrastructure.dependencies",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.artifacts.infrastructure.pg_repository",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "file": "cortex.artifacts.infrastructure.pg_repository",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.db",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.artifacts.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.artifacts.domain.interfaces",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.schema.models",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.exceptions",
+          "kind": "internal"
+        },
+        {
+          "target": "sqlalchemy",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.artifacts.presentation",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.artifacts.presentation.models",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.artifacts.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "datetime",
+          "kind": "external"
+        },
+        {
+          "target": "pydantic",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.artifacts.presentation.router",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.artifacts.application.use_cases",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.artifacts.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.artifacts.presentation.models",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.exceptions",
+          "kind": "internal"
+        },
+        {
+          "target": "fastapi",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.auth",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.auth.application",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.auth.application.auth_service",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.auth.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.auth.domain.interfaces",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.exceptions",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.auth.infrastructure.email_service",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "bcrypt",
+          "kind": "external"
+        },
+        {
+          "target": "datetime",
+          "kind": "external"
+        },
+        {
+          "target": "jose",
+          "kind": "external"
+        },
+        {
+          "target": "secrets",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        },
+        {
+          "target": "uuid",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.auth.domain",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.auth.domain.entities",
+      "language": "python",
+      "imports": [
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "datetime",
+          "kind": "external"
+        },
+        {
+          "target": "enum",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.auth.domain.interfaces",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.auth.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "abc",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.auth.infrastructure",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.auth.infrastructure.dependencies",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.auth.application.auth_service",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.auth.infrastructure.email_service",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.auth.infrastructure.repository",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "functools",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.auth.infrastructure.email_service",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "aiosmtplib",
+          "kind": "external"
+        },
+        {
+          "target": "email",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.auth.infrastructure.repository",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.auth.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.auth.domain.interfaces",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.db",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.schema.models",
+          "kind": "internal"
+        },
+        {
+          "target": "datetime",
+          "kind": "external"
+        },
+        {
+          "target": "sqlalchemy",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.auth.presentation",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.auth.presentation.dependencies",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.auth.application.auth_service",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.auth.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.auth.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "fastapi",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.auth.presentation.router",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.auth.application.auth_service",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.auth.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.auth.presentation.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.identity",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.rate_limit_response",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.rate_limiters",
+          "kind": "internal"
+        },
+        {
+          "target": "fastapi",
+          "kind": "external"
+        },
+        {
+          "target": "pydantic",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.chat",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.chat.application",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.chat.application.chat_service",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.chat.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.chat.infrastructure.context_retriever",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.chat.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.chat.infrastructure.nim_client",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.chat.infrastructure.context_retriever",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.application.producers",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.domain.answer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.application.explainer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.chat.infrastructure.context_retriever",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.application.producers",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.chat.infrastructure.context_retriever",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.application.reasoner",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.application.answer_serializer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.chat.infrastructure.nim_client",
+          "kind": "internal"
+        },
+        {
+          "target": "asyncio",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        },
+        {
+          "target": "uuid",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.chat.domain",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.chat.domain.entities",
+      "language": "python",
+      "imports": [
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "datetime",
+          "kind": "external"
+        },
+        {
+          "target": "enum",
+          "kind": "external"
+        },
+        {
+          "target": "uuid",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.chat.domain.interfaces",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.chat.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "abc",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.chat.infrastructure",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.chat.infrastructure.context_retriever",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.memory.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.search.fts_engine",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.application.reasoner",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.overview.blast_radius",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "enum",
+          "kind": "external"
+        },
+        {
+          "target": "re",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.chat.infrastructure.dependencies",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.chat.infrastructure.pg_repository",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "file": "cortex.chat.infrastructure.nim_client",
+      "language": "python",
+      "imports": [
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "httpx",
+          "kind": "external"
+        },
+        {
+          "target": "json",
+          "kind": "external"
+        },
+        {
+          "target": "re",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.chat.infrastructure.pg_repository",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.db",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.chat.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.chat.domain.interfaces",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.schema.models",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.exceptions",
+          "kind": "internal"
+        },
+        {
+          "target": "sqlalchemy",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.chat.presentation",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.chat.presentation.router",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.auth.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.auth.presentation.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.chat.application.chat_service",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.application.use_cases",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.exceptions",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.identity",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.rate_limit_response",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.rate_limiters",
+          "kind": "internal"
+        },
+        {
+          "target": "fastapi",
+          "kind": "external"
+        },
+        {
+          "target": "json",
+          "kind": "external"
+        },
+        {
+          "target": "pydantic",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.config",
+      "language": "python",
+      "imports": [
+        {
+          "target": "functools",
+          "kind": "external"
+        },
+        {
+          "target": "pathlib",
+          "kind": "external"
+        },
+        {
+          "target": "pydantic_settings",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.db",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "contextlib",
+          "kind": "external"
+        },
+        {
+          "target": "functools",
+          "kind": "external"
+        },
+        {
+          "target": "sqlalchemy",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.diagrams",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.diagrams.router",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.application.use_cases",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.infrastructure.sqlite_repository",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.application.use_cases",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.layered_diagram_generator",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.exceptions",
+          "kind": "internal"
+        },
+        {
+          "target": "fastapi",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.graph.application.use_cases",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.domain.interfaces",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.exceptions",
+          "kind": "internal"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.graph.domain.entities",
+      "language": "python",
+      "imports": [
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "datetime",
+          "kind": "external"
+        },
+        {
+          "target": "enum",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.graph.domain.interfaces",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "abc",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.graph.infrastructure",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.graph.infrastructure.dependencies",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.infrastructure.sqlite_repository",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "file": "cortex.graph.infrastructure.sqlite_repository",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.db",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.domain.interfaces",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.schema.models",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.exceptions",
+          "kind": "internal"
+        },
+        {
+          "target": "json",
+          "kind": "external"
+        },
+        {
+          "target": "sqlalchemy",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.graph.presentation",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.graph.presentation.models",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "datetime",
+          "kind": "external"
+        },
+        {
+          "target": "pydantic",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.graph.presentation.router",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.application.use_cases",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.infrastructure.sqlite_repository",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.presentation.models",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.exceptions",
+          "kind": "internal"
+        },
+        {
+          "target": "fastapi",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.health.presentation.router",
+      "language": "python",
+      "imports": [
+        {
+          "target": "datetime",
+          "kind": "external"
+        },
+        {
+          "target": "fastapi",
+          "kind": "external"
+        },
+        {
+          "target": "pydantic",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.insights",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.insights.application",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.insights.application.engine",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.application.file_classifier",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.application.grouping",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.application.language_rules",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.domain",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.domain.severity",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "statistics",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.insights.application.file_classifier",
+      "language": "python",
+      "imports": [
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "enum",
+          "kind": "external"
+        },
+        {
+          "target": "re",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.insights.application.grouping",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.insights.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.domain.severity",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.insights.application.language_rules",
+      "language": "python",
+      "imports": [
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "re",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.insights.application.performance_analyzer",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.insights.application.security_analyzer",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "re",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.insights.application.testing_analyzer",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.insights.domain",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.insights.domain.entities",
+      "language": "python",
+      "imports": [
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "enum",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.insights.domain.severity",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.insights.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "enum",
+          "kind": "external"
+        },
+        {
+          "target": "re",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.insights.domain.thresholds",
+      "language": "python",
+      "imports": [
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.insights.presentation",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.insights.presentation.models",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.insights.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "pydantic",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.insights.presentation.router",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.insights.application.engine",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.presentation.models",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.infrastructure.sqlite_repository",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "fastapi",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.jobs.application.use_cases",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.jobs.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.domain.interfaces",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.exceptions",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "datetime",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        },
+        {
+          "target": "uuid",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.jobs.domain.entities",
+      "language": "python",
+      "imports": [
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "datetime",
+          "kind": "external"
+        },
+        {
+          "target": "enum",
+          "kind": "external"
+        },
+        {
+          "target": "uuid",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.jobs.domain.interfaces",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.jobs.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "abc",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.jobs.infrastructure.dependencies",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.jobs.infrastructure.pg_repository",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "file": "cortex.jobs.infrastructure.pg_repository",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.db",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.domain.interfaces",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.schema.models",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.exceptions",
+          "kind": "internal"
+        },
+        {
+          "target": "datetime",
+          "kind": "external"
+        },
+        {
+          "target": "sqlalchemy",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.jobs.presentation.models",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.jobs.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "datetime",
+          "kind": "external"
+        },
+        {
+          "target": "pydantic",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.jobs.presentation.router",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.artifacts.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.artifacts.application.use_cases",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.artifacts.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.application.use_cases",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.presentation.models",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.auth.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.auth.presentation.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.exceptions",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.identity",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.rate_limit_response",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.rate_limiters",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.application.engine",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.application.security_analyzer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.application.performance_analyzer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.application.testing_analyzer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.memory.application.summarizer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.memory.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.search.fts_engine",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.application.orchestrator",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.application.orchestrator",
+          "kind": "internal"
+        },
+        {
+          "target": "asyncio",
+          "kind": "external"
+        },
+        {
+          "target": "fastapi",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        },
+        {
+          "target": "traceback",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.main",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.health.presentation.router",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.presentation.router",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.artifacts.presentation.router",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.presentation.router",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.presentation.router",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.chat.presentation.router",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.memory.presentation.router",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.diagrams.router",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.search.router",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.overview.router",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.auth.presentation.router",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.presentation.router",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.navigate.router",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.correlation",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.logging",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.rate_limit_middleware",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.schema.models",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.db",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.schema.models",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.search.fts_engine",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.incremental_analyzer",
+          "kind": "internal"
+        },
+        {
+          "target": "contextlib",
+          "kind": "external"
+        },
+        {
+          "target": "datetime",
+          "kind": "external"
+        },
+        {
+          "target": "fastapi",
+          "kind": "external"
+        },
+        {
+          "target": "sqlalchemy",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        },
+        {
+          "target": "uvicorn",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.memory.application.delta_analyzer",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.insights.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.memory.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "datetime",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.memory.application.summarizer",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.insights.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.memory.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "uuid",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.memory.domain.entities",
+      "language": "python",
+      "imports": [
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "datetime",
+          "kind": "external"
+        },
+        {
+          "target": "uuid",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.memory.domain.interfaces",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.memory.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "abc",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.memory.infrastructure.dependencies",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.memory.infrastructure.sqlite_repository",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "file": "cortex.memory.infrastructure.sqlite_repository",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.db",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.memory.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.memory.domain.interfaces",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.schema.models",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.exceptions",
+          "kind": "internal"
+        },
+        {
+          "target": "sqlalchemy",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.memory.presentation.router",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.insights.application.engine",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.infrastructure.sqlite_repository",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.memory.application.summarizer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.memory.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "fastapi",
+          "kind": "external"
+        },
+        {
+          "target": "pydantic",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.navigate",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.navigate.models",
+      "language": "python",
+      "imports": [
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "enum",
+          "kind": "external"
+        },
+        {
+          "target": "pydantic",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.navigate.router",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.chat.infrastructure.nim_client",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.navigate.models",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.navigate.service",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.application.explainer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.application.scoped_explanation",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.domain.answer",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "fastapi",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.navigate.service",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.application.engine",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.navigate.models",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.overview",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.overview.blast_radius",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.overview.router",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.application.engine",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.application.performance_analyzer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.application.security_analyzer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.application.testing_analyzer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.application.reasoner",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.overview.blast_radius",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.memory.application.delta_analyzer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.memory.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "fastapi",
+          "kind": "external"
+        },
+        {
+          "target": "pydantic",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.application.orchestrator",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.jobs.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.domain.interfaces",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.artifacts.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.exceptions",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.ast_parser",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.vibe_detector",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.stages",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.domain.entities",
+      "language": "python",
+      "imports": [
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.domain.interfaces",
+      "language": "python",
+      "imports": [
+        {
+          "target": "abc",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure._parse_worker",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.pipeline.infrastructure.ast_parser",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.ast_parser",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "logging",
+          "kind": "external"
+        },
+        {
+          "target": "os",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.api_features_generator",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.architecture_diagram_generator",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.artifact_generator",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.module_breakdown_generator",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.learning_path_generator",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.interview_generator",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.api_features_generator",
+          "kind": "internal"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "re",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.ast_parser",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.pipeline.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.tree_sitter_parser",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure._parse_worker",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "abc",
+          "kind": "external"
+        },
+        {
+          "target": "ast",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "enum",
+          "kind": "external"
+        },
+        {
+          "target": "multiprocessing",
+          "kind": "external"
+        },
+        {
+          "target": "os",
+          "kind": "external"
+        },
+        {
+          "target": "re",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        },
+        {
+          "target": "threading",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.code_quality_generator",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.vibe_detector",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.coverage",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.pipeline.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.ast_parser",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.database_schema_generator",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.pipeline.infrastructure.ast_parser",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "re",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.engineering_report_generator",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.intelligence_formatter",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.intelligence_formatter",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.github_analyzer",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.pipeline.infrastructure.github_client",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.ast_parser",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.vibe_detector",
+          "kind": "internal"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.github_client",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.exceptions",
+          "kind": "internal"
+        },
+        {
+          "target": "asyncio",
+          "kind": "external"
+        },
+        {
+          "target": "base64",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "httpx",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.graph_builder",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.ast_parser",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.symbol_table",
+          "kind": "internal"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "hashlib",
+          "kind": "external"
+        },
+        {
+          "target": "os",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        },
+        {
+          "target": "uuid",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.incremental_analyzer",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.db",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.ast_parser",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.ast_parser",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "hashlib",
+          "kind": "external"
+        },
+        {
+          "target": "inspect",
+          "kind": "external"
+        },
+        {
+          "target": "json",
+          "kind": "external"
+        },
+        {
+          "target": "sqlalchemy",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.intelligence_formatter",
+      "language": "python",
+      "imports": [
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "enum",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.interview_generator",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.layered_diagram_generator",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.learning_path_generator",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.manifest_detector",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.pipeline.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "json",
+          "kind": "external"
+        },
+        {
+          "target": "os",
+          "kind": "external"
+        },
+        {
+          "target": "re",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.module_breakdown_generator",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.stages",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.pipeline.application.orchestrator",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.domain.interfaces",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.graph_builder",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.artifacts.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.github_analyzer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.ast_parser",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.vibe_detector",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.incremental_analyzer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.coverage",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.coverage",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.artifact_generator",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.incremental_analyzer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.infrastructure.sqlite_repository",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.architecture_diagram_generator",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.code_quality_generator",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.engineering_report_generator",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.database_schema_generator",
+          "kind": "internal"
+        },
+        {
+          "target": "asyncio",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.symbol_table",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.pipeline.infrastructure.ast_parser",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.tree_sitter_parser",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.pipeline.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.ast_parser",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "os",
+          "kind": "external"
+        },
+        {
+          "target": "re",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        },
+        {
+          "target": "tree_sitter",
+          "kind": "external"
+        },
+        {
+          "target": "tree_sitter_language_pack",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.pipeline.infrastructure.vibe_detector",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.pipeline.infrastructure.ast_parser",
+          "kind": "internal"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "enum",
+          "kind": "external"
+        },
+        {
+          "target": "re",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.reasoning",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.reasoning.application",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.reasoning.application.answer_serializer",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.reasoning.domain.answer",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.reasoning.application.explainer",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.domain.severity",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.reasoning.application.fix_intelligence",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.overview.blast_radius",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.reasoning.application.learning_path",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.reasoning.application.producers",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.domain.answer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure.ast_parser",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.infrastructure",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.reasoning.application.reasoner",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.application.engine",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.pipeline.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.reasoning.application.root_cause",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "re",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.reasoning.application.scoped_explanation",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.domain.severity",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.application.explainer",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.application.producers",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.domain.answer",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.reasoning.domain",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.reasoning.domain.answer",
+      "language": "python",
+      "imports": [
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "enum",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.reasoning.domain.entities",
+      "language": "python",
+      "imports": [
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "enum",
+          "kind": "external"
+        },
+        {
+          "target": "typing",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.reasoning.presentation",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.reasoning.presentation.router",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.graph.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.jobs.infrastructure.dependencies",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.insights.application.engine",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.application.reasoner",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.application.learning_path",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.application.root_cause",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.reasoning.application.fix_intelligence",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "collections",
+          "kind": "external"
+        },
+        {
+          "target": "fastapi",
+          "kind": "external"
+        },
+        {
+          "target": "pydantic",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.schema.migrations.env",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.schema.models",
+          "kind": "internal"
+        },
+        {
+          "target": "alembic",
+          "kind": "external"
+        },
+        {
+          "target": "asyncio",
+          "kind": "external"
+        },
+        {
+          "target": "logging",
+          "kind": "external"
+        },
+        {
+          "target": "sqlalchemy",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.schema.models",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.jobs.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.artifacts.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.graph.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.chat.domain.entities",
+          "kind": "internal"
+        },
+        {
+          "target": "datetime",
+          "kind": "external"
+        },
+        {
+          "target": "sqlalchemy",
+          "kind": "external"
+        },
+        {
+          "target": "uuid",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.search",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "cortex.search.fts_engine",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.db",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "__future__",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "sqlalchemy",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "cortex.search.router",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.search.fts_engine",
+          "kind": "internal"
+        },
+        {
+          "target": "fastapi",
+          "kind": "external"
+        },
+        {
+          "target": "pydantic",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "shared.correlation",
+      "language": "python",
+      "imports": [
+        {
+          "target": "starlette",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        },
+        {
+          "target": "uuid",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "shared.exceptions",
+      "language": "python",
+      "imports": []
+    },
+    {
+      "file": "shared.identity",
+      "language": "python",
+      "imports": [
+        {
+          "target": "fastapi",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "shared.logging",
+      "language": "python",
+      "imports": [
+        {
+          "target": "logging",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "shared.rate_limit_middleware",
+      "language": "python",
+      "imports": [
+        {
+          "target": "shared.identity",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.rate_limiters",
+          "kind": "internal"
+        },
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "jose",
+          "kind": "external"
+        },
+        {
+          "target": "math",
+          "kind": "external"
+        },
+        {
+          "target": "starlette",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "shared.rate_limit_response",
+      "language": "python",
+      "imports": [
+        {
+          "target": "shared.rate_limiter",
+          "kind": "internal"
+        },
+        {
+          "target": "fastapi",
+          "kind": "external"
+        },
+        {
+          "target": "math",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "shared.rate_limiter",
+      "language": "python",
+      "imports": [
+        {
+          "target": "asyncio",
+          "kind": "external"
+        },
+        {
+          "target": "dataclasses",
+          "kind": "external"
+        },
+        {
+          "target": "structlog",
+          "kind": "external"
+        },
+        {
+          "target": "time",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "file": "shared.rate_limiters",
+      "language": "python",
+      "imports": [
+        {
+          "target": "cortex.config",
+          "kind": "internal"
+        },
+        {
+          "target": "shared.rate_limiter",
+          "kind": "internal"
+        },
+        {
+          "target": "functools",
+          "kind": "external"
+        }
+      ]
+    }
+  ],
+  "kept_edges": [
+    {
+      "from": "api",
+      "to": "jobs",
+      "weight": 1,
+      "label": "mounts 13 routers"
+    },
+    {
+      "from": "navigate",
+      "to": "graph",
+      "weight": 4,
+      "label": "queries graph"
+    },
+    {
+      "from": "navigate",
+      "to": "reasoning",
+      "weight": 3,
+      "label": "explains symbols"
+    },
+    {
+      "from": "overview",
+      "to": "graph",
+      "weight": 3,
+      "label": "queries graph"
+    },
+    {
+      "from": "overview",
+      "to": "insights",
+      "weight": 4,
+      "label": "aggregates scores"
+    },
+    {
+      "from": "artifacts",
+      "to": "db",
+      "weight": 1,
+      "label": "writes rows"
+    },
+    {
+      "from": "auth",
+      "to": "db",
+      "weight": 1,
+      "label": "user rows"
+    },
+    {
+      "from": "chat",
+      "to": "jobs",
+      "weight": 3,
+      "label": "resolves repo job"
+    },
+    {
+      "from": "chat",
+      "to": "reasoning",
+      "weight": 8,
+      "label": "asks reasoner"
+    },
+    {
+      "from": "chat",
+      "to": "graph",
+      "weight": 4,
+      "label": "grounds answers"
+    },
+    {
+      "from": "graph",
+      "to": "db",
+      "weight": 1,
+      "label": "writes rows"
+    },
+    {
+      "from": "insights",
+      "to": "graph",
+      "weight": 6,
+      "label": "queries graph"
+    },
+    {
+      "from": "insights",
+      "to": "pipeline",
+      "weight": 3,
+      "label": "reads parsed AST"
+    },
+    {
+      "from": "jobs",
+      "to": "db",
+      "weight": 1,
+      "label": "job state"
+    },
+    {
+      "from": "jobs",
+      "to": "artifacts",
+      "weight": 3,
+      "label": "persists results"
+    },
+    {
+      "from": "jobs",
+      "to": "insights",
+      "weight": 4,
+      "label": "runs analysis"
+    },
+    {
+      "from": "jobs",
+      "to": "pipeline",
+      "weight": 3,
+      "label": "runs analysis"
+    },
+    {
+      "from": "memory",
+      "to": "insights",
+      "weight": 3,
+      "label": "summarizes repo"
+    },
+    {
+      "from": "pipeline",
+      "to": "graph",
+      "weight": 11,
+      "label": "builds graph"
+    },
+    {
+      "from": "reasoning",
+      "to": "graph",
+      "weight": 9,
+      "label": "traverses graph"
+    },
+    {
+      "from": "reasoning",
+      "to": "insights",
+      "weight": 8,
+      "label": "reads health data"
+    },
+    {
+      "from": "reasoning",
+      "to": "pipeline",
+      "weight": 4,
+      "label": "reads AST profiles"
+    },
+    {
+      "from": "pipeline",
+      "to": "github",
+      "weight": 1,
+      "label": "fetches repo files"
+    },
+    {
+      "from": "chat",
+      "to": "nim",
+      "weight": 1,
+      "label": "optional refine"
+    }
+  ]
+}
