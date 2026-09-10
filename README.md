@@ -6,50 +6,101 @@ Cortex scans any GitHub repository, builds a code knowledge graph from AST-level
 
 ---
 
+## How It Works
+
+At a high level, you point Cortex at a GitHub repository and it turns that codebase into a queryable knowledge graph plus a set of human-readable artifacts. Data flows left to right:
+
+```
+You → API (FastAPI) → Jobs → Analysis Pipeline → GitHub (fetch files)
+                                     │
+                                     ├─ parse (AST / tree-sitter)
+                                     ├─ detect (quality / "vibe")
+                                     ├─ build  → Knowledge Graph ─┐
+                                     └─ generate → Artifacts ─────┤
+                                                                  ▼
+   Read services (insights, reasoning, chat, overview, navigate)  SQLite
+```
+
+1. **Submit** a repo URL. The API creates a background **job**.
+2. The **pipeline** fetches files from GitHub, parses them, detects quality signals, builds the **knowledge graph**, and generates **artifacts**.
+3. Everything persists to **SQLite**. Read-side services then query the graph to answer questions, render diagrams, search, and chat.
+
+A generated component diagram of the backend lives at [`docs/architecture/cortex-component-diagram.svg`](docs/architecture/cortex-component-diagram.svg) — it is produced directly from the real import graph by `docs/architecture/generate_component_diagram.py`, so it stays honest as the code changes.
+
+---
+
 ## Features
+
+Every feature below is backed by a real backend module. Nothing here is aspirational — planned-but-not-yet-active pieces (Neo4j, Redis/Celery, PostgreSQL) are called out explicitly in the Tech Stack section.
 
 ### Core Analysis Pipeline
 
-- **Repository Scanning** — Paste a GitHub URL; Cortex clones and indexes every file
-- **AST-Level Parsing** — Full abstract syntax tree analysis extracting functions, classes, imports, and call graphs (not text grep)
-- **Code Knowledge Graph** — nodes (repository, modules, files, classes, functions, endpoints) and typed relationships (CONTAINS, IMPORTS, CALLS, INHERITS, IMPLEMENTS, TESTS) built per repo into a queryable graph. Stored in SQLite today; the repository interface is Neo4j-ready for a future swap.
-- **Async Job Processing** — The analysis pipeline runs in-process via FastAPI background tasks (no external broker required), with real-time status **and stage progress** polling. A durable queue (Celery/Redis) is a planned option for horizontal scaling.
+The engine that turns a repository into structured knowledge.
+
+- **Repository Scanning** — Paste any public GitHub URL. Cortex fetches the file tree and contents through the GitHub API (a `GITHUB_TOKEN` raises the rate limit from 60 to 5000 requests/hour) and indexes every file. No local clone required.
+- **AST-Level Parsing** — Real abstract-syntax-tree analysis, not text grep. Python is parsed with the standard-library `ast` module; other languages use tree-sitter. Cortex extracts functions, classes, imports, and call relationships with accurate structure.
+- **Code Knowledge Graph** — The heart of Cortex. Files become a graph of **nodes** (repository, modules, files, classes, functions, endpoints) connected by **typed relationships** (`CONTAINS`, `IMPORTS`, `CALLS`, `INHERITS`, `IMPLEMENTS`, `TESTS`). This graph is what every downstream feature queries. Stored in SQLite today; the repository interface is Neo4j-ready for a future swap without touching business logic.
+- **Staged Pipeline** — Analysis runs as an ordered workflow: **fetch → parse → detect → build → generate**. Each stage reports live progress so the UI can show exactly where a job is.
+- **Async Job Processing** — The pipeline runs in-process via FastAPI background tasks (no external broker needed). You get real-time **status and stage-progress** polling, and jobs can be cancelled mid-run. A durable queue (Celery/Redis) is a planned option for horizontal scaling.
+- **Incremental Analysis** — On a re-scan, Cortex re-analyzes only the files that changed, avoiding full recomputation of large repositories.
 
 ### Generated Artifacts (6 Types)
 
-| Artifact | Description |
-|---|---|
-| Architecture Diagrams | Auto-generated Mermaid flowcharts showing modules, dependencies, and service boundaries |
-| Learning Paths | Personalised curriculum identifying every concept and pattern in the codebase |
-| Interview Prep | Technical questions grounded in actual project code with model answers |
-| Vibe Code Reports | Flags AI-generated anti-patterns — missing error handling, duplicate logic, inconsistent naming |
-| API Specifications | Extracted API contracts and endpoint documentation |
-| Onboarding Guides | Structured guides for new developers joining a project |
+The pipeline produces six kinds of ready-to-read documents, each grounded in the actual code.
+
+| Artifact | What it is | Why it helps |
+|---|---|---|
+| **Architecture Diagrams** | Auto-generated Mermaid flowcharts of modules, dependencies, and service boundaries | See how a system fits together without reading every file |
+| **Learning Paths** | An ordered curriculum of the concepts and patterns present in the codebase, from foundational to advanced | Learn a new codebase in a sensible sequence instead of wandering |
+| **Interview Prep** | Technical questions derived from the project's real code, with model answers | Study a specific codebase for interviews or reviews |
+| **Vibe Code Reports** | Flags likely AI-generated anti-patterns — missing error handling, duplicated logic, inconsistent naming | Catch low-quality or machine-generated code before it ships |
+| **API Specifications** | Extracted API contracts and endpoint documentation | Understand the surface area of a service quickly |
+| **Onboarding Guides** | Structured guides for developers joining a project | Shorten ramp-up time for new team members |
+
+### Code Intelligence & Insights
+
+Beyond raw structure, Cortex analyzes quality and risk.
+
+- **Code Insights** — Structural metrics such as complexity, coupling, and cohesion, computed from the graph.
+- **Security Analysis** — Scans for security-relevant patterns and issues in the analyzed code.
+- **Performance Analysis** — Flags performance-sensitive constructs and potential hotspots.
+- **Testing Analysis** — Assesses test coverage signals and testing patterns across the repository.
+- **Blast Radius Analysis** — For any module or symbol, visualizes which dependent parts of the system a change would affect, so you can gauge impact before editing.
+
+### Reasoning Engine
+
+A graph-traversal reasoning layer that composes context and produces evidence-backed explanations rather than guesses.
+
+- **Contextual Reasoning** — Traverses the knowledge graph to resolve references and assemble the relevant context for a question.
+- **Scoped Explanations** — Explains a specific symbol, file, or module using only evidence found in the graph.
+- **Learning Path Generation** — Builds the ordered curriculum used by the Learning Path artifact.
+- **Root-Cause Analysis** — Traces a problem back through call and dependency edges to likely origins.
+- **Fix Intelligence** — Suggests where and how a fix should land, informed by the surrounding graph.
 
 ### Interactive Features
 
-| Feature | Description |
-|---|---|
-| AI Chat | Conversational interface grounded in the knowledge graph. Cortex authors an evidence-backed answer deterministically; NVIDIA NIM (if configured) only refines the wording, and a grounding guard rejects any NIM-invented file/symbol. Fully functional with NIM off. |
-| Full-Text Search | FTS5-powered search across all analyzed artifacts and code |
-| Knowledge Graph Viewer | Interactive visualization and querying of code relationships |
-| Code Navigation | Jump-to-definition style navigation across the analyzed codebase |
-| Blast Radius Analysis | Visualize impact of changes across dependent modules |
-| Repository Overview | High-level summary dashboard for any analyzed repo |
-| Code Insights | Structural analysis results — complexity, coupling, cohesion metrics |
-| Reasoning Engine | Graph traversal-based reasoning that resolves references and composes context |
-| Diagram Viewer | Rendered architecture and dependency diagrams |
+How you explore an analyzed repository.
+
+- **AI Chat** — A conversational interface grounded in the knowledge graph. Cortex authors an evidence-backed answer **deterministically** from the graph; NVIDIA NIM (if configured) only refines the wording. A grounding guard rejects any file or symbol the model invents. The feature is fully functional with NIM turned off.
+- **Conversation Memory** — Chat retains per-session context and repository facts so follow-up questions stay coherent.
+- **Full-Text Search** — SQLite **FTS5**-powered search across all analyzed artifacts and code.
+- **Knowledge Graph Viewer** — Interactive visualization (React Flow) for exploring and querying code relationships.
+- **Code Navigation** — Jump-to-definition-style navigation across the analyzed codebase.
+- **Repository Overview** — A high-level summary dashboard for any analyzed repo, aggregating stats and insight scores.
+- **Diagram Viewer** — Renders the generated architecture and dependency diagrams in the UI.
 
 ### Platform Features
 
-| Feature | Description |
-|---|---|
-| User Authentication | Signup, login, email verification, and password reset |
-| Background Jobs | Submit, track, and cancel analysis jobs with real-time status |
-| Rate Limiting | Built-in request throttling to prevent abuse |
-| Incremental Analysis | Re-analyze only changed files on subsequent scans |
-| Health Probes | Liveness and readiness endpoints for orchestration |
-| Docker-First Deployment | Single `docker compose up` spins the entire stack |
+The production-minded plumbing around the product.
+
+- **User Authentication** — Full account lifecycle: signup, login, email verification, and password reset, with JWT-based auth.
+- **Startup Safety Checks** — The app refuses to boot with the insecure default `JWT_SECRET` unless `ALLOW_INSECURE_JWT_SECRET=true` (dev only), and warns clearly about missing `GITHUB_TOKEN`/`NIM_API_KEY`/`INTERNAL_SECRET`.
+- **Background Jobs** — Submit, track, and cancel analysis jobs with real-time status; jobs orphaned by a restart are automatically marked failed so nothing hangs forever.
+- **Rate Limiting** — Built-in request throttling middleware to prevent abuse.
+- **Health Probes** — Liveness and readiness endpoints for orchestration.
+- **Structured Logging & Correlation** — `structlog`-based structured logs with a correlation ID per request for traceable debugging.
+- **Clean Architecture** — Every module is split into `domain → application → infrastructure → presentation`, with the dependency rule enforced in CI by import-linter.
+- **Docker-First Deployment** — A single `docker compose up` brings up the entire stack.
 
 ---
 
