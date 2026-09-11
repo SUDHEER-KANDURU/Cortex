@@ -13,7 +13,7 @@
 import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import * as authApi from '@/lib/api/auth';
-import { setTokens, clearTokens, getRefreshToken, hasTokens } from './token-storage';
+import { setTokens, clearTokens, getRefreshToken, hasTokens, syncAuthCookie } from './token-storage';
 import { installAuthInterceptors } from './auth-interceptor';
 import { sessionCache } from '@/lib/cache';
 
@@ -90,6 +90,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const me = await authApi.getMe();
         setUser(me);
+        // The stored tokens are valid — make sure the middleware cookie agrees,
+        // otherwise middleware keeps bouncing /dashboard → /login in a loop.
+        syncAuthCookie();
         return;
       } catch {
         // Access token likely expired — fall through to an explicit refresh.

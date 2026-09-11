@@ -47,3 +47,20 @@ export function clearTokens(): void {
 export function hasTokens(): boolean {
   return !!getAccessToken();
 }
+
+/**
+ * Re-assert the middleware auth cookie from the current localStorage state.
+ *
+ * The cookie (read by Next.js middleware) and the localStorage tokens (read by
+ * the client) can drift apart — the cookie has its own max-age and can be
+ * cleared independently, or tokens can be seeded without going through
+ * setTokens(). When that happens the middleware thinks the user is logged out
+ * while the client thinks they are logged in, producing an infinite
+ * /dashboard ⇄ /login redirect loop that hangs on the loading screen.
+ *
+ * Calling this on app boot keeps the cookie consistent with the tokens.
+ */
+export function syncAuthCookie(): void {
+  if (typeof window === 'undefined') return;
+  setAuthCookie(hasTokens());
+}
