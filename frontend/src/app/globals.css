@@ -606,16 +606,71 @@
    rust, caramel, tan, mocha and taupe — variation comes from light vs dark.
 ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Fixed full-viewport background mesh */
+/* Context-aware intensity tiers — one mesh, four moods (set via data-ambient) */
+:root {
+  --amb-orb-opacity: 0.34;
+  --amb-saturate:    88%;
+  --amb-blur-lg:     150px;
+  --amb-blur-sm:     100px;
+  --amb-scrim:       0.42;
+  --amb-base-1: #211509;
+  --amb-base-2: #1a1109;
+  --amb-base-3: #1b1209;
+  --amb-base-4: #150e08;
+}
+/* Landing — the only place the atmosphere is meant to be expressive. */
+html[data-ambient='landing'] {
+  --amb-orb-opacity: 0.82;
+  --amb-saturate:    120%;
+  --amb-blur-lg:     110px;
+  --amb-blur-sm:     54px;
+  --amb-scrim:       0.20;
+  --amb-base-1: #2b1b10;
+  --amb-base-2: #1d130c;
+  --amb-base-3: #241708;
+  --amb-base-4: #150e08;
+}
+/* Dashboard shell — restrained ambient depth (matches :root default). */
+html[data-ambient='app'] {
+  --amb-orb-opacity: 0.34;
+  --amb-saturate:    88%;
+  --amb-blur-lg:     150px;
+  --amb-blur-sm:     100px;
+  --amb-scrim:       0.42;
+}
+/* Insights / Artifacts / Graph / Navigate / Chat — near-neutral. */
+html[data-ambient='calm'] {
+  --amb-orb-opacity: 0.18;
+  --amb-saturate:    72%;
+  --amb-blur-lg:     170px;
+  --amb-blur-sm:     120px;
+  --amb-scrim:       0.55;
+}
+/* Dialogs open / dense reading — the mesh all but disappears. */
+html[data-ambient='quiet'] {
+  --amb-orb-opacity: 0.10;
+  --amb-saturate:    60%;
+  --amb-blur-lg:     180px;
+  --amb-blur-sm:     130px;
+  --amb-scrim:       0.66;
+}
+/* Fixed full-viewport background mesh. Tier variables (--amb-*) are set on
+   <html data-ambient="..."> by AmbientController; see the tier block below. */
 .cx-ambient {
   position: fixed;
   inset: 0;
   z-index: 0;
-  background: linear-gradient(160deg, #2b1b10 0%, #1d130c 45%, #241708 75%, #150e08 100%);
+  background: linear-gradient(160deg,
+    var(--amb-base-1, #2b1b10) 0%, var(--amb-base-2, #1d130c) 45%,
+    var(--amb-base-3, #241708) 75%, var(--amb-base-4, #150e08) 100%);
   pointer-events: none;
   overflow: hidden;
   /* isolate paint work from the rest of the page */
   contain: strict;
+  /* Whole-mesh strength is driven by one tier variable so every screen shares
+     the same orbs and only the intensity changes. */
+  opacity: var(--amb-orb-opacity, 0.34);
+  transition: opacity 600ms cubic-bezier(0.45, 0.05, 0.55, 0.95);
 }
 
 /* Individual color regions. `screen` blending lets overlapping browns add
@@ -628,96 +683,124 @@
   transform: translateZ(0);
 }
 
-/* ── Large ambient washes, one per corner ── */
-.cx-orb-lg { filter: blur(100px) saturate(130%); }
+/* ── Large ambient washes, one per corner ──
+   Blur + saturation come from the active tier so a calmer screen automatically
+   gets a larger, softer, less saturated wash. */
+.cx-orb-lg {
+  filter: blur(var(--amb-blur-lg, 150px)) saturate(var(--amb-saturate, 88%));
+  transition: filter 600ms cubic-bezier(0.45, 0.05, 0.55, 0.95);
+}
 
+/* Core opacities are lower and the transitions push out to ~80% so each wash
+   is a soft, large gradient rather than a bright hotspot. Mesh-level
+   --amb-orb-opacity then scales the whole set per tier. */
 .cx-orb-1 {
-  width: 58vw; height: 58vw; top: -16%; left: -12%;
+  width: 62vw; height: 62vw; top: -18%; left: -14%;
   background: radial-gradient(circle at 50% 50%,
-    rgba(168, 85, 31, 0.90) 0%, rgba(85, 41, 15, 0.60) 48%, transparent 72%);
+    rgba(150, 84, 38, 0.55) 0%, rgba(80, 44, 20, 0.34) 52%, transparent 80%);
 }
 .cx-orb-2 {
-  width: 55vw; height: 55vw; top: -14%; right: -12%;
+  width: 60vw; height: 60vw; top: -16%; right: -14%;
   background: radial-gradient(circle at 50% 50%,
-    rgba(184, 134, 44, 0.85) 0%, rgba(94, 68, 22, 0.58) 48%, transparent 72%);
+    rgba(158, 120, 54, 0.50) 0%, rgba(84, 62, 26, 0.32) 52%, transparent 80%);
 }
 .cx-orb-3 {
-  width: 60vw; height: 60vw; bottom: -20%; left: -14%;
+  width: 64vw; height: 64vw; bottom: -22%; left: -16%;
   background: radial-gradient(circle at 50% 50%,
-    rgba(138, 82, 38, 0.88) 0%, rgba(71, 41, 19, 0.58) 48%, transparent 72%);
+    rgba(128, 78, 40, 0.52) 0%, rgba(66, 40, 20, 0.32) 52%, transparent 80%);
 }
 .cx-orb-4 {
-  width: 56vw; height: 56vw; bottom: -18%; right: -12%;
+  width: 60vw; height: 60vw; bottom: -20%; right: -14%;
   background: radial-gradient(circle at 50% 50%,
-    rgba(156, 107, 48, 0.85) 0%, rgba(79, 54, 24, 0.56) 48%, transparent 72%);
+    rgba(140, 98, 50, 0.50) 0%, rgba(72, 50, 24, 0.30) 52%, transparent 80%);
 }
 
 /* ── Smaller roaming pockets ── */
-.cx-orb-sm { filter: blur(46px) saturate(150%); }
+.cx-orb-sm {
+  filter: blur(var(--amb-blur-sm, 100px)) saturate(var(--amb-saturate, 88%));
+  transition: filter 600ms cubic-bezier(0.45, 0.05, 0.55, 0.95);
+}
 
+/* Pockets are larger + much softer; the old bright yellow/orange cores (the
+   main "hotspot behind content" culprit) are desaturated so nothing pulls the
+   eye. Mesh-level --amb-orb-opacity scales the whole set per tier. */
 .cx-orb-5 {
-  width: 20vw; height: 20vw; top: 8%; left: 30%;
+  width: 30vw; height: 30vw; top: 6%; left: 28%;
   background: radial-gradient(circle at 50% 50%,
-    rgba(201, 106, 36, 0.92) 0%, rgba(100, 51, 15, 0.60) 60%, transparent 76%);
+    rgba(158, 92, 42, 0.42) 0%, rgba(90, 50, 22, 0.26) 62%, transparent 82%);
 }
 .cx-orb-6 {
-  width: 17vw; height: 17vw; top: 62%; right: 26%;
+  width: 26vw; height: 26vw; top: 60%; right: 24%;
   background: radial-gradient(circle at 50% 50%,
-    rgba(166, 122, 62, 0.90) 0%, rgba(83, 60, 29, 0.58) 60%, transparent 77%);
+    rgba(150, 112, 60, 0.40) 0%, rgba(80, 58, 30, 0.26) 62%, transparent 82%);
 }
 .cx-orb-7 {
-  width: 15vw; height: 15vw; top: 30%; left: 8%;
+  width: 24vw; height: 24vw; top: 28%; left: 6%;
   background: radial-gradient(circle at 50% 50%,
-    rgba(217, 162, 58, 0.88) 0%, rgba(109, 80, 24, 0.56) 60%, transparent 78%);
+    rgba(168, 130, 68, 0.36) 0%, rgba(88, 66, 30, 0.24) 62%, transparent 82%);
 }
 .cx-orb-8 {
-  width: 18vw; height: 18vw; bottom: 8%; left: 44%;
+  width: 28vw; height: 28vw; bottom: 6%; left: 42%;
   background: radial-gradient(circle at 50% 50%,
-    rgba(168, 80, 31, 0.90) 0%, rgba(84, 40, 15, 0.58) 60%, transparent 77%);
+    rgba(150, 82, 40, 0.38) 0%, rgba(80, 44, 20, 0.24) 62%, transparent 82%);
 }
 .cx-orb-9 {
-  width: 14vw; height: 14vw; top: 44%; right: 8%;
+  width: 24vw; height: 24vw; top: 42%; right: 6%;
   background: radial-gradient(circle at 50% 50%,
-    rgba(138, 96, 56, 0.88) 0%, rgba(69, 48, 27, 0.56) 60%, transparent 78%);
+    rgba(140, 100, 58, 0.36) 0%, rgba(74, 52, 30, 0.24) 62%, transparent 82%);
 }
 .cx-orb-10 {
-  width: 13vw; height: 13vw; top: 18%; left: 58%;
+  width: 22vw; height: 22vw; top: 16%; left: 56%;
   background: radial-gradient(circle at 50% 50%,
-    rgba(201, 138, 62, 0.88) 0%, rgba(100, 69, 30, 0.56) 60%, transparent 78%);
+    rgba(162, 118, 62, 0.34) 0%, rgba(84, 60, 30, 0.22) 62%, transparent 82%);
 }
 .cx-orb-11 {
-  width: 15vw; height: 15vw; bottom: 32%; left: 16%;
+  width: 24vw; height: 24vw; bottom: 30%; left: 14%;
   background: radial-gradient(circle at 50% 50%,
-    rgba(150, 85, 42, 0.88) 0%, rgba(75, 43, 21, 0.56) 60%, transparent 78%);
+    rgba(138, 84, 44, 0.34) 0%, rgba(72, 44, 22, 0.22) 62%, transparent 82%);
 }
 .cx-orb-12 {
-  width: 12vw; height: 12vw; top: 52%; left: 40%;
+  width: 22vw; height: 22vw; top: 50%; left: 38%;
   background: radial-gradient(circle at 50% 50%,
-    rgba(184, 148, 78, 0.86) 0%, rgba(92, 74, 39, 0.54) 60%, transparent 78%);
+    rgba(160, 128, 70, 0.32) 0%, rgba(84, 66, 36, 0.22) 62%, transparent 82%);
 }
 
-/* Motion is intentionally OFF.
+/* Motion policy — app/calm/quiet stay static; only landing drifts, and only
+   barely (slow, tiny amplitude the blur fully absorbs). See motion rules below. */
+@keyframes amb-drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50%      { transform: translate3d(1.5%, -1.2%, 0); }
+}
+@keyframes amb-drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50%      { transform: translate3d(-1.4%, 1.3%, 0); }
+}
+html[data-ambient='landing'] .cx-orb-lg {
+  animation: amb-drift-a 72s ease-in-out infinite;
+  will-change: transform;
+}
+html[data-ambient='landing'] .cx-orb-sm {
+  animation: amb-drift-b 84s ease-in-out infinite;
+  will-change: transform;
+}
+html[data-ambient='landing'] .cx-orb-2 { animation-delay: -24s; }
+html[data-ambient='landing'] .cx-orb-3 { animation-delay: -48s; }
+html[data-ambient='landing'] .cx-orb-6 { animation-delay: -40s; }
 
-   Each orb is a very large (up to 60vw) layer carrying a heavy blur (100–120px).
-   Animating a dozen of these on infinite drift + fade loops forces the browser
-   to re-rasterize twelve huge blurred layers every frame, and — stacked under
-   the backdrop-filter glass panels above them — that was a primary cause of the
-   scroll/interaction lag. Kept static, the whole mesh rasterizes once and is
-   cached, so it costs nothing on the scroll path while still looking identical.
-
-   The colour regions are positioned across the full viewport (all four corners
-   plus roaming pockets), so the composition reads rich and intentional without
-   any movement. Re-enable motion only behind an explicit, cheap opt-in if ever
-   needed. */
-
-/* Very light scrim only — the palette must stay visible edge to edge */
+/* Scrim — a tier-driven darkening layer that sits over the mesh so content
+   stays dominant. A flat wash (--amb-scrim) sets the overall calm, and a very
+   gentle vertical gradient keeps the top/bottom edges from feeling flat.
+   Calmer tiers raise --amb-scrim, pushing the colour further behind content. */
 .cx-scrim {
   position: fixed;
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background: linear-gradient(180deg,
-    rgba(0, 0, 0, 0.14) 0%, transparent 40%, rgba(0, 0, 0, 0.20) 100%);
+  background:
+    linear-gradient(180deg,
+      rgba(0, 0, 0, 0.10) 0%, transparent 42%, rgba(0, 0, 0, 0.14) 100%),
+    rgba(10, 7, 4, var(--amb-scrim, 0.42));
+  transition: background 600ms cubic-bezier(0.45, 0.05, 0.55, 0.95);
 }
 
 /* ── Content sits above the ambient mesh ── */

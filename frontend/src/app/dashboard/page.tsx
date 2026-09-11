@@ -40,6 +40,7 @@ import { onNavigateEvent } from '@/lib/navigate-events';
 import { useAuth } from '@/lib/auth';
 import { ProfileSettingsModal } from '@/features/settings/ProfileSettingsModal';
 import { useIsCompact } from '@/lib/utils/useBreakpoint';
+import { useAmbientTier } from '@/components/layout/AmbientController';
 
 const ArtifactViewer = dynamic(
   () => import('@/features/artifacts/components/ArtifactViewer'),
@@ -84,6 +85,10 @@ const DashboardNavbar = React.memo(function DashboardNavbar({ onMenuClick, showM
   const [deleteError, setDeleteError] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // While a modal is open, drop the background to the `quiet` tier so it can
+  // never compete with the dialog's content.
+  useAmbientTier('quiet', showSettings || showDeleteConfirm);
 
   // Close menu on outside click
   useEffect(() => {
@@ -1026,6 +1031,11 @@ const RightPanel = React.memo(function RightPanel({ activeJob, artifacts, artifa
   const [activeTab, setActiveTab] = useState<'artifact' | 'insights' | 'chat' | 'overview' | 'blast-radius' | 'navigate'>('overview');
   const [navigateTargetId, setNavigateTargetId] = useState<string | undefined>(undefined);
   const { retriedJob, isRetrying, error: retryError, retry } = useRetryJob();
+
+  // Data-dense tabs (Insights, Artifact, Navigate, Blast Radius, Chat) request
+  // the near-neutral `calm` ambient so the background steps back behind dense
+  // content and graphs. Overview keeps the dashboard's restrained `app` tier.
+  useAmbientTier('calm', activeTab !== 'overview');
 
   React.useEffect(() => {
     if (retriedJob) onJobRetried(retriedJob);
