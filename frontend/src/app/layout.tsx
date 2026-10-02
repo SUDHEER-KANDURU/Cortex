@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { AuthProvider } from '@/lib/auth/auth-context';
 import { AmbientController } from '@/components/layout/AmbientController';
+import { AmbientBackground } from '@/components/layout/AmbientBackground';
 import './globals.css';
 
 // Set the ambient tier on <html> before first paint so the background never
@@ -48,25 +49,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body
         className="min-h-screen antialiased"
-        style={{ color: 'var(--text, #F5EFE7)', background: '#150E08' }}
+        style={{ color: 'var(--text, #F5EFE7)', background: '#080808' }}
         suppressHydrationWarning
       >
-        {/* ── Shared brown ambient background ── */}
-        {/* One mesh for the whole app. Its intensity is driven by CSS tier
-            variables selected via data-ambient (see AmbientController +
-            globals.css): rich on Landing, restrained on the Dashboard, and
-            near-neutral on data-dense views / behind dialogs. Four corner
-            washes + three roaming pockets keep the field balanced so colour
-            never collapses into a single hotspot behind content. */}
-        <div className="cx-ambient" aria-hidden="true">
-          <div className="cx-orb cx-orb-lg cx-orb-1" />
-          <div className="cx-orb cx-orb-lg cx-orb-2" />
-          <div className="cx-orb cx-orb-lg cx-orb-3" />
-          <div className="cx-orb cx-orb-lg cx-orb-4" />
-          <div className="cx-orb cx-orb-sm cx-orb-5" />
-          <div className="cx-orb cx-orb-sm cx-orb-6" />
-          <div className="cx-orb cx-orb-sm cx-orb-9" />
-        </div>
+        {/* ── Shared ambient background — Apple Music "Replay" style ── */}
+        {/* Deep espresso base gradient (pure CSS, always present so there's no
+            flash and a graceful fallback when WebGL is unavailable). */}
+        <div className="cx-ambient" aria-hidden="true" />
+        {/* The living atmosphere: a WebGL fluid-smoke shader whose intensity is
+            driven by the data-ambient tier. Mounts client-side over the base;
+            silently absent if WebGL is unsupported. See AmbientBackground. */}
+        <AmbientBackground />
+        {/* Readability scrim sits over the atmosphere so content stays dominant
+            and no bright field brightens directly behind text. */}
         <div className="cx-scrim" aria-hidden="true" />
 
         {/* Keeps data-ambient in sync with the current route */}

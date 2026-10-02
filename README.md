@@ -34,7 +34,6 @@ A generated component diagram of the backend lives at [`docs/architecture/cortex
 Every feature below is backed by a real backend module. Nothing here is aspirational — planned-but-not-yet-active pieces (Neo4j, Redis/Celery, PostgreSQL) are called out explicitly in the Tech Stack section.
 
 ### Core Analysis Pipeline
-
 The engine that turns a repository into structured knowledge.
 
 - **Repository Scanning** — Paste any public GitHub URL. Cortex fetches the file tree and contents through the GitHub API (a `GITHUB_TOKEN` raises the rate limit from 60 to 5000 requests/hour) and indexes every file. No local clone required.
