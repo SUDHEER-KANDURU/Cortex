@@ -4,7 +4,7 @@
 //
 // Uses React Flow + dagre for hierarchical layout.
 // Three zoom levels: System > Module > Class.
-// Health-colored nodes, cycle highlighting, legend, breadcrumb navigation.
+// Health-coloured nodes, cycle highlighting, layer badges, legend.
 // =============================================================================
 
 import React, { useCallback, useMemo } from 'react';
@@ -22,61 +22,79 @@ import 'reactflow/dist/style.css';
 
 import type { DiagramData, DiagramNode, DiagramEdge } from '@/lib/api/diagrams.api';
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface ArchitectureDiagramProps {
   data: DiagramData;
   onDrillModule: (moduleName: string) => void;
-  onDrillClass: (className: string) => void;
-  onGoSystem: () => void;
-  onGoModule: (moduleName: string) => void;
+  onDrillClass:  (className:  string) => void;
+  onGoSystem:    () => void;
+  onGoModule:    (moduleName: string) => void;
 }
 
-// ── Health Colors ────────────────────────────────────────────────────────────
+// ── Colour palette ────────────────────────────────────────────────────────────
 
-/* Tuned for the dark ambient background: translucent fills so the backdrop
-   shows through, with light borders and text that keep contrast on dark. */
 const HEALTH_COLORS = {
-  healthy: { bg: 'rgba(74, 222, 128, 0.12)', border: '#4ADE80', text: '#BBF7D0' },
-  warning: { bg: 'rgba(232, 184, 74, 0.14)', border: '#E8B84A', text: '#FDE9B8' },
-  critical: { bg: 'rgba(248, 113, 113, 0.14)', border: '#F87171', text: '#FECACA' },
+  healthy:  { bg: 'rgba(74,222,128,0.11)',  border: '#4ADE80', text: '#BBF7D0' },
+  warning:  { bg: 'rgba(232,184,74,0.13)',  border: '#E8B84A', text: '#FDE9B8' },
+  critical: { bg: 'rgba(248,113,113,0.13)', border: '#F87171', text: '#FECACA' },
 } as const;
 
 const TYPE_COLORS = {
-  module: { bg: 'rgba(96, 165, 250, 0.13)', border: '#60A5FA', text: '#BFDBFE' },
-  file: { bg: 'rgba(167, 139, 250, 0.13)', border: '#A78BFA', text: '#DDD6FE' },
-  class: { bg: 'rgba(74, 222, 128, 0.12)', border: '#4ADE80', text: '#BBF7D0' },
-  function: { bg: 'rgba(232, 121, 249, 0.13)', border: '#E879F9', text: '#F5D0FE' },
-  external: { bg: 'rgba(255, 255, 255, 0.06)', border: 'rgba(255,255,255,0.34)', text: 'rgba(245,239,231,0.78)' },
+  module:   { bg: 'rgba(96,165,250,0.12)',  border: '#60A5FA', text: '#BFDBFE' },
+  file:     { bg: 'rgba(167,139,250,0.12)', border: '#A78BFA', text: '#DDD6FE' },
+  class:    { bg: 'rgba(74,222,128,0.11)',  border: '#4ADE80', text: '#BBF7D0' },
+  function: { bg: 'rgba(232,121,249,0.12)', border: '#E879F9', text: '#F5D0FE' },
+  external: { bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.28)', text: 'rgba(245,239,231,0.72)' },
 } as const;
 
 const CYCLE_BORDER = '#F87171';
 
-// ── Dagre Layout ─────────────────────────────────────────────────────────────
+// Layer badge colours — subtle, informational only
+const LAYER_COLORS: Record<string, string> = {
+  Presentation:   '#60A5FA',
+  Frontend:       '#A78BFA',
+  Application:    '#34D399',
+  Domain:         '#FBBF24',
+  Infrastructure: '#F97316',
+  Shared:         '#94A3B8',
+  Testing:        '#6B7280',
+};
 
-const NODE_WIDTH = 200;
-const NODE_HEIGHT = 80;
+// ── Dagre Layout ──────────────────────────────────────────────────────────────
+
+// Node height is fixed; width is computed per-node from label length.
+const NODE_HEIGHT = 76;
+const NODE_WIDTH_MIN = 160;
+const NODE_WIDTH_MAX = 280;
+const CHAR_WIDTH_PX  = 8; // approx px per character at 13px font
+
+function _nodeWidth(label: string): number {
+  return Math.min(NODE_WIDTH_MAX, Math.max(NODE_WIDTH_MIN, label.length * CHAR_WIDTH_PX + 48));
+}
 
 function getLayoutedElements(
   nodes: Node[],
   edges: Edge[],
-  direction: 'TB' | 'LR' = 'TB'
+  direction: 'TB' | 'LR' = 'TB',
 ): { nodes: Node[]; edges: Edge[] } {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
   g.setGraph({
-    rankdir: direction,
-    nodesep: 60,
-    ranksep: 100,
-    edgesep: 30,
-    marginx: 40,
-    marginy: 40,
+    rankdir:  direction,
+    nodesep:  72,
+    ranksep:  120,
+    edgesep:  24,
+    marginx:  40,
+    marginy:  40,
+    acyclicer: 'greedy',  // handles cycles gracefully
+    ranker:   'network-simplex',
   });
 
   nodes.forEach((node) => {
-    g.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+    const w = _nodeWidth(String(node.data?.label ?? ''));
+    g.setNode(node.id, { width: w, height: NODE_HEIGHT });
   });
-
   edges.forEach((edge) => {
     g.setEdge(edge.source, edge.target);
   });
@@ -84,14 +102,15 @@ function getLayoutedElements(
   dagre.layout(g);
 
   const layoutedNodes = nodes.map((node) => {
-    const nodeWithPosition = g.node(node.id);
+    const pos = g.node(node.id);
+    const w   = _nodeWidth(String(node.data?.label ?? ''));
     return {
       ...node,
       position: {
-        x: nodeWithPosition.x - NODE_WIDTH / 2,
-        y: nodeWithPosition.y - NODE_HEIGHT / 2,
+        x: pos.x - w / 2,
+        y: pos.y - NODE_HEIGHT / 2,
       },
-      targetPosition: direction === 'TB' ? Position.Top : Position.Left,
+      targetPosition: direction === 'TB' ? Position.Top    : Position.Left,
       sourcePosition: direction === 'TB' ? Position.Bottom : Position.Right,
     };
   });
@@ -99,101 +118,134 @@ function getLayoutedElements(
   return { nodes: layoutedNodes, edges };
 }
 
-// ── Custom Node Component ────────────────────────────────────────────────────
+// ── Custom Node ───────────────────────────────────────────────────────────────
+
+interface NodeData {
+  label:        string;
+  nodeType:     string;
+  health:       string;
+  healthReason: string;
+  inCycle:      boolean;
+  fileCount:    number;
+  classCount:   number;
+  functionCount:number;
+  layer:        string;
+  onClick?:     () => void;
+}
 
 function ModuleNode({ data }: { data: Record<string, unknown> }) {
-  const nodeData = data as {
-    label: string;
-    nodeType: string;
-    health: string;
-    healthReason: string;
-    inCycle: boolean;
-    fileCount: number;
-    classCount: number;
-    functionCount: number;
-    onClick?: () => void;
-  };
+  const d = data as unknown as NodeData;
+  const w = _nodeWidth(d.label);
 
-  const colors = nodeData.health !== 'healthy'
-    ? HEALTH_COLORS[nodeData.health as keyof typeof HEALTH_COLORS]
-    : TYPE_COLORS[nodeData.nodeType as keyof typeof TYPE_COLORS] || TYPE_COLORS.module;
+  const colors =
+    d.health !== 'healthy'
+      ? HEALTH_COLORS[d.health as keyof typeof HEALTH_COLORS]
+      : TYPE_COLORS[d.nodeType as keyof typeof TYPE_COLORS] ?? TYPE_COLORS.module;
 
-  const borderColor = nodeData.inCycle ? CYCLE_BORDER : colors.border;
-  const borderWidth = nodeData.inCycle ? 3 : 2;
-
-  // Size based on file count (min 180, max 240)
-  const width = Math.min(240, Math.max(180, 180 + (nodeData.fileCount || 0) * 4));
+  const borderColor = d.inCycle ? CYCLE_BORDER : colors.border;
+  const borderWidth = d.inCycle ? 3 : 2;
+  const layerColor  = LAYER_COLORS[d.layer] ?? null;
 
   return (
     <div
-      onClick={nodeData.onClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter' && nodeData.onClick) nodeData.onClick(); }}
-      aria-label={`${nodeData.label} - ${nodeData.nodeType}${nodeData.healthReason ? ` - ${nodeData.healthReason}` : ''}`}
+      onClick={d.onClick}
+      role={d.onClick ? 'button' : undefined}
+      tabIndex={d.onClick ? 0 : undefined}
+      onKeyDown={(e) => { if (e.key === 'Enter' && d.onClick) d.onClick(); }}
+      aria-label={`${d.label} — ${d.nodeType}${d.healthReason ? ` — ${d.healthReason}` : ''}`}
       style={{
-        width,
-        padding: '12px 16px',
-        borderRadius: 12,
+        width: w,
+        minHeight: NODE_HEIGHT,
+        padding: '10px 14px',
+        borderRadius: 10,
         border: `${borderWidth}px solid ${borderColor}`,
         background: colors.bg,
-        cursor: nodeData.onClick ? 'pointer' : 'default',
-        boxShadow: nodeData.inCycle
-          ? `0 0 16px ${CYCLE_BORDER}55`
-          : '0 6px 16px rgba(0,0,0,0.34)',
-        transition: 'box-shadow 0.2s, transform 0.15s',
+        cursor: d.onClick ? 'pointer' : 'default',
+        boxShadow: d.inCycle
+          ? `0 0 14px ${CYCLE_BORDER}44`
+          : '0 4px 14px rgba(0,0,0,0.32)',
         fontFamily: 'Inter, system-ui, sans-serif',
+        transition: 'box-shadow 0.18s, transform 0.14s',
+        position: 'relative',
+        overflow: 'hidden',
       }}
     >
+      {/* Layer badge */}
+      {layerColor && d.nodeType === 'module' && (
+        <div style={{
+          position: 'absolute',
+          top: 0, right: 0,
+          background: `${layerColor}28`,
+          borderLeft: `2px solid ${layerColor}55`,
+          borderBottom: `2px solid ${layerColor}55`,
+          borderRadius: '0 8px 0 6px',
+          padding: '1px 6px',
+          fontSize: 9,
+          color: layerColor,
+          fontWeight: 600,
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+        }}>
+          {d.layer}
+        </div>
+      )}
+
+      {/* Label */}
       <div style={{
         fontWeight: 600,
         fontSize: 13,
         color: colors.text,
-        marginBottom: 4,
+        marginBottom: 3,
+        marginRight: layerColor ? 52 : 0,
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
       }}>
-        {nodeData.label}
+        {d.label}
       </div>
-      <div style={{ fontSize: 11, color: 'rgba(245,239,231,0.60)', lineHeight: 1.4 }}>
-        {nodeData.nodeType === 'module' && (
+
+      {/* Subtitle */}
+      <div style={{ fontSize: 11, color: 'rgba(245,239,231,0.55)', lineHeight: 1.4 }}>
+        {d.nodeType === 'module' && (
           <>
-            {nodeData.fileCount > 0 && <span>{nodeData.fileCount} files</span>}
-            {nodeData.classCount > 0 && <span> &middot; {nodeData.classCount} classes</span>}
+            {d.fileCount > 0 && <span>{d.fileCount} file{d.fileCount !== 1 ? 's' : ''}</span>}
+            {d.classCount > 0 && <span> · {d.classCount} class{d.classCount !== 1 ? 'es' : ''}</span>}
           </>
         )}
-        {nodeData.nodeType === 'class' && (
-          <span>{nodeData.functionCount} methods</span>
+        {d.nodeType === 'class' && (
+          <span>{d.functionCount} method{d.functionCount !== 1 ? 's' : ''}</span>
         )}
-        {nodeData.nodeType === 'function' && (
-          <span>method</span>
-        )}
-        {nodeData.nodeType === 'external' && (
-          <span style={{ fontStyle: 'italic' }}>external dep</span>
+        {d.nodeType === 'function' && <span>method</span>}
+        {d.nodeType === 'external' && (
+          <span style={{ fontStyle: 'italic' }}>external</span>
         )}
       </div>
-      {nodeData.healthReason && (
+
+      {/* Health pill */}
+      {d.healthReason && (
         <div style={{
-          fontSize: 10,
-          marginTop: 4,
+          marginTop: 5,
           padding: '2px 6px',
           borderRadius: 4,
-          background: nodeData.health === 'critical' ? 'rgba(248,113,113,0.16)' : 'rgba(232,184,74,0.16)',
-          color: nodeData.health === 'critical' ? '#FECACA' : '#FDE9B8',
+          fontSize: 10,
+          background: d.health === 'critical'
+            ? 'rgba(248,113,113,0.16)'
+            : 'rgba(232,184,74,0.16)',
+          color: d.health === 'critical' ? '#FECACA' : '#FDE9B8',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
         }}>
-          {nodeData.healthReason}
+          {d.healthReason}
         </div>
       )}
     </div>
   );
 }
 
-const nodeTypes: NodeTypes = {
-  architectureNode: ModuleNode,
-};
+const nodeTypes: NodeTypes = { architectureNode: ModuleNode };
 
-// ── Breadcrumb ───────────────────────────────────────────────────────────────
+// ── Breadcrumb ────────────────────────────────────────────────────────────────
 
 function Breadcrumb({
   items,
@@ -205,37 +257,39 @@ function Breadcrumb({
   onGoModule: (mod: string) => void;
 }) {
   return (
-    <nav aria-label="Diagram breadcrumb" style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 6,
-      padding: '8px 16px',
-      fontSize: 13,
-      fontFamily: 'Inter, system-ui, sans-serif',
-      color: 'rgba(245,239,231,0.72)',
-      borderBottom: '1px solid rgba(255,255,255,0.12)',
-      background: 'rgba(255,255,255,0.04)',
-    }}>
+    <nav
+      aria-label="Diagram breadcrumb"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '8px 16px',
+        fontSize: 13,
+        fontFamily: 'Inter, system-ui, sans-serif',
+        color: 'rgba(245,239,231,0.70)',
+        borderBottom: '1px solid rgba(255,255,255,0.10)',
+        background: 'rgba(255,255,255,0.04)',
+        flexShrink: 0,
+      }}
+    >
       {items.map((item, i) => {
         const isLast = i === items.length - 1;
-        const handleClick = () => {
+        const onClick = () => {
           if (item.level === 'system') onGoSystem();
           else if (item.level === 'module' && item.module) onGoModule(item.module);
         };
         return (
           <React.Fragment key={i}>
-            {i > 0 && <span style={{ color: 'rgba(245,239,231,0.42)' }}>/</span>}
+            {i > 0 && <span style={{ color: 'rgba(245,239,231,0.35)' }}>/</span>}
             {isLast ? (
               <span style={{ fontWeight: 600, color: '#F5EFE7' }}>{item.label}</span>
             ) : (
               <button
-                onClick={handleClick}
+                onClick={onClick}
                 style={{
-                  background: 'none',
-                  border: 'none',
+                  background: 'none', border: 'none',
                   color: 'var(--primary)',
-                  cursor: 'pointer',
-                  padding: 0,
+                  cursor: 'pointer', padding: 0,
                   fontSize: 13,
                   textDecoration: 'underline',
                   textUnderlineOffset: 2,
@@ -253,6 +307,22 @@ function Breadcrumb({
 
 // ── Legend ────────────────────────────────────────────────────────────────────
 
+function LegendItem({
+  color, label, dashed,
+}: { color: string; label: string; dashed?: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{
+        width: 16, height: 10, borderRadius: 3,
+        border: `2px ${dashed ? 'dashed' : 'solid'} ${color}`,
+        background: dashed ? 'transparent' : `${color}22`,
+        flexShrink: 0,
+      }} />
+      <span style={{ color: 'rgba(245,239,231,0.62)', fontSize: 11 }}>{label}</span>
+    </div>
+  );
+}
+
 function Legend() {
   return (
     <div
@@ -261,52 +331,55 @@ function Legend() {
         position: 'absolute',
         bottom: 16,
         left: 16,
-        background: 'rgba(26, 18, 8, 0.86)',
-        backdropFilter: 'blur(24px) saturate(150%)',
-        WebkitBackdropFilter: 'blur(24px) saturate(150%)',
-        border: '1px solid rgba(255,255,255,0.13)',
+        background: 'rgba(20,14,6,0.88)',
+        backdropFilter: 'blur(20px) saturate(150%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(150%)',
+        border: '1px solid rgba(255,255,255,0.12)',
         borderRadius: 10,
-        padding: '12px 16px',
-        fontSize: 11,
-        fontFamily: 'Inter, system-ui, sans-serif',
+        padding: '12px 14px',
         zIndex: 10,
-        boxShadow: '0 14px 34px rgba(0,0,0,0.42)',
-        maxWidth: 'min(220px, 60%)',
+        boxShadow: '0 12px 30px rgba(0,0,0,0.44)',
+        maxWidth: 'min(210px, 58%)',
       }}
     >
       <div style={{ fontWeight: 600, marginBottom: 8, color: '#F5EFE7', fontSize: 12 }}>
         Legend
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        <LegendItem color="#22C55E" label="Healthy" />
-        <LegendItem color="#F59E0B" label="Warning (god class / large module)" />
-        <LegendItem color="#EF4444" label="Critical (circular dependency)" />
+        <LegendItem color="#22C55E" label="Healthy module" />
+        <LegendItem color="#F59E0B" label="Warning (large / god class)" />
+        <LegendItem color="#EF4444" label="Critical (circular dep.)" />
         <LegendItem color="#EF4444" dashed label="Cycle edge" />
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.12)', margin: '4px 0' }} />
-        <div style={{ color: 'rgba(245,239,231,0.60)', lineHeight: 1.4 }}>
-          Node size reflects file count. Click a node to drill down.
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.10)', margin: '4px 0' }} />
+        <div style={{ color: 'rgba(245,239,231,0.50)', lineHeight: 1.5, fontSize: 10 }}>
+          Click a module to drill in.
+          Edge weight = number of imports.
         </div>
       </div>
     </div>
   );
 }
 
-function LegendItem({ color, label, dashed }: { color: string; label: string; dashed?: boolean }) {
+// ── Empty state ───────────────────────────────────────────────────────────────
+
+function EmptyState() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <div style={{
-        width: 16,
-        height: 10,
-        borderRadius: 3,
-        border: `2px ${dashed ? 'dashed' : 'solid'} ${color}`,
-        background: dashed ? 'transparent' : `${color}20`,
-      }} />
-      <span style={{ color: '#4B5563' }}>{label}</span>
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      height: '100%',
+      color: 'rgba(245,239,231,0.45)',
+      fontSize: 13,
+      fontFamily: 'Inter, system-ui, sans-serif',
+      flexDirection: 'column',
+      gap: 8,
+    }}>
+      <div style={{ fontSize: 32, opacity: 0.4 }}>⬡</div>
+      <div>No modules detected at this level.</div>
     </div>
   );
 }
 
-// ── Main Component ───────────────────────────────────────────────────────────
+// ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function ArchitectureDiagram({
   data,
@@ -315,22 +388,21 @@ export default function ArchitectureDiagram({
   onGoSystem,
   onGoModule,
 }: ArchitectureDiagramProps) {
-  // Convert API data to React Flow nodes and edges
   const { nodes: flowNodes, edges: flowEdges } = useMemo(() => {
     const rfNodes: Node[] = data.nodes.map((n: DiagramNode) => ({
-      id: n.id,
+      id:   n.id,
       type: 'architectureNode',
-      position: { x: 0, y: 0 }, // Will be set by dagre
+      position: { x: 0, y: 0 },
       data: {
-        label: n.label,
-        nodeType: n.type,
-        health: n.health,
-        healthReason: n.healthReason,
-        inCycle: n.inCycle,
-        fileCount: n.fileCount,
-        classCount: n.classCount,
+        label:         n.label,
+        nodeType:      n.type,
+        health:        n.health,
+        healthReason:  n.healthReason,
+        inCycle:       n.inCycle,
+        fileCount:     n.fileCount,
+        classCount:    n.classCount,
         functionCount: n.functionCount,
-        // Click handler based on level and type
+        layer:         (n as DiagramNode & { layer?: string }).layer ?? '',
         onClick:
           data.level === 'system' && n.type === 'module'
             ? () => onDrillModule(n.label)
@@ -341,80 +413,79 @@ export default function ArchitectureDiagram({
     }));
 
     const rfEdges: Edge[] = data.edges.map((e: DiagramEdge) => ({
-      id: e.id,
+      id:     e.id,
       source: e.source,
       target: e.target,
-      label: e.label || undefined,
-      type: 'smoothstep',
+      label:  e.label || undefined,
+      type:   'smoothstep',
       animated: e.isCycle,
       style: {
-        stroke: e.isCycle ? CYCLE_BORDER : '#94A3B8',
-        strokeWidth: e.isCycle ? 2.5 : Math.min(3, 1 + e.weight * 0.15),
+        stroke:          e.isCycle ? CYCLE_BORDER : 'rgba(148,163,184,0.75)',
+        strokeWidth:     e.isCycle ? 2.5 : Math.min(3.5, 1 + e.weight * 0.18),
         strokeDasharray: e.type === 'inherits' ? '6 3' : undefined,
       },
       labelStyle: {
         fontSize: 10,
-        fill: 'rgba(245,239,231,0.70)',
+        fill: 'rgba(245,239,231,0.65)',
         fontFamily: 'Inter, system-ui, sans-serif',
       },
-      labelBgStyle: {
-        fill: '#241708',
-        fillOpacity: 0.9,
-      },
+      labelBgStyle: { fill: '#1A1208', fillOpacity: 0.90 },
       markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: e.isCycle ? CYCLE_BORDER : '#94A3B8',
-        width: 16,
-        height: 16,
+        type:   MarkerType.ArrowClosed,
+        color:  e.isCycle ? CYCLE_BORDER : 'rgba(148,163,184,0.75)',
+        width:  15,
+        height: 15,
       },
     }));
 
-    // Apply dagre layout
     return getLayoutedElements(rfNodes, rfEdges, 'TB');
   }, [data, onDrillModule, onDrillClass]);
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
-      const handler = node.data?.onClick;
-      if (typeof handler === 'function') handler();
+      if (typeof node.data?.onClick === 'function') node.data.onClick();
     },
-    []
+    [],
   );
+
+  const isEmpty = data.nodes.length === 0;
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Breadcrumb */}
       <Breadcrumb
         items={data.breadcrumb}
         onGoSystem={onGoSystem}
         onGoModule={onGoModule}
       />
 
-      {/* React Flow Canvas */}
       <div style={{ flex: 1, position: 'relative', minHeight: 320 }}>
-        <ReactFlow
-          nodes={flowNodes}
-          edges={flowEdges}
-          nodeTypes={nodeTypes}
-          onNodeClick={onNodeClick}
-          fitView
-          fitViewOptions={{ padding: 0.2 }}
-          minZoom={0.3}
-          maxZoom={2}
-          proOptions={{ hideAttribution: true }}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={false}
-          zoomOnScroll={false}
-          zoomActivationKeyCode="Control"
-          panOnScroll={true}
-        >
-          <Background color="rgba(255,255,255,0.12)" gap={20} size={1} />
-          <Controls
-            showInteractive={false}
-            style={{ bottom: 16, right: 16 }}
-          />
-        </ReactFlow>
+        {isEmpty ? (
+          <EmptyState />
+        ) : (
+          <ReactFlow
+            nodes={flowNodes}
+            edges={flowEdges}
+            nodeTypes={nodeTypes}
+            onNodeClick={onNodeClick}
+            fitView
+            fitViewOptions={{ padding: 0.18 }}
+            minZoom={0.25}
+            maxZoom={2.5}
+            proOptions={{ hideAttribution: true }}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            elementsSelectable={false}
+            zoomOnScroll={false}
+            zoomActivationKeyCode="Control"
+            panOnScroll={true}
+          >
+            <Background color="rgba(255,255,255,0.10)" gap={22} size={1} />
+            <Controls
+              showInteractive={false}
+              style={{ bottom: 16, right: 16 }}
+            />
+          </ReactFlow>
+        )}
         <Legend />
       </div>
     </div>

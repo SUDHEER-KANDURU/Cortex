@@ -16,6 +16,8 @@ export interface DiagramNode {
   health: 'healthy' | 'warning' | 'critical';
   healthReason: string;
   inCycle: boolean;
+  /** Architectural layer this node belongs to (e.g. "Application", "Domain"). */
+  layer: string;
   properties: Record<string, unknown>;
 }
 
