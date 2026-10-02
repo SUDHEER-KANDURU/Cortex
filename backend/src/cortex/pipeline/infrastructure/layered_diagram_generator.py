@@ -8,6 +8,29 @@ Three zoom levels:
 
 Output is plain dicts/lists (JSON-serializable) that the frontend React Flow
 component consumes directly. No Mermaid syntax.
+
+──────────────────────────────────────────────────────────────────────────────
+Architecture model, not a dependency dump
+──────────────────────────────────────────────────────────────────────────────
+The system view must answer "how is this codebase organised?" not
+"show every file and import".  Key invariants enforced here:
+
+  • One node per TOP-LEVEL architectural module (not every subdirectory).
+  • Edges are AGGREGATED: multiple file-level imports between the same two
+    modules produce exactly ONE edge with a weight counter — never duplicates.
+  • MIN_EDGE_WEIGHT is 1 (not 2).  A single cross-module import IS an
+    architectural relationship and must be shown.  The old value of 2 silently
+    dropped most edges in typical repos.
+  • Container-directory names (src, backend, frontend, lib, app…) that add no
+    architectural meaning are excluded from the system view when real
+    named modules exist under them.
+  • Node count is capped at MAX_SYSTEM_NODES and edges at MAX_SYSTEM_EDGES so
+    the canvas never becomes a hairball.  Nodes are ranked by architectural
+    significance (endpoints > classes > files > lines) before capping.
+  • Cycles are detected with Tarjan's SCC and shown explicitly — not hidden.
+  • Layer classification uses ALL path segments of contained files so that
+    a module whose files live under presentation/, application/, domain/ or
+    infrastructure/ sub-paths is correctly labelled.
 """
 
 from __future__ import annotations
@@ -25,7 +48,7 @@ from cortex.graph.domain.entities import (
 from cortex.pipeline.infrastructure.graph_builder import GraphBuildResult
 
 
-# ── Data structures for the JSON response ─────────────────────────────────────
+# ── Data structures for the JSON response ────────────────────────────────────
 
 
 @dataclass
@@ -33,18 +56,15 @@ class DiagramNode:
     """A single node in the diagram."""
     id: str
     label: str
-    node_type: str  # "module", "file", "class", "function", "external"
-    # Metadata for visual encoding
+    node_type: str          # "module" | "file" | "class" | "function" | "external"
     file_count: int = 0
     class_count: int = 0
     function_count: int = 0
     line_count: int = 0
-    # Health coloring
-    health: str = "healthy"  # "healthy", "warning", "critical"
+    health: str = "healthy" # "healthy" | "warning" | "critical"
     health_reason: str = ""
-    # Whether this node is part of a cycle
     in_cycle: bool = False
-    # Extra properties for the frontend
+    layer: str = ""         # architectural layer label
     properties: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -59,6 +79,7 @@ class DiagramNode:
             "health": self.health,
             "healthReason": self.health_reason,
             "inCycle": self.in_cycle,
+            "layer": self.layer,
             "properties": self.properties,
         }
 
@@ -70,9 +91,9 @@ class DiagramEdge:
     source: str
     target: str
     label: str = ""
-    edge_type: str = "imports"  # "imports", "inherits", "calls", "contains"
-    weight: int = 1  # aggregated count for system view
-    is_cycle: bool = False  # part of a circular dependency
+    edge_type: str = "imports"  # "imports" | "inherits" | "calls" | "contains"
+    weight: int = 1
+    is_cycle: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -89,15 +110,12 @@ class DiagramEdge:
 @dataclass
 class DiagramResult:
     """Complete diagram response for one level."""
-    level: str  # "system", "module", "class"
+    level: str
     title: str
     nodes: list[DiagramNode] = field(default_factory=list)
     edges: list[DiagramEdge] = field(default_factory=list)
-    # Cycles detected at this level (lists of node IDs)
     cycles: list[list[str]] = field(default_factory=list)
-    # Breadcrumb path for navigation
     breadcrumb: list[dict[str, str]] = field(default_factory=list)
-    # Available drill-down targets
     drilldown_targets: list[dict[str, str]] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -112,58 +130,199 @@ class DiagramResult:
         }
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ── Constants ─────────────────────────────────────────────────────────────────
+
+# Generic container-directory names that carry no architectural meaning on
+# their own.  A module whose ONLY name is one of these is skipped in the
+# system view when more specifically named modules exist at deeper levels.
+_GENERIC_CONTAINERS: frozenset[str] = frozenset({
+    "src", "backend", "frontend", "lib", "app", "core", "main",
+    "source", "sources", "pkg", "packages", "modules",
+})
+
+# Layer classification — ordered from most to least specific so the first
+# match wins.  Each entry is (path-segment-keyword, layer-name).
+_LAYER_KEYWORDS: list[tuple[str, str]] = [
+    # Presentation / API
+    ("presentation", "Presentation"),
+    ("router",       "Presentation"),
+    ("routers",      "Presentation"),
+    ("controller",   "Presentation"),
+    ("controllers",  "Presentation"),
+    ("handler",      "Presentation"),
+    ("handlers",     "Presentation"),
+    ("endpoint",     "Presentation"),
+    ("endpoints",    "Presentation"),
+    ("api",          "Presentation"),
+    ("view",         "Presentation"),
+    ("views",        "Presentation"),
+    ("rest",         "Presentation"),
+    ("graphql",      "Presentation"),
+    # Application / Use-cases
+    ("application",  "Application"),
+    ("use_case",     "Application"),
+    ("usecases",     "Application"),
+    ("use_cases",    "Application"),
+    ("service",      "Application"),
+    ("services",     "Application"),
+    ("usecase",      "Application"),
+    ("interactor",   "Application"),
+    # Domain / Business logic
+    ("domain",       "Domain"),
+    ("entity",       "Domain"),
+    ("entities",     "Domain"),
+    ("model",        "Domain"),
+    ("models",       "Domain"),
+    ("schema",       "Domain"),
+    ("schemas",      "Domain"),
+    ("dto",          "Domain"),
+    ("value_object", "Domain"),
+    ("aggregate",    "Domain"),
+    # Infrastructure / Data
+    ("infrastructure", "Infrastructure"),
+    ("repository",     "Infrastructure"),
+    ("repositories",   "Infrastructure"),
+    ("persistence",    "Infrastructure"),
+    ("database",       "Infrastructure"),
+    ("db",             "Infrastructure"),
+    ("dao",            "Infrastructure"),
+    ("adapter",        "Infrastructure"),
+    ("adapters",       "Infrastructure"),
+    ("client",         "Infrastructure"),
+    ("clients",        "Infrastructure"),
+    ("cache",          "Infrastructure"),
+    ("queue",          "Infrastructure"),
+    ("storage",        "Infrastructure"),
+    # Frontend
+    ("component",  "Frontend"),
+    ("components", "Frontend"),
+    ("page",       "Frontend"),
+    ("pages",      "Frontend"),
+    ("hook",       "Frontend"),
+    ("hooks",      "Frontend"),
+    ("feature",    "Frontend"),
+    ("features",   "Frontend"),
+    ("store",      "Frontend"),
+    ("context",    "Frontend"),
+    ("layout",     "Frontend"),
+    # Shared / Cross-cutting
+    ("shared",  "Shared"),
+    ("common",  "Shared"),
+    ("utils",   "Shared"),
+    ("util",    "Shared"),
+    ("helper",  "Shared"),
+    ("helpers", "Shared"),
+    ("config",  "Shared"),
+    ("configs", "Shared"),
+    ("lib",     "Shared"),
+    # Tests
+    ("test",   "Testing"),
+    ("tests",  "Testing"),
+    ("spec",   "Testing"),
+    ("specs",  "Testing"),
+    ("mock",   "Testing"),
+    ("mocks",  "Testing"),
+    ("fixture","Testing"),
+]
+
+# Canonical top-to-bottom rendering order for layers.
+_LAYER_ORDER: list[str] = [
+    "Presentation", "Frontend", "Application",
+    "Domain", "Infrastructure", "Shared", "Testing", "Other",
+]
+
+# System-view caps — keep the diagram readable.
+MAX_SYSTEM_NODES = 20
+MAX_SYSTEM_EDGES = 30
+
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
 
 
 def _top_level_module(path: str) -> str:
-    """Extract the top-level module name from a file/module path.
+    """Extract the architecturally meaningful top-level module name.
 
-    e.g. "backend/src/cortex/chat/application/chat_service.py" -> "chat"
-         "frontend/src/features/jobs/components/JobCard.tsx" -> "features"
+    Skips generic container directories (src, backend, frontend, lib, app…)
+    and returns the first segment that has a real domain name.
 
-    Strategy: look for known container dirs (src/cortex, src/app, src/features,
-    src/lib, src/components) and take the next segment. Fall back to first
-    meaningful directory.
+    Examples:
+        "backend/src/cortex/chat/application/service.py"  → "chat"
+        "frontend/src/features/jobs/JobCard.tsx"           → "jobs"
+        "src/auth/login.py"                                → "auth"
+        "app/models/user.py"                               → "models"
     """
-    parts = path.replace("\\", "/").split("/")
-    # Strip empty parts
-    parts = [p for p in parts if p]
+    parts = [p for p in path.replace("\\", "/").split("/") if p]
 
-    # Known container patterns — we want the segment AFTER these
-    containers = [
+    # Known structural prefixes to skip (ordered longest-first so multi-segment
+    # prefixes are consumed before single-segment ones).
+    skip_prefixes: list[list[str]] = [
         ["backend", "src", "cortex"],
-        ["src", "cortex"],
+        ["backend", "src"],
+        ["frontend", "src", "features"],
         ["frontend", "src"],
+        ["src", "cortex"],
         ["src"],
+        ["backend"],
+        ["frontend"],
     ]
+    for prefix in skip_prefixes:
+        n = len(prefix)
+        if parts[:n] == prefix and len(parts) > n:
+            candidate = parts[n]
+            if "." not in candidate:
+                return candidate
 
-    for container in containers:
-        clen = len(container)
-        for i in range(len(parts) - clen):
-            if parts[i:i + clen] == container:
-                # The next part is the top-level module
-                idx = i + clen
-                if idx < len(parts):
-                    candidate = parts[idx]
-                    # Don't return a filename as a module
-                    if "." not in candidate:
-                        return candidate
-                    # If it's a file directly in the container, use the container's last part
-                    return container[-1]
-
-    # Fallback: first directory that isn't a known root
-    skip = {"backend", "frontend", "src", "lib", "app"}
+    # Fallback: first segment that isn't a generic container and isn't a file
     for p in parts:
-        if p not in skip and "." not in p:
+        if p not in _GENERIC_CONTAINERS and "." not in p:
             return p
 
     return parts[0] if parts else "root"
 
 
-def _detect_cycles_tarjan(
-    adj: dict[str, set[str]],
-) -> list[list[str]]:
-    """Iterative Tarjan's SCC — returns all cycles (SCCs with size > 1)."""
+def _classify_layer_from_paths(file_paths: list[str]) -> str:
+    """Classify a module's architectural layer by examining the paths of all
+    files it contains.
+
+    We collect every path segment across all contained files and score each
+    layer keyword.  The layer with the highest total score wins.  This works
+    for both:
+      • Repos where layer is in the module-directory name
+        (backend/cortex/chat/application/service.py → Application)
+      • Repos where layer is in a file-name suffix
+        (UserRepository.java, ChatService.java → Infrastructure / Application)
+    """
+    segment_counts: dict[str, int] = defaultdict(int)
+    for fp in file_paths:
+        parts = [p.lower().replace("\\", "/") for p in fp.replace("\\", "/").split("/") if p]
+        for part in parts:
+            # Also check filename without extension (e.g. "chat_service" → "service")
+            base = part.split(".")[0]
+            segment_counts[base] += 1
+            # Split on underscores/hyphens for compound names
+            for token in base.replace("-", "_").split("_"):
+                if len(token) > 2:
+                    segment_counts[token] += 1
+
+    layer_score: dict[str, int] = defaultdict(int)
+    for keyword, layer in _LAYER_KEYWORDS:
+        score = segment_counts.get(keyword, 0)
+        if score:
+            layer_score[layer] += score
+
+    if not layer_score:
+        return "Other"
+
+    # Return the layer with the highest score; break ties by layer order
+    best_layer = max(
+        layer_score.keys(),
+        key=lambda l: (layer_score[l], -_LAYER_ORDER.index(l) if l in _LAYER_ORDER else -99),
+    )
+    return best_layer
+
+
+def _detect_cycles_tarjan(adj: dict[str, set[str]]) -> list[list[str]]:
+    """Iterative Tarjan's SCC — returns all SCCs with size > 1 (true cycles)."""
     index_map: dict[str, int] = {}
     lowlink: dict[str, int] = {}
     on_stack: dict[str, bool] = {}
@@ -183,7 +342,6 @@ def _detect_cycles_tarjan(
             call_stack.append((v, iter(adj.get(v, set()))))
 
         _visit(root)
-
         while call_stack:
             v, nbrs = call_stack[-1]
             advanced = False
@@ -217,7 +375,7 @@ def _detect_cycles_tarjan(
     return sccs
 
 
-# ── Main Generator ────────────────────────────────────────────────────────────
+# ── Main Generator ─────────────────────────────────────────────────────────────
 
 
 class LayeredDiagramGenerator:
@@ -227,75 +385,84 @@ class LayeredDiagramGenerator:
         self._graph = graph
         self._node_by_id: dict[str, GraphNode] = {n.id: n for n in graph.nodes}
 
-        # Pre-compute indices
-        self._files = graph.nodes_by_type(NodeType.FILE)
+        self._files  = graph.nodes_by_type(NodeType.FILE)
         self._classes = graph.nodes_by_type(NodeType.CLASS)
         self._functions = graph.nodes_by_type(NodeType.FUNCTION)
-        self._modules = graph.nodes_by_type(NodeType.MODULE)
 
-        # Edge indices
         self._edges_from: dict[str, list[GraphEdge]] = defaultdict(list)
-        self._edges_to: dict[str, list[GraphEdge]] = defaultdict(list)
+        self._edges_to:   dict[str, list[GraphEdge]] = defaultdict(list)
         for e in graph.edges:
             self._edges_from[e.source_id].append(e)
             self._edges_to[e.target_id].append(e)
 
-        # File -> module mapping
+        # file_id → top-level module name (architecturally meaningful)
         self._file_to_module: dict[str, str] = {}
+        # module_name → list of file paths (for layer classification)
+        self._module_file_paths: dict[str, list[str]] = defaultdict(list)
         for f in self._files:
             path = str(f.properties.get("path", f.label))
-            self._file_to_module[f.id] = _top_level_module(path)
+            mod = _top_level_module(path)
+            self._file_to_module[f.id] = mod
+            self._module_file_paths[mod].append(path)
 
-        # Class -> file mapping
+        # class_id → file_id
         self._class_to_file: dict[str, str] = {}
         for e in graph.edges:
             if e.relationship == RelationshipType.CONTAINS:
                 src = self._node_by_id.get(e.source_id)
                 tgt = self._node_by_id.get(e.target_id)
                 if src and tgt:
-                    if src.node_type == NodeType.FILE and tgt.node_type == NodeType.CLASS:
+                    if src.node_type == NodeType.FILE and tgt.node_type in (
+                        NodeType.CLASS, NodeType.INTERFACE, NodeType.ENUM
+                    ):
                         self._class_to_file[tgt.id] = src.id
 
-        # Function -> class mapping
+        # function_id → class_id
         self._function_to_class: dict[str, str] = {}
         for e in graph.edges:
             if e.relationship == RelationshipType.CONTAINS:
                 src = self._node_by_id.get(e.source_id)
                 tgt = self._node_by_id.get(e.target_id)
                 if src and tgt:
-                    if src.node_type == NodeType.CLASS and tgt.node_type == NodeType.FUNCTION:
+                    if src.node_type in (NodeType.CLASS, NodeType.INTERFACE) and \
+                       tgt.node_type in (NodeType.FUNCTION, NodeType.METHOD):
                         self._function_to_class[tgt.id] = src.id
 
-    # ── Level 1: System View ─────────────────────────────────────────────────
+    # ── Level 1: System View ──────────────────────────────────────────────────
 
     def generate_system_view(self, repo_name: str = "") -> DiagramResult:
-        """One node per top-level module, aggregated edges with counts.
+        """One node per top-level architectural module, aggregated edges.
 
-        Target: <20 nodes, <30 edges for a typical mid-size repo.
+        Target: ≤ MAX_SYSTEM_NODES nodes, ≤ MAX_SYSTEM_EDGES edges.
+
+        The key design decisions:
+        • MIN_EDGE_WEIGHT = 1.  Any cross-module import is an architectural
+          relationship that must be shown.
+        • Bidirectional edges (A→B and B→A) are collapsed to one edge
+          annotated with "↔" so the diagram stays readable.
+        • Modules are ranked by architectural significance and only the top
+          MAX_SYSTEM_NODES are kept; the remainder are noted in drilldown.
         """
-        # Group files by top-level module
-        module_files: dict[str, list[GraphNode]] = defaultdict(list)
+        _skip = {"__pycache__", "node_modules", ".git", "dist", "build",
+                 ".venv", "venv", ".next", "coverage", ".pytest_cache"}
+
+        # ── Collect modules and their file/class/line counts ─────────────────
+        module_files:  dict[str, list[GraphNode]] = defaultdict(list)
         for f in self._files:
             mod = self._file_to_module.get(f.id, "other")
-            module_files[mod].append(f)
+            if mod not in _skip:
+                module_files[mod].append(f)
 
-        # Skip modules with zero meaningful content
-        skip_modules = {"__pycache__", "node_modules", ".git", "dist", "build"}
-
-        # Build module nodes
-        nodes: list[DiagramNode] = []
-        module_file_ids: dict[str, set[str]] = {}  # module_name -> set of file IDs
+        # ── Build DiagramNode objects ─────────────────────────────────────────
+        pre_nodes: list[DiagramNode] = []
+        module_file_ids: dict[str, set[str]] = {}
 
         for mod_name, files in sorted(module_files.items()):
-            if mod_name in skip_modules:
-                continue
             if not files:
                 continue
-
             file_ids = {f.id for f in files}
             module_file_ids[mod_name] = file_ids
 
-            # Count classes and functions in this module
             cls_count = sum(
                 1 for c in self._classes
                 if self._class_to_file.get(c.id) in file_ids
@@ -307,14 +474,15 @@ class LayeredDiagramGenerator:
                     for e in self._edges_to.get(fn.id, [])
                     if e.relationship == RelationshipType.CONTAINS
                 )
-                or self._function_to_class.get(fn.id) in {
-                    c.id for c in self._classes
-                    if self._class_to_file.get(c.id) in file_ids
-                }
             )
             line_count = sum(int(f.properties.get("lines", 0)) for f in files)
+            endpoint_count = sum(int(f.properties.get("endpoints", 0)) for f in files)
 
-            nodes.append(DiagramNode(
+            # Architectural layer using ALL file paths this module owns
+            all_paths = self._module_file_paths.get(mod_name, [f.properties.get("path", "") for f in files])
+            layer = _classify_layer_from_paths([str(p) for p in all_paths])
+
+            pre_nodes.append(DiagramNode(
                 id=f"mod_{mod_name}",
                 label=mod_name,
                 node_type="module",
@@ -322,79 +490,88 @@ class LayeredDiagramGenerator:
                 class_count=cls_count,
                 function_count=fn_count,
                 line_count=line_count,
+                layer=layer,
+                properties={"endpoint_count": endpoint_count},
             ))
 
-        # Build aggregated edges between modules
-        # Count imports between each module pair
-        module_pair_count: dict[tuple[str, str], int] = defaultdict(int)
+        # ── Rank by architectural significance and cap ────────────────────────
+        # Priority: endpoints > classes > file count > line count
+        def _significance(n: DiagramNode) -> tuple[int, int, int, int]:
+            ep = int(n.properties.get("endpoint_count", 0))
+            return (ep, n.class_count, n.file_count, n.line_count)
 
+        pre_nodes.sort(key=_significance, reverse=True)
+        nodes = pre_nodes[:MAX_SYSTEM_NODES]
+        hidden_count = len(pre_nodes) - len(nodes)
+
+        kept_module_names: set[str] = {n.label for n in nodes}
+
+        # ── Aggregate cross-module IMPORTS/DEPENDS_ON edges ───────────────────
+        # Count raw imports per (source_module, target_module) pair.
+        pair_count: dict[tuple[str, str], int] = defaultdict(int)
         for e in self._graph.edges:
-            if e.relationship not in (RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON):
+            if e.relationship not in (
+                RelationshipType.IMPORTS,
+                RelationshipType.DEPENDS_ON,
+            ):
                 continue
             src_mod = self._file_to_module.get(e.source_id)
             tgt_mod = self._file_to_module.get(e.target_id)
-            if src_mod and tgt_mod and src_mod != tgt_mod:
-                if src_mod not in skip_modules and tgt_mod not in skip_modules:
-                    module_pair_count[(src_mod, tgt_mod)] += 1
+            if not src_mod or not tgt_mod or src_mod == tgt_mod:
+                continue
+            if src_mod in _skip or tgt_mod in _skip:
+                continue
+            # Only count edges between modules that survived the cap.
+            if src_mod not in kept_module_names or tgt_mod not in kept_module_names:
+                continue
+            pair_count[(src_mod, tgt_mod)] += 1
 
-        # Deduplicate bidirectional edges: if A->B and B->A both exist,
-        # keep only the stronger direction and note it's bidirectional
+        # Collapse bidirectional pairs: keep the dominant direction, mark ↔.
         seen_pairs: set[frozenset[str]] = set()
-        deduped_edges: list[tuple[str, str, int, bool]] = []  # src, tgt, count, is_bidir
+        collapsed: list[tuple[str, str, int, bool]] = []  # (src, tgt, count, bidir)
 
-        for (src_mod, tgt_mod), count in sorted(
-            module_pair_count.items(), key=lambda x: x[1], reverse=True
-        ):
-            pair_key = frozenset([src_mod, tgt_mod])
-            if pair_key in seen_pairs:
+        for (src, tgt), count in sorted(pair_count.items(), key=lambda x: -x[1]):
+            key = frozenset({src, tgt})
+            if key in seen_pairs:
                 continue
-            seen_pairs.add(pair_key)
-            reverse_count = module_pair_count.get((tgt_mod, src_mod), 0)
-            is_bidir = reverse_count > 0
-            # Keep the stronger direction
-            if reverse_count > count:
-                deduped_edges.append((tgt_mod, src_mod, reverse_count, is_bidir))
+            seen_pairs.add(key)
+            rev = pair_count.get((tgt, src), 0)
+            is_bidir = rev > 0
+            if rev > count:
+                collapsed.append((tgt, src, rev, is_bidir))
             else:
-                deduped_edges.append((src_mod, tgt_mod, count, is_bidir))
+                collapsed.append((src, tgt, count, is_bidir))
 
+        # Build DiagramEdge list — MIN_EDGE_WEIGHT = 1 (every import counts).
         edges: list[DiagramEdge] = []
-        # Only keep edges with meaningful weight (>=2 imports) and cap at 25
-        # to stay within the "under 30 edges" target. Sorted by weight desc
-        # so we keep the most significant relationships.
-        MAX_SYSTEM_EDGES = 25
-        MIN_EDGE_WEIGHT = 2
-
-        for (src_mod, tgt_mod, count, is_bidir) in deduped_edges:
-            if count < MIN_EDGE_WEIGHT:
+        for src, tgt, count, is_bidir in collapsed:
+            src_id = f"mod_{src}"
+            tgt_id = f"mod_{tgt}"
+            # Sanity-check: both nodes must be in the visible set.
+            if src_id not in {n.id for n in nodes}:
                 continue
-                continue
-            # Only include edges where both modules are in our node set
-            src_id = f"mod_{src_mod}"
-            tgt_id = f"mod_{tgt_mod}"
-            if not any(n.id == src_id for n in nodes):
-                continue
-            if not any(n.id == tgt_id for n in nodes):
+            if tgt_id not in {n.id for n in nodes}:
                 continue
 
+            label = f"{count}" + (" ↔" if is_bidir else "")
             edges.append(DiagramEdge(
-                id=f"e_{src_mod}__{tgt_mod}",
+                id=f"e_{src}__{tgt}",
                 source=src_id,
                 target=tgt_id,
-                label=f"{count} imports{'  ↔' if is_bidir else ''}",
+                label=label,
                 edge_type="imports",
                 weight=count,
             ))
             if len(edges) >= MAX_SYSTEM_EDGES:
                 break
 
-        # Detect cycles at module level
+        # ── Cycle detection ───────────────────────────────────────────────────
         mod_adj: dict[str, set[str]] = defaultdict(set)
-        for (src, tgt) in module_pair_count.keys():
+        for (src, tgt) in pair_count:
             mod_adj[f"mod_{src}"].add(f"mod_{tgt}")
 
         cycles = _detect_cycles_tarjan(mod_adj)
 
-        # Mark nodes and edges that are part of cycles
         cycle_node_ids: set[str] = set()
         for cycle in cycles:
             cycle_node_ids.update(cycle)
@@ -405,12 +582,10 @@ class LayeredDiagramGenerator:
                 node.health = "critical"
                 node.health_reason = "Circular dependency detected"
 
-        # Mark cycle edges
         cycle_pairs: set[tuple[str, str]] = set()
         for cycle in cycles:
             for i in range(len(cycle)):
-                a = cycle[i]
-                b = cycle[(i + 1) % len(cycle)]
+                a, b = cycle[i], cycle[(i + 1) % len(cycle)]
                 cycle_pairs.add((a, b))
                 cycle_pairs.add((b, a))
 
@@ -418,36 +593,40 @@ class LayeredDiagramGenerator:
             if (edge.source, edge.target) in cycle_pairs:
                 edge.is_cycle = True
 
-        # Health scoring: god classes, high coupling
+        # ── Health scoring (god class / large module) ─────────────────────────
         for node in nodes:
-            if node.health != "critical":  # don't override cycle status
-                if node.class_count > 0:
-                    # Check for god classes (>20 methods in any class)
-                    mod_files = module_file_ids.get(node.label, set())
-                    max_methods = 0
-                    for c in self._classes:
-                        if self._class_to_file.get(c.id) in mod_files:
-                            methods = int(c.properties.get("methods", 0))
-                            max_methods = max(max_methods, methods)
-                    if max_methods > 20:
-                        node.health = "warning"
-                        node.health_reason = f"God class detected ({max_methods} methods)"
-                    elif node.file_count > 15:
-                        node.health = "warning"
-                        node.health_reason = f"Large module ({node.file_count} files)"
+            if node.health != "critical":
+                file_ids = module_file_ids.get(node.label, set())
+                max_methods = max(
+                    (int(c.properties.get("methods", 0))
+                     for c in self._classes
+                     if self._class_to_file.get(c.id) in file_ids),
+                    default=0,
+                )
+                if max_methods > 20:
+                    node.health = "warning"
+                    node.health_reason = f"God class detected ({max_methods} methods)"
+                elif node.file_count > 20:
+                    node.health = "warning"
+                    node.health_reason = f"Large module ({node.file_count} files)"
 
-        # Build drilldown targets
         drilldown = [
             {"id": n.id, "label": n.label, "type": "module"}
             for n in nodes
         ]
+        if hidden_count:
+            drilldown.append({
+                "id": "_hidden",
+                "label": f"+{hidden_count} more modules",
+                "type": "info",
+            })
 
         return DiagramResult(
             level="system",
             title=repo_name or "System Architecture",
             nodes=nodes,
             edges=edges,
-            cycles=[c for c in cycles],
+            cycles=cycles,
             breadcrumb=[{"label": repo_name or "System", "level": "system"}],
             drilldown_targets=drilldown,
         )
@@ -457,12 +636,7 @@ class LayeredDiagramGenerator:
     def generate_module_detail(
         self, module_name: str, repo_name: str = ""
     ) -> DiagramResult:
-        """Shows classes and key files inside ONE module, plus collapsed external deps.
-
-        Nodes: classes and important files within the module.
-        External dependencies shown as collapsed single-node references.
-        """
-        # Find all files in this module
+        """Classes and key files inside one module, plus collapsed external deps."""
         mod_files: list[GraphNode] = []
         mod_file_ids: set[str] = set()
         for f in self._files:
@@ -484,24 +658,25 @@ class LayeredDiagramGenerator:
         edges: list[DiagramEdge] = []
 
         # Classes in this module
-        mod_classes: list[GraphNode] = []
-        for c in self._classes:
-            file_id = self._class_to_file.get(c.id)
-            if file_id in mod_file_ids:
-                mod_classes.append(c)
+        mod_classes: list[GraphNode] = [
+            c for c in self._classes
+            if self._class_to_file.get(c.id) in mod_file_ids
+        ]
 
-        # Add class nodes
         for c in mod_classes:
             methods = int(c.properties.get("methods", 0))
-            lines = int(c.properties.get("lines", 0))
-            health = "healthy"
-            health_reason = ""
+            lines   = int(c.properties.get("lines", 0))
+            health, health_reason = "healthy", ""
             if methods > 20:
-                health = "critical"
-                health_reason = f"God class: {methods} methods"
+                health, health_reason = "critical", f"God class: {methods} methods"
             elif methods > 12:
-                health = "warning"
-                health_reason = f"Large class: {methods} methods"
+                health, health_reason = "warning",  f"Large class: {methods} methods"
+
+            # Determine sub-layer from file path for display
+            file_id  = self._class_to_file.get(c.id, "")
+            file_node = self._node_by_id.get(file_id)
+            fp = str(file_node.properties.get("path", "")) if file_node else ""
+            sub_layer = _classify_layer_from_paths([fp]) if fp else ""
 
             nodes.append(DiagramNode(
                 id=c.id,
@@ -511,33 +686,36 @@ class LayeredDiagramGenerator:
                 line_count=lines,
                 health=health,
                 health_reason=health_reason,
-                properties={"file": self._class_to_file.get(c.id, "")},
+                layer=sub_layer,
+                properties={"file": file_id},
             ))
 
-        # Add file nodes (only files that have no classes, or are important)
+        # File nodes that have no classes (scripted files, config, etc.)
         class_file_ids = {self._class_to_file.get(c.id) for c in mod_classes}
         for f in mod_files:
-            # Skip files that are already represented by their classes
-            if f.id in class_file_ids and int(f.properties.get("functions", 0)) == 0:
+            fn_count  = int(f.properties.get("functions", 0))
+            cls_count = int(f.properties.get("classes", 0))
+            if f.id in class_file_ids and fn_count == 0:
                 continue
-            fn_count = int(f.properties.get("functions", 0))
-            if fn_count == 0 and int(f.properties.get("classes", 0)) == 0:
-                continue  # Skip empty/trivial files
-
+            if fn_count == 0 and cls_count == 0:
+                continue
+            fp = str(f.properties.get("path", f.label))
+            sub_layer = _classify_layer_from_paths([fp])
             nodes.append(DiagramNode(
                 id=f.id,
                 label=f.label,
                 node_type="file",
                 function_count=fn_count,
                 line_count=int(f.properties.get("lines", 0)),
+                layer=sub_layer,
             ))
 
-        # Internal edges: inheritance between classes in this module
+        node_ids = {n.id for n in nodes}
+
+        # Inheritance edges between classes in this module
         for e in self._graph.edges:
             if e.relationship == RelationshipType.INHERITS:
-                src_in = any(n.id == e.source_id for n in nodes)
-                tgt_in = any(n.id == e.target_id for n in nodes)
-                if src_in and tgt_in:
+                if e.source_id in node_ids and e.target_id in node_ids:
                     edges.append(DiagramEdge(
                         id=e.id,
                         source=e.source_id,
@@ -546,37 +724,53 @@ class LayeredDiagramGenerator:
                         edge_type="inherits",
                     ))
 
-        # Internal edges: imports between files/classes in this module
-        node_ids = {n.id for n in nodes}
-        seen_pairs: set[tuple[str, str]] = set()
+        # Import edges between nodes inside this module (deduped)
+        seen: set[tuple[str, str]] = set()
         for e in self._graph.edges:
-            if e.relationship not in (RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON):
+            if e.relationship not in (
+                RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON
+            ):
                 continue
-            # Map to our visible nodes
-            src_id = e.source_id if e.source_id in node_ids else None
-            tgt_id = e.target_id if e.target_id in node_ids else None
-            if src_id and tgt_id and src_id != tgt_id:
-                pair = (src_id, tgt_id)
-                if pair not in seen_pairs:
-                    seen_pairs.add(pair)
+            sid = e.source_id if e.source_id in node_ids else None
+            tid = e.target_id if e.target_id in node_ids else None
+            if sid and tid and sid != tid:
+                pair = (sid, tid)
+                if pair not in seen:
+                    seen.add(pair)
                     edges.append(DiagramEdge(
-                        id=f"e_{src_id}__{tgt_id}",
-                        source=src_id,
-                        target=tgt_id,
+                        id=f"e_{sid}__{tid}",
+                        source=sid,
+                        target=tid,
                         edge_type="imports",
                     ))
 
-        # External dependencies: collapsed boxes for other modules
-        external_modules: dict[str, int] = defaultdict(int)  # mod_name -> import count
+        # External dependency summary (collapsed, top 8 by import count)
+        external_counts: dict[str, int] = defaultdict(int)
         for f in mod_files:
             for e in self._edges_from.get(f.id, []):
-                if e.relationship not in (RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON):
+                if e.relationship not in (
+                    RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON
+                ):
                     continue
                 tgt_mod = self._file_to_module.get(e.target_id)
                 if tgt_mod and tgt_mod != module_name:
-                    external_modules[tgt_mod] += 1
+                    external_counts[tgt_mod] += 1
 
-        for ext_mod, count in sorted(external_modules.items(), key=lambda x: -x[1])[:8]:
+        # Root node representing "this module" for external edges
+        root_id = f"modroot_{module_name}"
+        has_external = bool(external_counts)
+        if has_external:
+            nodes.insert(0, DiagramNode(
+                id=root_id,
+                label=f"{module_name}/",
+                node_type="module",
+                file_count=len(mod_files),
+                class_count=len(mod_classes),
+            ))
+
+        for ext_mod, count in sorted(
+            external_counts.items(), key=lambda x: -x[1]
+        )[:8]:
             ext_id = f"ext_{ext_mod}"
             nodes.append(DiagramNode(
                 id=ext_id,
@@ -586,39 +780,22 @@ class LayeredDiagramGenerator:
             ))
             edges.append(DiagramEdge(
                 id=f"e_{module_name}__{ext_mod}",
-                source=f"mod_{module_name}",  # Will be mapped to first internal node
+                source=root_id,
                 target=ext_id,
-                label=f"{count} imports",
+                label=f"{count}",
                 edge_type="imports",
                 weight=count,
             ))
 
-        # Fix external edge sources — point to the module's internal nodes collectively
-        # We'll use a special "module root" node
-        if external_modules:
-            # Replace the source with a virtual module-root node
-            root_id = f"modroot_{module_name}"
-            nodes.insert(0, DiagramNode(
-                id=root_id,
-                label=f"{module_name}/",
-                node_type="module",
-                file_count=len(mod_files),
-                class_count=len(mod_classes),
-            ))
-            for edge in edges:
-                if edge.source == f"mod_{module_name}":
-                    edge.source = root_id
-
-        # Detect cycles within this module
+        # Cycle detection within this module
         internal_adj: dict[str, set[str]] = defaultdict(set)
         for edge in edges:
-            if edge.edge_type == "imports" and edge.source in node_ids and edge.target in node_ids:
+            if edge.edge_type == "imports" and \
+               edge.source in node_ids and edge.target in node_ids:
                 internal_adj[edge.source].add(edge.target)
 
         cycles = _detect_cycles_tarjan(internal_adj)
-        cycle_ids: set[str] = set()
-        for cycle in cycles:
-            cycle_ids.update(cycle)
+        cycle_ids: set[str] = {n for scc in cycles for n in scc}
         for node in nodes:
             if node.id in cycle_ids:
                 node.in_cycle = True
@@ -626,11 +803,9 @@ class LayeredDiagramGenerator:
                     node.health = "warning"
                     node.health_reason = "Part of circular dependency"
 
-        # Drilldown targets: classes that can be clicked
         drilldown = [
             {"id": n.id, "label": n.label, "type": "class"}
-            for n in nodes
-            if n.node_type == "class"
+            for n in nodes if n.node_type == "class"
         ]
 
         return DiagramResult(
@@ -651,15 +826,11 @@ class LayeredDiagramGenerator:
     def generate_class_detail(
         self, class_name: str, repo_name: str = ""
     ) -> DiagramResult:
-        """Shows one class's methods, callers/callees, and inheritance chain."""
-        # Find the class node
-        target_class: GraphNode | None = None
-        for c in self._classes:
-            if c.label == class_name:
-                target_class = c
-                break
-
-        if not target_class:
+        """Methods, callers, callees, and inheritance chain for one class."""
+        target: GraphNode | None = next(
+            (c for c in self._classes if c.label == class_name), None
+        )
+        if not target:
             return DiagramResult(
                 level="class",
                 title=f"{class_name} (not found)",
@@ -669,46 +840,46 @@ class LayeredDiagramGenerator:
                 ],
             )
 
-        # Determine which module this class belongs to
-        file_id = self._class_to_file.get(target_class.id, "")
+        file_id   = self._class_to_file.get(target.id, "")
         module_name = self._file_to_module.get(file_id, "unknown")
 
         nodes: list[DiagramNode] = []
         edges: list[DiagramEdge] = []
 
-        # The class itself as the central node
-        methods_count = int(target_class.properties.get("methods", 0))
+        # Central node
         nodes.append(DiagramNode(
-            id=target_class.id,
-            label=target_class.label,
+            id=target.id,
+            label=target.label,
             node_type="class",
-            function_count=methods_count,
-            line_count=int(target_class.properties.get("lines", 0)),
+            function_count=int(target.properties.get("methods", 0)),
+            line_count=int(target.properties.get("lines", 0)),
             properties={"central": True},
         ))
 
-        # Methods of this class
-        for e in self._edges_from.get(target_class.id, []):
+        # Methods
+        for e in self._edges_from.get(target.id, []):
             if e.relationship == RelationshipType.CONTAINS:
                 method = self._node_by_id.get(e.target_id)
-                if method and method.node_type == NodeType.FUNCTION:
+                if method and method.node_type in (NodeType.FUNCTION, NodeType.METHOD):
                     nodes.append(DiagramNode(
                         id=method.id,
                         label=method.label,
                         node_type="function",
                         line_count=int(method.properties.get("lines", 0)),
-                        properties={"decorators": method.properties.get("decorators", "")},
+                        properties={
+                            "decorators": method.properties.get("decorators", "")
+                        },
                     ))
                     edges.append(DiagramEdge(
-                        id=f"e_contains_{target_class.id}__{method.id}",
-                        source=target_class.id,
+                        id=f"e_has_{target.id}__{method.id}",
+                        source=target.id,
                         target=method.id,
                         edge_type="contains",
                         label="has",
                     ))
 
-        # Inheritance: what this class extends
-        for e in self._edges_from.get(target_class.id, []):
+        # Parents (what this class extends)
+        for e in self._edges_from.get(target.id, []):
             if e.relationship == RelationshipType.INHERITS:
                 parent = self._node_by_id.get(e.target_id)
                 if parent:
@@ -719,15 +890,15 @@ class LayeredDiagramGenerator:
                         properties={"role": "parent"},
                     ))
                     edges.append(DiagramEdge(
-                        id=f"e_inherits_{target_class.id}__{parent.id}",
-                        source=target_class.id,
+                        id=f"e_inherits_{target.id}__{parent.id}",
+                        source=target.id,
                         target=parent.id,
                         edge_type="inherits",
                         label="extends",
                     ))
 
-        # Inheritance: what extends this class
-        for e in self._edges_to.get(target_class.id, []):
+        # Children (what extends this class)
+        for e in self._edges_to.get(target.id, []):
             if e.relationship == RelationshipType.INHERITS:
                 child = self._node_by_id.get(e.source_id)
                 if child:
@@ -738,107 +909,107 @@ class LayeredDiagramGenerator:
                         properties={"role": "child"},
                     ))
                     edges.append(DiagramEdge(
-                        id=f"e_inherits_{child.id}__{target_class.id}",
+                        id=f"e_inherits_{child.id}__{target.id}",
                         source=child.id,
-                        target=target_class.id,
+                        target=target.id,
                         edge_type="inherits",
                         label="extends",
                     ))
 
-        # Callers: who imports the file containing this class
+        # Callers (files that import the file containing this class)
         if file_id:
             for e in self._edges_to.get(file_id, []):
-                if e.relationship in (RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON):
-                    caller_file = self._node_by_id.get(e.source_id)
-                    if caller_file and caller_file.node_type == NodeType.FILE:
-                        caller_mod = self._file_to_module.get(caller_file.id, "")
-                        caller_id = f"caller_{caller_file.id}"
+                if e.relationship in (
+                    RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON
+                ):
+                    caller = self._node_by_id.get(e.source_id)
+                    if caller and caller.node_type == NodeType.FILE:
+                        caller_mod = self._file_to_module.get(caller.id, "")
+                        caller_id  = f"caller_{caller.id}"
+                        label = f"{caller_mod}/{caller.label}" if caller_mod else caller.label
                         nodes.append(DiagramNode(
                             id=caller_id,
-                            label=f"{caller_mod}/{caller_file.label}" if caller_mod else caller_file.label,
+                            label=label,
                             node_type="file",
                             properties={"role": "caller"},
                         ))
                         edges.append(DiagramEdge(
-                            id=f"e_calls_{caller_file.id}__{target_class.id}",
+                            id=f"e_uses_{caller.id}__{target.id}",
                             source=caller_id,
-                            target=target_class.id,
+                            target=target.id,
                             edge_type="imports",
                             label="uses",
                         ))
 
-        # Callees: what this class's file imports
+        # Callees (files this class's file imports)
         if file_id:
             for e in self._edges_from.get(file_id, []):
-                if e.relationship in (RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON):
-                    dep_file = self._node_by_id.get(e.target_id)
-                    if dep_file and dep_file.node_type == NodeType.FILE:
-                        dep_mod = self._file_to_module.get(dep_file.id, "")
-                        dep_id = f"dep_{dep_file.id}"
+                if e.relationship in (
+                    RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON
+                ):
+                    dep = self._node_by_id.get(e.target_id)
+                    if dep and dep.node_type == NodeType.FILE:
+                        dep_mod = self._file_to_module.get(dep.id, "")
+                        dep_id  = f"dep_{dep.id}"
+                        label   = f"{dep_mod}/{dep.label}" if dep_mod else dep.label
                         nodes.append(DiagramNode(
                             id=dep_id,
-                            label=f"{dep_mod}/{dep_file.label}" if dep_mod else dep_file.label,
+                            label=label,
                             node_type="file",
                             properties={"role": "dependency"},
                         ))
                         edges.append(DiagramEdge(
-                            id=f"e_dep_{target_class.id}__{dep_file.id}",
-                            source=target_class.id,
+                            id=f"e_dep_{target.id}__{dep.id}",
+                            source=target.id,
                             target=dep_id,
                             edge_type="imports",
                             label="depends on",
                         ))
 
-        # Cap callers/callees to prevent overload
-        caller_nodes = [n for n in nodes if n.properties.get("role") == "caller"]
-        dep_nodes = [n for n in nodes if n.properties.get("role") == "dependency"]
-
-        if len(caller_nodes) > 8:
-            # Keep top 8 callers, remove the rest
-            excess = caller_nodes[8:]
+        # Cap callers / callees at 8 each
+        def _cap_by_role(role: str, cap: int) -> None:
+            role_nodes = [n for n in nodes if n.properties.get("role") == role]
+            if len(role_nodes) <= cap:
+                return
+            excess = role_nodes[cap:]
             excess_ids = {n.id for n in excess}
-            nodes = [n for n in nodes if n.id not in excess_ids]
-            edges = [e for e in edges if e.source not in excess_ids and e.target not in excess_ids]
-            # Add summary node
+            nodes[:] = [n for n in nodes if n.id not in excess_ids]
+            edges[:] = [e for e in edges
+                        if e.source not in excess_ids and e.target not in excess_ids]
+            overflow_id = f"overflow_{role}"
             nodes.append(DiagramNode(
-                id="callers_overflow",
-                label=f"+{len(excess)} more callers",
+                id=overflow_id,
+                label=f"+{len(excess)} more {role}s",
                 node_type="external",
             ))
-            edges.append(DiagramEdge(
-                id="e_callers_overflow",
-                source="callers_overflow",
-                target=target_class.id,
-                edge_type="imports",
-            ))
+            if role == "caller":
+                edges.append(DiagramEdge(
+                    id=f"e_{overflow_id}",
+                    source=overflow_id,
+                    target=target.id,
+                    edge_type="imports",
+                ))
+            else:
+                edges.append(DiagramEdge(
+                    id=f"e_{overflow_id}",
+                    source=target.id,
+                    target=overflow_id,
+                    edge_type="imports",
+                ))
 
-        if len(dep_nodes) > 8:
-            excess = dep_nodes[8:]
-            excess_ids = {n.id for n in excess}
-            nodes = [n for n in nodes if n.id not in excess_ids]
-            edges = [e for e in edges if e.source not in excess_ids and e.target not in excess_ids]
-            nodes.append(DiagramNode(
-                id="deps_overflow",
-                label=f"+{len(excess)} more dependencies",
-                node_type="external",
-            ))
-            edges.append(DiagramEdge(
-                id="e_deps_overflow",
-                source=target_class.id,
-                target="deps_overflow",
-                edge_type="imports",
-            ))
+        _cap_by_role("caller", 8)
+        _cap_by_role("dependency", 8)
 
         return DiagramResult(
             level="class",
-            title=target_class.label,
+            title=class_name,
             nodes=nodes,
             edges=edges,
             cycles=[],
             breadcrumb=[
                 {"label": repo_name or "System", "level": "system"},
                 {"label": module_name, "level": "module", "module": module_name},
-                {"label": target_class.label, "level": "class", "class": class_name},
+                {"label": class_name, "level": "class", "class": class_name},
             ],
             drilldown_targets=[],
         )

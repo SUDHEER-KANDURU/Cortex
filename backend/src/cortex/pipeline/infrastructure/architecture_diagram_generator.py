@@ -1,47 +1,63 @@
-"""Architecture Diagram Generator — progressive disclosure architecture view.
+"""Architecture Diagram Generator — Mermaid-based architecture artifact.
 
-This generates a MULTI-LEVEL architecture representation:
-  Level 1 (System): Modules as nodes, aggregated cross-module dependencies
-  Level 2 (Module): Classes within each module with relationships
-  Level 3 (included): Existing Mermaid detail view for file-level graph
+Produces a Markdown document containing Mermaid flowchart diagrams at two
+complementary levels:
 
-The diagram answers: "What are the major parts of this system and
-how do they communicate?" — NOT "show me every file and import."
+  System view  — one node per real architectural module, cross-module edges.
+  Layer flow   — one node per detected layer, aggregated inter-layer edges.
 
-Design principles:
-  - Progressive disclosure (overview → detail)
-  - Cap visible nodes to prevent spaghetti
-  - Layer-based grouping (Presentation → Application → Domain → Infrastructure)
-  - Evidence in each section (metrics, coupling data)
+──────────────────────────────────────────────────────────────────────────────
+Design rules (what makes this NOT a dependency dump)
+──────────────────────────────────────────────────────────────────────────────
+1. ONLY architecturally meaningful modules are shown.
+   Pure container directories — those whose name matches _GENERIC_CONTAINERS
+   (src, backend, frontend, lib, app…) — are skipped.  Every repo has these
+   structural wrapping directories; they add no architectural signal.
+
+2. Module names are UNIQUE in the diagram.  The graph can contain two modules
+   both named "src" (one under backend/, one under frontend/).  Both are
+   excluded as generic containers.  If a name collision survives, the full
+   path is used as the display label.
+
+3. Edges are AGGREGATED.  Many file-level imports between the same two modules
+   become ONE edge labelled with the count.  Bidirectional pairs are collapsed
+   to a single arrow annotated "↔".
+
+4. Minimum edge weight is 1.  A single cross-module import IS an
+   architectural dependency and MUST be shown.
+
+5. Layer classification uses ALL path segments of the files a module owns so
+   that classification is based on evidence, not on a single directory name.
+
+6. Layer-violation detection: edges that cross layers in the wrong direction
+   are rendered as red dashed arrows with a ⚠ annotation.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections import defaultdict
+from dataclasses import dataclass
 
 from cortex.graph.domain.entities import GraphNode, NodeType, RelationshipType
 from cortex.pipeline.infrastructure.graph_builder import GraphBuildResult
+from cortex.pipeline.infrastructure.layered_diagram_generator import (
+    _classify_layer_from_paths,
+    _top_level_module,
+    _LAYER_ORDER,
+    MAX_SYSTEM_NODES,
+    MAX_SYSTEM_EDGES,
+)
 
 
-# Layer classification patterns (reused from module breakdown)
-_LAYER_KEYWORDS: dict[str, list[str]] = {
-    "Presentation": ["presentation", "router", "controller", "handler", "api", "endpoint", "view"],
-    "Application": ["application", "service", "use_case", "usecase", "interactor"],
-    "Domain": ["domain", "entity", "model", "core", "entities"],
-    "Infrastructure": ["infrastructure", "repository", "persistence", "db", "client", "adapter"],
-    "Frontend": ["component", "page", "hook", "feature", "frontend"],
-    "Shared": ["shared", "common", "utils", "config", "lib"],
-    "Testing": ["test", "tests", "spec", "fixture"],
-}
+# ── Module representation ──────────────────────────────────────────────────────
 
 
 @dataclass
-class ModuleDiagramNode:
-    """A module represented as a node in the system architecture."""
-    id: str
-    name: str
-    path: str
+class _ModNode:
+    """A module as it appears in the system architecture view."""
+    id: str            # unique, Mermaid-safe
+    name: str          # display name
+    path: str          # full module path (for deduplication)
     layer: str
     file_count: int = 0
     class_count: int = 0
@@ -50,506 +66,435 @@ class ModuleDiagramNode:
 
 
 @dataclass
-class ModuleDiagramEdge:
-    """An aggregated dependency between two modules."""
-    source: str  # module name
-    target: str  # module name
-    weight: int = 1  # number of individual imports
+class _ModEdge:
+    """Aggregated dependency between two modules."""
+    source: str   # module name
+    target: str   # module name
+    weight: int = 1
+    is_bidir: bool = False
+
+
+# ── Constants ──────────────────────────────────────────────────────────────────
+
+# Generic container-directory names that carry no architectural meaning on
+# their own.  Modules whose ONLY name matches one of these are excluded from
+# the diagram.  (Shared with layered_diagram_generator via the imported helper.)
+_GENERIC_CONTAINERS: frozenset[str] = frozenset({
+    "src", "backend", "frontend", "lib", "app", "core", "main",
+    "source", "sources", "pkg", "packages", "modules",
+})
+
+# Expected layer rank for violation detection (lower = closer to user).
+_LAYER_RANK: dict[str, int] = {
+    "Presentation": 0,
+    "Frontend":     0,
+    "Application":  1,
+    "Domain":       2,
+    "Infrastructure": 3,
+    "Shared":       4,
+    "Testing":      5,
+    "Other":        3,
+}
 
 
 class ArchitectureDiagramGenerator:
-    """Generates multi-level architecture diagrams from the knowledge graph."""
+    """Generates a Markdown + Mermaid architecture artifact from the graph."""
+
+    # ── Public API ─────────────────────────────────────────────────────────────
 
     def generate(self, graph: GraphBuildResult, repo_name: str) -> str:
-        """Generate the full architecture artifact as Markdown with Mermaid."""
-        modules = graph.nodes_by_type(NodeType.MODULE)
+        """Return the full Markdown architecture document."""
         files = graph.nodes_by_type(NodeType.FILE)
+        if not files:
+            return f"# Architecture — {repo_name}\n\n_No code structure detected._\n"
 
-        if not modules and not files:
-            return f"# Architecture — {repo_name}\n\n_No code structure detected._"
+        mod_nodes, mod_edges = self._build_module_graph(graph, files)
+
+        if not mod_nodes:
+            return (
+                f"# Architecture — {repo_name}\n\n"
+                "_No architectural modules detected.  "
+                "The repository may use a flat structure or a non-standard layout._\n"
+            )
 
         lines: list[str] = []
-        lines.append(f"# Architecture — {repo_name}")
-        lines.append("")
-        lines.append(
-            "> **What is software architecture?** Architecture is the \"blueprint\" of a "
-            "system — how its major parts are organized and how they communicate. "
-            "Just like a building has floors, rooms, and hallways, software has layers, "
-            "modules, and data flows. Good architecture makes software easier to understand, "
-            "extend, and fix. This diagram shows you the big picture."
-        )
+        lines += [
+            f"# Architecture — {repo_name}",
+            "",
+            "> **Architecture diagram** — each box is a top-level module; "
+            "arrows show which modules depend on which.  "
+            "An arrow from **A → B** means A imports something from B.",
+            "",
+        ]
+
+        # ── Section 1: System overview ────────────────────────────────────────
+        lines += [
+            "## System Architecture",
+            "",
+            "One node per top-level module.  "
+            "Arrow thickness reflects the number of individual imports "
+            "(thick = strong coupling, thin = light coupling).",
+            "",
+            "```mermaid",
+            self._render_system_mermaid(mod_nodes, mod_edges, repo_name),
+            "```",
+            "",
+        ]
+
+        # ── Section 2: Module summary table ───────────────────────────────────
+        lines += [
+            "### Module Summary",
+            "",
+            "| Module | Layer | Files | Classes | Endpoints | Complexity |",
+            "|--------|-------|-------|---------|-----------|-----------|",
+        ]
+        for mod in sorted(mod_nodes, key=lambda m: (_LAYER_ORDER.index(m.layer)
+                                                     if m.layer in _LAYER_ORDER else 99,
+                                                     m.name)):
+            lines.append(
+                f"| `{mod.name}` | {mod.layer} | {mod.file_count} | "
+                f"{mod.class_count} | {mod.endpoint_count} | {mod.complexity} |"
+            )
         lines.append("")
 
-        # ── Level 1: System Overview ─────────────────────────────────────────
-        lines.append("## System Architecture")
-        lines.append("")
-        lines.append(
-            "This diagram shows the major modules of the system and how they depend on each other. "
-            "Each box is a module (a self-contained part of the system). Arrows show which "
-            "modules need other modules to work — an arrow from A to B means \"A uses B.\""
-        )
-        lines.append("")
-
-        # Build module dependency model. Cap the number of module boxes so the
-        # system diagram stays a readable overview — the most significant
-        # modules (by classes + endpoints + files) are kept; the rest are
-        # summarised in prose rather than drawn, so this never degrades into a
-        # every-node dump.
-        mod_nodes, mod_edges = self._build_module_graph(graph, modules)
-        _MAX_SYSTEM_MODULES = 18
-        hidden_module_count = 0
-        if len(mod_nodes) > _MAX_SYSTEM_MODULES:
-            def _significance(m: ModuleDiagramNode) -> tuple[int, int, int]:
-                return (m.endpoint_count, m.class_count, m.file_count)
-            mod_nodes_sorted = sorted(mod_nodes, key=_significance, reverse=True)
-            kept = mod_nodes_sorted[:_MAX_SYSTEM_MODULES]
-            hidden_module_count = len(mod_nodes) - len(kept)
-            mod_nodes = kept
-            # Keep only edges between modules that survived the cap.
-            kept_names = {m.name for m in kept}
-            mod_edges = [
-                e for e in mod_edges
-                if e.source in kept_names and e.target in kept_names
+        hidden = getattr(self, "_hidden_count", 0)
+        if hidden:
+            lines += [
+                f"_Showing the {len(mod_nodes)} most significant modules; "
+                f"{hidden} smaller module(s) omitted for readability._",
+                "",
             ]
 
-        if mod_nodes:
-            # Generate system-level Mermaid
-            mermaid = self._render_system_mermaid(mod_nodes, mod_edges, repo_name)
-            lines.append("```mermaid")
-            lines.append(mermaid)
-            lines.append("```")
-            lines.append("")
+        # ── Section 3: Layer grouping ──────────────────────────────────────────
+        by_layer: dict[str, list[_ModNode]] = defaultdict(list)
+        for m in mod_nodes:
+            by_layer[m.layer].append(m)
 
-            # Module summary table
-            lines.append("### Module Summary")
-            lines.append("")
-            lines.append("| Module | Layer | Files | Classes | Endpoints | Complexity |")
-            lines.append("|--------|-------|-------|---------|-----------|-----------|")
-            for mod in sorted(mod_nodes, key=lambda m: m.layer):
-                lines.append(
-                    f"| `{mod.name}` | {mod.layer} | {mod.file_count} | "
-                    f"{mod.class_count} | {mod.endpoint_count} | {mod.complexity} |"
-                )
-            lines.append("")
-            if hidden_module_count:
-                lines.append(
-                    f"_Showing the {_MAX_SYSTEM_MODULES} most significant modules. "
-                    f"{hidden_module_count} smaller module(s) are omitted from the "
-                    f"overview to keep it readable._"
-                )
-                lines.append("")
-
-        # ── Level 2: Layer Architecture ──────────────────────────────────────
-        lines.append("## Layer Architecture")
-        lines.append("")
-        lines.append(
-            "How the system is organized into architectural layers. "
-            "Dependencies should flow downward (Presentation → Application → Domain → Infrastructure)."
-        )
-        lines.append("")
-
-        # Group modules by layer
-        by_layer: dict[str, list[ModuleDiagramNode]] = defaultdict(list)
-        for mod in mod_nodes:
-            by_layer[mod.layer].append(mod)
-
-        layer_order = ["Presentation", "Application", "Domain", "Infrastructure", "Frontend", "Shared", "Testing", "Other"]
-        for layer in layer_order:
-            layer_modules = by_layer.get(layer, [])
-            if not layer_modules:
+        lines += ["## Layer Architecture", ""]
+        for layer in _LAYER_ORDER:
+            mods = by_layer.get(layer, [])
+            if not mods:
                 continue
-            mod_names = ", ".join(f"`{m.name}`" for m in layer_modules)
-            lines.append(f"**{layer}:** {mod_names}")
-            lines.append("")
+            mod_names = ", ".join(f"`{m.name}`" for m in mods)
+            lines += [f"**{layer}:** {mod_names}", ""]
 
-        # Detect layer violations
-        violations = self._detect_layer_violations(mod_nodes, mod_edges)
+        # ── Section 4: Layer violations ────────────────────────────────────────
+        violations = self._detect_violations(mod_nodes, mod_edges)
         if violations:
-            lines.append("### ⚠ Layer Violations")
+            lines += ["### ⚠ Layer Violations", ""]
+            for v in violations[:5]:
+                lines.append(f"- {v}")
             lines.append("")
-            for violation in violations[:5]:
-                lines.append(f"- {violation}")
-            lines.append("")
 
-        # ── Level 3: Component Relationships ─────────────────────────────────
-        lines.append("## Key Components")
-        lines.append("")
-
-        # Show the most important classes (highest in-degree)
-        all_classes = [n for n in graph.nodes if n.node_type in (
-            NodeType.CLASS, NodeType.INTERFACE
-        )]
-        if all_classes:
-            # Compute in-degree for classes
-            class_in_degree: dict[str, int] = defaultdict(int)
-            for edge in graph.edges:
-                if edge.relationship in (
-                    RelationshipType.INHERITS, RelationshipType.IMPLEMENTS, RelationshipType.CALLS
-                ):
-                    class_in_degree[edge.target_id] += 1
-
-            important_classes = sorted(
-                all_classes,
-                key=lambda c: class_in_degree.get(c.id, 0),
-                reverse=True,
-            )[:12]
-
-            if important_classes:
-                lines.append(
-                    "Most-referenced classes/interfaces in the system "
-                    "(highest in-degree = most depended upon):"
-                )
-                lines.append("")
-                lines.append("| Component | Type | File | Referenced By |")
-                lines.append("|-----------|------|------|--------------|")
-                for cls in important_classes:
-                    in_deg = class_in_degree.get(cls.id, 0)
-                    if in_deg == 0:
-                        continue
-                    type_str = cls.node_type.value
-                    file_name = str(cls.properties.get("file", "")).split("/")[-1]
-                    lines.append(
-                        f"| `{cls.label}` | {type_str} | `{file_name}` | {in_deg} |"
-                    )
-                lines.append("")
-
-        # ── Layer Flow: how the architecture actually works ──────────────────
-        # This replaces the old file-by-file "detailed dependency graph" (which
-        # dumped every source file and produced spaghetti). An architecture
-        # diagram must explain HOW THE SYSTEM WORKS — the layers and the
-        # direction of dependency between them — not enumerate files.
-        lines.append("## How the Architecture Works")
-        lines.append("")
-        lines.append(
-            "This is the dependency flow between architectural layers — the shape of "
-            "the whole system in one picture. Each box is a layer (a group of modules "
-            "with the same responsibility). Arrows show the direction of dependency: "
-            "an arrow from **Presentation** to **Application** means requests enter at "
-            "the top and flow down toward the data layer. A healthy architecture keeps "
-            "these arrows pointing one way (downward)."
-        )
-        lines.append("")
-
-        layer_flow = self._render_layer_flow_mermaid(mod_nodes, mod_edges)
+        # ── Section 5: Layer flow diagram ──────────────────────────────────────
+        layer_flow = self._render_layer_flow(mod_nodes, mod_edges)
         if layer_flow:
-            lines.append("```mermaid")
-            lines.append(layer_flow)
-            lines.append("```")
-            lines.append("")
-            lines.append(
-                "_Solid arrows follow the intended top-to-bottom flow. "
-                "Red dashed arrows are dependencies that point the wrong way "
-                "(a lower layer reaching back up) — these are the couplings worth "
-                "reviewing first._"
-            )
-            lines.append("")
+            lines += [
+                "## Dependency Flow",
+                "",
+                "Aggregated to the layer level.  "
+                "Solid arrows follow the intended top-to-bottom flow; "
+                "**red dashed arrows** point upward (architectural violations to review).",
+                "",
+                "```mermaid",
+                layer_flow,
+                "```",
+                "",
+            ]
 
         return "\n".join(lines)
 
-    # ── Layer-flow rendering ──────────────────────────────────────────────────
+    # ── Internal: build module graph ──────────────────────────────────────────
 
-    #: Canonical top-to-bottom ordering of layers for the flow diagram.
-    _FLOW_LAYER_ORDER = [
-        "Presentation", "Frontend", "Application", "Domain",
-        "Infrastructure", "Shared", "Other",
-    ]
-
-    _FLOW_LAYER_RANK = {
-        "Presentation": 0, "Frontend": 0,
-        "Application": 1,
-        "Domain": 2,
-        "Infrastructure": 3,
-        "Shared": 4,
-        "Testing": 5,
-        "Other": 3,
-    }
-
-    def _render_layer_flow_mermaid(
+    def _build_module_graph(
         self,
-        mod_nodes: list[ModuleDiagramNode],
-        mod_edges: list[ModuleDiagramEdge],
-    ) -> str:
-        """Render a LAYER-level flow diagram (not files, not every module).
+        graph: GraphBuildResult,
+        files: list[GraphNode],
+    ) -> tuple[list[_ModNode], list[_ModEdge]]:
+        """Derive the module-level dependency graph from file-level imports.
 
-        Nodes are architectural layers; a single arrow between two layers
-        aggregates every module dependency that crosses that layer boundary.
-        Backward-pointing edges (a deeper layer depending on a shallower one)
-        are highlighted so the reader immediately sees where the intended flow
-        is broken. This answers "how does this system work?" at a glance.
+        Steps:
+          1. Group files by their architecturally meaningful module name
+             (via _top_level_module) — NOT by graph MODULE nodes (which
+             include generic container directories like 'src', 'backend').
+          2. Skip modules whose name is in _GENERIC_CONTAINERS if more
+             specifically-named modules exist.
+          3. Count cross-module IMPORTS edges, collapse bidirectional pairs.
+          4. Cap to MAX_SYSTEM_NODES by architectural significance.
         """
-        if not mod_nodes:
-            return ""
+        # 1. Group files → module name
+        mod_files: dict[str, list[GraphNode]] = defaultdict(list)
+        for f in files:
+            path = str(f.properties.get("path", f.label))
+            name = _top_level_module(path)
+            mod_files[name].append(f)
 
-        name_to_layer = {m.name: m.layer for m in mod_nodes}
+        # 2. If there are non-generic modules, drop generic containers
+        has_non_generic = any(
+            name not in _GENERIC_CONTAINERS for name in mod_files
+        )
+        if has_non_generic:
+            mod_files = {
+                name: flist
+                for name, flist in mod_files.items()
+                if name not in _GENERIC_CONTAINERS
+            }
+
+        # 3. Skip infrastructure noise directories
+        _skip = {"__pycache__", "node_modules", ".git", "dist", "build",
+                 ".venv", "venv", ".next", "coverage", ".pytest_cache"}
+        mod_files = {k: v for k, v in mod_files.items() if k not in _skip}
+
+        if not mod_files:
+            return [], []
+
+        # Build file_id → module_name for edge traversal
+        file_to_mod: dict[str, str] = {}
+        for name, flist in mod_files.items():
+            for f in flist:
+                file_to_mod[f.id] = name
+
+        # Build class_id → file_id (for class counting)
+        class_to_file: dict[str, str] = {}
+        for e in graph.edges:
+            if e.relationship == RelationshipType.CONTAINS:
+                src = graph.node_by_id.get(e.source_id)
+                tgt = graph.node_by_id.get(e.target_id)
+                if src and tgt:
+                    if src.node_type == NodeType.FILE and \
+                       tgt.node_type in (NodeType.CLASS, NodeType.INTERFACE):
+                        class_to_file[tgt.id] = src.id
+
+        # Collect metrics per module
+        classes_all = graph.nodes_by_type(NodeType.CLASS) + \
+                      graph.nodes_by_type(NodeType.INTERFACE)
+
+        pre_nodes: list[_ModNode] = []
+        for name, flist in sorted(mod_files.items()):
+            file_ids = {f.id for f in flist}
+            cls_count = sum(
+                1 for c in classes_all if class_to_file.get(c.id) in file_ids
+            )
+            ep_count  = sum(int(f.properties.get("endpoints", 0)) for f in flist)
+            complexity = sum(
+                int(f.properties.get("total_complexity", 0)) for f in flist
+            )
+            file_paths = [str(f.properties.get("path", f.label)) for f in flist]
+            layer = _classify_layer_from_paths(file_paths)
+
+            # Unique, collision-safe Mermaid ID: use the name alone (names
+            # are unique here after deduplication above).
+            safe_id = self._safe_id(name)
+
+            pre_nodes.append(_ModNode(
+                id=safe_id,
+                name=name,
+                path=name,  # top-level name is the unique key
+                layer=layer,
+                file_count=len(flist),
+                class_count=cls_count,
+                endpoint_count=ep_count,
+                complexity=complexity,
+            ))
+
+        # 4. Cap by significance
+        def _sig(m: _ModNode) -> tuple[int, int, int]:
+            return (m.endpoint_count, m.class_count, m.file_count)
+
+        pre_nodes.sort(key=_sig, reverse=True)
+        nodes = pre_nodes[:MAX_SYSTEM_NODES]
+        self._hidden_count = len(pre_nodes) - len(nodes)
+        kept_names = {m.name for m in nodes}
+
+        # 5. Aggregate edges
+        pair_count: dict[tuple[str, str], int] = defaultdict(int)
+        for e in graph.edges:
+            if e.relationship not in (
+                RelationshipType.IMPORTS, RelationshipType.DEPENDS_ON
+            ):
+                continue
+            src_mod = file_to_mod.get(e.source_id)
+            tgt_mod = file_to_mod.get(e.target_id)
+            if not src_mod or not tgt_mod or src_mod == tgt_mod:
+                continue
+            if src_mod not in kept_names or tgt_mod not in kept_names:
+                continue
+            pair_count[(src_mod, tgt_mod)] += 1
+
+        # Collapse bidirectional pairs
+        seen: set[frozenset[str]] = set()
+        edges: list[_ModEdge] = []
+        for (src, tgt), cnt in sorted(pair_count.items(), key=lambda x: -x[1]):
+            key = frozenset({src, tgt})
+            if key in seen:
+                continue
+            seen.add(key)
+            rev = pair_count.get((tgt, src), 0)
+            if rev > cnt:
+                edges.append(_ModEdge(tgt, src, rev, is_bidir=True))
+            else:
+                edges.append(_ModEdge(src, tgt, cnt, is_bidir=(rev > 0)))
+
+        # Cap edges
+        edges = edges[:MAX_SYSTEM_EDGES]
+        return nodes, edges
+
+    # ── Internal: Mermaid renderers ───────────────────────────────────────────
+
+    def _render_system_mermaid(
+        self,
+        nodes: list[_ModNode],
+        edges: list[_ModEdge],
+        repo_name: str,
+    ) -> str:
+        """System-level Mermaid diagram with layer subgraphs."""
+        by_layer: dict[str, list[_ModNode]] = defaultdict(list)
+        for m in nodes:
+            by_layer[m.layer].append(m)
+
+        lines: list[str] = ["graph TB"]
+        for layer in _LAYER_ORDER:
+            layer_mods = by_layer.get(layer, [])
+            if not layer_mods:
+                continue
+            safe_layer = layer.replace(" ", "_")
+            lines.append(f'    subgraph {safe_layer}["{layer}"]')
+            for m in layer_mods:
+                # Build a readable label with the most important metric
+                if m.endpoint_count:
+                    extra = f" [{m.endpoint_count} ep]"
+                elif m.class_count:
+                    extra = f" [{m.class_count} cls]"
+                elif m.file_count:
+                    extra = f" [{m.file_count} files]"
+                else:
+                    extra = ""
+                label = self._esc(m.name + extra)
+                lines.append(f'        {m.id}["{label}"]')
+            lines.append("    end")
+
+        # Edges — thick (==>) for strong coupling, thin (-->) for light
+        for e in edges:
+            src_id = self._safe_id(e.source)
+            tgt_id = self._safe_id(e.target)
+            direction = " ↔" if e.is_bidir else ""
+            if e.weight >= 5:
+                lines.append(f"    {src_id} ==>|\"{e.weight}{direction}\"| {tgt_id}")
+            else:
+                lines.append(f"    {src_id} -->|\"{e.weight}{direction}\"| {tgt_id}")
+
+        return "\n".join(lines)
+
+    def _render_layer_flow(
+        self,
+        nodes: list[_ModNode],
+        edges: list[_ModEdge],
+    ) -> str:
+        """Single-node-per-layer Mermaid diagram with violation highlighting."""
+        name_to_layer = {m.name: m.layer for m in nodes}
+
         present_layers = [
-            layer for layer in self._FLOW_LAYER_ORDER
-            if any(m.layer == layer for m in mod_nodes)
+            l for l in _LAYER_ORDER
+            if any(m.layer == l for m in nodes)
         ]
         if not present_layers:
             return ""
 
-        # Aggregate module edges to layer→layer edges, dropping self-loops.
-        forward: dict[tuple[str, str], int] = defaultdict(int)
+        # Aggregate module edges → layer edges
+        forward:  dict[tuple[str, str], int] = defaultdict(int)
         backward: dict[tuple[str, str], int] = defaultdict(int)
-        for edge in mod_edges:
-            src_layer = name_to_layer.get(edge.source, "Other")
-            tgt_layer = name_to_layer.get(edge.target, "Other")
-            if src_layer == tgt_layer:
+
+        for e in edges:
+            sl = name_to_layer.get(e.source, "Other")
+            tl = name_to_layer.get(e.target, "Other")
+            if sl == tl:
                 continue
-            src_rank = self._FLOW_LAYER_RANK.get(src_layer, 3)
-            tgt_rank = self._FLOW_LAYER_RANK.get(tgt_layer, 3)
-            # Shared/Testing are allowed to be depended on from anywhere; never
-            # treat crossing into/out of them as a violation.
-            is_upward = (
-                src_rank > tgt_rank
-                and src_layer not in ("Shared", "Testing")
-                and tgt_layer not in ("Shared", "Testing")
+            sr = _LAYER_RANK.get(sl, 3)
+            tr = _LAYER_RANK.get(tl, 3)
+            is_up = (
+                sr > tr
+                and sl not in ("Shared", "Testing", "Other")
+                and tl not in ("Shared", "Testing", "Other")
             )
-            key = (src_layer, tgt_layer)
-            (backward if is_upward else forward)[key] += edge.weight
+            key = (sl, tl)
+            (backward if is_up else forward)[key] += e.weight
+
+        # If there's nothing interesting to show, skip the diagram
+        if not forward and not backward:
+            return ""
 
         lines: list[str] = ["graph TB"]
         for layer in present_layers:
-            module_count = sum(1 for m in mod_nodes if m.layer == layer)
-            safe = self._safe_id(layer)
+            mod_count = sum(1 for m in nodes if m.layer == layer)
+            sid = self._safe_id(layer)
+            s = "s" if mod_count != 1 else ""
+            lines.append(f'    {sid}["{layer}<br/>{mod_count} module{s}"]')
+
+        for (sl, tl), w in sorted(forward.items(), key=lambda x: -x[1]):
             lines.append(
-                f'    {safe}["{layer}<br/>{module_count} module'
-                f'{"s" if module_count != 1 else ""}"]'
+                f"    {self._safe_id(sl)} -->|\"{w}\"| {self._safe_id(tl)}"
+            )
+        for (sl, tl), w in sorted(backward.items(), key=lambda x: -x[1]):
+            lines.append(
+                f"    {self._safe_id(sl)} -.->|\"{w} ⚠\"| {self._safe_id(tl)}"
             )
 
-        for (src, tgt), weight in sorted(
-            forward.items(), key=lambda kv: kv[1], reverse=True
-        ):
-            s, t = self._safe_id(src), self._safe_id(tgt)
-            lines.append(f"    {s} -->|{weight}| {t}")
-
-        # Backward (violating) edges rendered distinctly so they stand out.
-        for (src, tgt), weight in sorted(
-            backward.items(), key=lambda kv: kv[1], reverse=True
-        ):
-            s, t = self._safe_id(src), self._safe_id(tgt)
-            lines.append(f"    {s} -.->|{weight} ⚠| {t}")
-
-        # Style: mark the backward edges red if there are any.
+        # Colour backward edges red
         if backward:
-            # Link indexes for backward edges are the last N links.
-            total_links = len(forward) + len(backward)
-            start = total_links - len(backward)
-            for i in range(start, total_links):
+            n_fwd = len(forward)
+            n_bwd = len(backward)
+            for i in range(n_fwd, n_fwd + n_bwd):
                 lines.append(
                     f"    linkStyle {i} stroke:#e5484d,stroke-width:2px"
                 )
 
         return "\n".join(lines)
 
-    def _build_module_graph(
-        self, graph: GraphBuildResult, modules: list[GraphNode]
-    ) -> tuple[list[ModuleDiagramNode], list[ModuleDiagramEdge]]:
-        """Build the system-level module dependency graph."""
-        # Index: node → parent module
-        contains_children: dict[str, list[str]] = defaultdict(list)
-        for edge in graph.edges:
-            if edge.relationship == RelationshipType.CONTAINS:
-                contains_children[edge.source_id].append(edge.target_id)
+    # ── Internal: violation detection ────────────────────────────────────────
 
-        node_to_module: dict[str, str] = {}
-
-        def assign(mod_id: str) -> None:
-            for child_id in contains_children.get(mod_id, []):
-                node_to_module[child_id] = mod_id
-                assign(child_id)
-
-        for m in modules:
-            assign(m.id)
-
-        # Build module nodes with metrics
-        mod_nodes: list[ModuleDiagramNode] = []
-        for module in modules:
-            # Skip very nested modules — only keep top-level and one level deep
-            path = str(module.properties.get("path", module.label))
-            depth = path.count("/")
-            if depth > 2:
-                continue
-
-            # Count contained elements
-            children = self._get_all_descendants(module.id, contains_children)
-            file_count = sum(1 for c in children if graph.node_by_id.get(c, GraphNode(id="", label="", node_type=NodeType.FILE, job_id="")).node_type == NodeType.FILE)
-            class_count = sum(1 for c in children if graph.node_by_id.get(c, GraphNode(id="", label="", node_type=NodeType.FILE, job_id="")).node_type in (NodeType.CLASS, NodeType.INTERFACE))
-            endpoint_count = sum(1 for c in children if graph.node_by_id.get(c, GraphNode(id="", label="", node_type=NodeType.FILE, job_id="")).node_type == NodeType.ENDPOINT)
-
-            # Compute total complexity
-            complexity = 0
-            for c_id in children:
-                c_node = graph.node_by_id.get(c_id)
-                if c_node:
-                    complexity += int(c_node.properties.get("cyclomatic", 0) or 0)
-
-            name = path.rstrip("/").split("/")[-1]
-            layer = self._classify_layer(path)
-
-            mod_nodes.append(ModuleDiagramNode(
-                id=module.id,
-                name=name,
-                path=path,
-                layer=layer,
-                file_count=file_count,
-                class_count=class_count,
-                endpoint_count=endpoint_count,
-                complexity=complexity,
-            ))
-
-        # Build module edges (aggregated IMPORTS between modules)
-        mod_id_set = {m.id for m in mod_nodes}
-        edge_counts: dict[tuple[str, str], int] = defaultdict(int)
-
-        for edge in graph.edges:
-            if edge.relationship == RelationshipType.IMPORTS:
-                src_mod = node_to_module.get(edge.source_id)
-                tgt_mod = node_to_module.get(edge.target_id)
-                if src_mod and tgt_mod and src_mod != tgt_mod:
-                    if src_mod in mod_id_set and tgt_mod in mod_id_set:
-                        edge_counts[(src_mod, tgt_mod)] += 1
-
-        mod_edges: list[ModuleDiagramEdge] = []
-        mod_id_to_name = {m.id: m.name for m in mod_nodes}
-        for (src_id, tgt_id), weight in edge_counts.items():
-            src_name = mod_id_to_name.get(src_id)
-            tgt_name = mod_id_to_name.get(tgt_id)
-            if src_name and tgt_name:
-                mod_edges.append(ModuleDiagramEdge(
-                    source=src_name,
-                    target=tgt_name,
-                    weight=weight,
-                ))
-
-        return mod_nodes, mod_edges
-
-    def _get_all_descendants(
-        self, node_id: str, contains: dict[str, list[str]]
-    ) -> list[str]:
-        """Get all transitive descendants via CONTAINS."""
-        result: list[str] = []
-        queue = list(contains.get(node_id, []))
-        visited = set()
-        while queue:
-            current = queue.pop()
-            if current in visited:
-                continue
-            visited.add(current)
-            result.append(current)
-            queue.extend(contains.get(current, []))
-        return result
-
-    def _classify_layer(self, path: str) -> str:
-        """Classify a module path into an architectural layer.
-
-        Matches on whole PATH SEGMENTS, most-specific (deepest) segment first,
-        so a module like ``api/domain`` is classified by its ``domain`` segment
-        rather than being swallowed by a broad ``api`` keyword appearing higher
-        in the path. Substring matching over the full path is intentionally
-        avoided — it made every ``api/*`` module look like Presentation.
-        """
-        segments = [s for s in path.lower().replace("\\", "/").split("/") if s]
-        # Walk deepest → shallowest: the closest segment to the module wins.
-        for segment in reversed(segments):
-            base = segment.split(".")[0]  # strip a file extension if present
-            for layer, keywords in _LAYER_KEYWORDS.items():
-                # Exact-or-singular/plural segment match (e.g. "entity"/"entities").
-                if base in keywords or (base.rstrip("s") in [k.rstrip("s") for k in keywords]):
-                    return layer
-        return "Other"
-
-    def _render_system_mermaid(
+    def _detect_violations(
         self,
-        mod_nodes: list[ModuleDiagramNode],
-        mod_edges: list[ModuleDiagramEdge],
-        repo_name: str,
-    ) -> str:
-        """Render system-level Mermaid diagram with layer subgraphs."""
-        lines: list[str] = ["graph TB"]
-
-        # Group modules by layer into subgraphs
-        by_layer: dict[str, list[ModuleDiagramNode]] = defaultdict(list)
-        for mod in mod_nodes:
-            by_layer[mod.layer].append(mod)
-
-        layer_order = ["Presentation", "Frontend", "Application", "Domain", "Infrastructure", "Shared", "Other"]
-
-        for layer in layer_order:
-            layer_mods = by_layer.get(layer, [])
-            if not layer_mods:
-                continue
-
-            safe_layer = layer.replace(" ", "_")
-            lines.append(f"    subgraph {safe_layer}[\"{layer}\"]")
-            for mod in layer_mods:
-                safe_name = self._safe_id(mod.name)
-                # Show file count in node label
-                label = f"{mod.name}"
-                if mod.endpoint_count:
-                    label += f" [{mod.endpoint_count} endpoints]"
-                elif mod.class_count:
-                    label += f" [{mod.class_count} classes]"
-                lines.append(f"        {safe_name}[\"{label}\"]")
-            lines.append("    end")
-
-        # Add edges (cap at 20 to prevent visual overload)
-        edges_added = 0
-        # Sort by weight descending — show strongest dependencies first
-        for edge in sorted(mod_edges, key=lambda e: e.weight, reverse=True):
-            if edges_added >= 20:
-                break
-            src_id = self._safe_id(edge.source)
-            tgt_id = self._safe_id(edge.target)
-            if edge.weight >= 3:
-                lines.append(f"    {src_id} ==>|{edge.weight}| {tgt_id}")
-            else:
-                lines.append(f"    {src_id} --> {tgt_id}")
-            edges_added += 1
-
-        return "\n".join(lines)
-
-    def _detect_layer_violations(
-        self, mod_nodes: list[ModuleDiagramNode], mod_edges: list[ModuleDiagramEdge]
+        nodes: list[_ModNode],
+        edges: list[_ModEdge],
     ) -> list[str]:
-        """Detect dependencies that flow in the wrong direction."""
+        name_to_layer = {m.name: m.layer for m in nodes}
         violations: list[str] = []
-        # Expected flow: Presentation → Application → Domain → Infrastructure
-        # A violation is Domain → Presentation or Infrastructure → Application
-        layer_rank = {
-            "Presentation": 0, "Frontend": 0,
-            "Application": 1,
-            "Domain": 2,
-            "Infrastructure": 3,
-            "Shared": 4,  # Shared can be depended on by anyone
-            "Testing": 5,
-            "Other": 3,
-        }
-
-        mod_name_to_layer = {m.name: m.layer for m in mod_nodes}
-
-        for edge in mod_edges:
-            src_layer = mod_name_to_layer.get(edge.source, "Other")
-            tgt_layer = mod_name_to_layer.get(edge.target, "Other")
-            src_rank = layer_rank.get(src_layer, 3)
-            tgt_rank = layer_rank.get(tgt_layer, 3)
-
-            # Skip shared — it's fine for anything to depend on shared
-            if tgt_layer == "Shared" or src_layer == "Shared":
+        for e in edges:
+            sl = name_to_layer.get(e.source, "Other")
+            tl = name_to_layer.get(e.target, "Other")
+            if sl in ("Shared", "Testing", "Other"):
                 continue
-            if tgt_layer == "Testing" or src_layer == "Testing":
+            if tl in ("Shared", "Testing", "Other"):
                 continue
-
-            # Violation: deeper layer depends on shallower layer
-            # (e.g., Domain depends on Presentation)
-            if src_rank > tgt_rank and src_layer != "Other" and tgt_layer != "Other":
+            sr = _LAYER_RANK.get(sl, 3)
+            tr = _LAYER_RANK.get(tl, 3)
+            if sr > tr:
                 violations.append(
-                    f"`{edge.source}` ({src_layer}) depends on `{edge.target}` ({tgt_layer}) "
-                    f"— dependency flows upward (should flow downward)"
+                    f"`{e.source}` ({sl}) → `{e.target}` ({tl}) "
+                    f"— dependency flows upward"
                 )
-
         return violations
 
-    def _safe_id(self, name: str) -> str:
+    # ── Internal: helpers ─────────────────────────────────────────────────────
+
+    @staticmethod
+    def _safe_id(name: str) -> str:
         """Create a Mermaid-safe node ID."""
-        return name.replace("-", "_").replace(".", "_").replace("/", "_").replace(" ", "_")
+        return (
+            name.replace("-", "_").replace(".", "_")
+                .replace("/", "_").replace(" ", "_")
+        )
+
+    @staticmethod
+    def _esc(text: str) -> str:
+        """Escape text for use in a Mermaid double-quoted label."""
+        return (
+            text.replace('"', "'")
+                .replace("\n", " ")
+                .replace("[", "(").replace("]", ")")
+                .replace("<", "").replace(">", "")
+                .replace("#", "").replace("&", "and")
+                .replace("{", "").replace("}", "")
+                .replace("|", "-")
+                .strip()[:48]
+        )
